@@ -47,10 +47,12 @@ Python samples to call the DICOM Web services can be found in the
 "./Samples" folder.
 
 
-Licensing
----------
+Licensing: AGPL
+---------------
 
-The DICOM Web plugin for Orthanc is licensed under the AGPL license.
+The DICOM Web plugin for Orthanc is licensed under the Affero General
+Public License (AGPL) license. Pay attention to the fact that this
+license is more restrictive than the license of the Orthanc core.
 
 We also kindly ask scientific works and clinical studies that make
 use of Orthanc to cite Orthanc in their associated publications.
