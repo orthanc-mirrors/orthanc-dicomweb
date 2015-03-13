@@ -1,0 +1,74 @@
+Reference: http://medical.nema.org/medical/dicom/current/output/html/part18.html
+
+
+
+================================
+6.5.1 WADO-RS / RetrieveStudy
+6.5.2 WADO-RS / RetrieveSeries
+6.5.3 WADO-RS / RetrieveInstance
+================================
+
+Supported
+---------
+
+* DICOM Response, if no change in the transfer syntax
+
+
+Not supported
+-------------
+
+* DICOM Response with a change in the transfer syntax
+* Bulk data response
+* MediaType data response
+
+
+
+
+================================
+6.5.4 WADO-RS / RetrieveFrames
+6.5.5 WADO-RS / RetrieveBulkdata
+6.5.6 WADO-RS / RetrieveMetadata
+================================
+
+Not supported.
+
+
+
+===========
+6.6 STOW-RS
+===========
+
+Supported
+---------
+
+* DICOM Request
+* JSON Response (DICOM JSON Model Object from Annex F of PS3.18)
+* XML Response (Native DICOM Model of PS3.19)
+
+
+Not supported
+-------------
+
+* XML Metadata + Bulk Data Request
+* JSON Metadata + Bulk Data Request
+
+
+
+
+===========
+6.7 QIDO-RS
+===========
+
+
+Not supported
+-------------
+
+* Query against sequences
+* Flag "includefield=all"
+
+
+Ignored
+-------
+
+* Flag "fuzzymatching"
+* Header "Cache-control"
