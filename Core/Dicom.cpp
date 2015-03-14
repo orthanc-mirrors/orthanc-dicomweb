@@ -62,7 +62,8 @@ namespace OrthancPlugins
     reader_.SetStream(stream);
     if (!reader_.Read())
     {
-      throw std::runtime_error("GDCM cannot read this DICOM instance");
+      throw std::runtime_error("GDCM cannot read this DICOM instance of length " + 
+                               boost::lexical_cast<std::string>(dicom.size()));
     }
   }
 

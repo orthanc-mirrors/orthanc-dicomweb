@@ -152,6 +152,12 @@ int32_t StowCallback(OrthancPluginRestOutput* output,
     gdcm::SmartPointer<gdcm::SequenceOfItems> success = new gdcm::SequenceOfItems();
     gdcm::SmartPointer<gdcm::SequenceOfItems> failed = new gdcm::SequenceOfItems();
   
+    {
+      FILE* fp=fopen("tutu.dcm", "wb");
+      fwrite(request->body, 1, request->bodySize, fp);
+      fclose(fp);
+    }
+
     std::vector<OrthancPlugins::MultipartItem> items;
     OrthancPlugins::ParseMultipartBody(items, request->body, request->bodySize, boundary);
     for (size_t i = 0; i < items.size(); i++)
@@ -159,7 +165,8 @@ int32_t StowCallback(OrthancPluginRestOutput* output,
       if (!items[i].contentType_.empty() &&
           items[i].contentType_ != "application/dicom")
       {
-        OrthancPluginLogError(context_, "The STOW-RS request contains a part that is not application/dicom");
+        std::string s = "The STOW-RS request contains a part that is not application/dicom (it is: \"" + items[i].contentType_ + "\")";
+          OrthancPluginLogError(context_, s.c_str());
         OrthancPluginSendHttpStatusCode(context_, output, 415 /* Unsupported media type */);
         return 0;
       }

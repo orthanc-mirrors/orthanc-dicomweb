@@ -18,6 +18,18 @@
  **/
 
 
+
+
+
+
+// http://www.artandlogic.com/blog/2013/11/jquery-ajax-blobs-and-array-buffers/
+
+
+
+
+var BOUNDARY = 'BOUNDARY_123456789';
+
+
 function GetTag(answer, tag)
 {
   if (!(tag in answer) ||
@@ -30,7 +42,73 @@ function GetTag(answer, tag)
 }
 
 
+function StringToArrayBuffer(str) 
+{
+  // http://updates.html5rocks.com/2012/06/How-to-convert-ArrayBuffer-to-and-from-String
+  var bufView = new Uint8Array(str.length);
+
+  for (var i=0, strLen=str.length; i < strLen; i++) {
+    bufView[i] = str.charCodeAt(i);
+  }
+
+  return bufView;
+}
+
+function ConstructMultipart(body, contentType) 
+{
+  var header = '--' + BOUNDARY + '\nContent-Type: ' + contentType + '\n\n';
+  var trailer = '\n--' + BOUNDARY + '--\n';
+  
+  header = StringToArrayBuffer(header);
+  trailer = StringToArrayBuffer(trailer);
+
+  // Concatenate the header, the body and the trailer
+  // http://stackoverflow.com/a/14071518/881731
+  var b = new Uint8Array(header.byteLength + body.byteLength + trailer.byteLength);
+  b.set(header);
+  b.set(new Uint8Array(body), header.byteLength);
+  b.set(trailer, header.byteLength + body.byteLength);
+
+  return b;
+}
+
+
+
 $(document).ready(function() {
+  // STOW-RS to upload one DICOM file
+  $('#stow').submit(function() {
+
+    var fileInput = document.getElementById('stow-file');
+    var file = fileInput.files[0];
+    reader = new FileReader();
+    reader.onload = function() {
+      $.ajax({
+        type: 'POST',
+        headers: {
+          'Accept' : 'application/json',
+          'Content-type' : 'multipart/related; type=application/dicom; boundary=' + BOUNDARY,
+        },
+        url: '../stow-rs/studies',
+        data: ConstructMultipart(reader.result, 'application/dicom'),
+        processData: false, // Very important!
+        dataType: 'json',
+        success: function(resp) {
+          alert('Upload was a success!');
+        },
+        error: function() {
+          alert('Cannot process this query');
+        }
+      });
+    };
+
+    reader.readAsArrayBuffer(file);
+
+    // Prevent default action
+    return false;
+  });
+
+
+  // QIDO-RS to search for series
   $('#qido-series').submit(function() {
     var data = {};
     $('input[name]', this).each(function() {
