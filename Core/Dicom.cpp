@@ -165,9 +165,58 @@ namespace OrthancPlugins
   }
 
 
+  static Encoding DetectEncoding(const gdcm::DataSet& dicom)
+  {
+    if (!dicom.FindDataElement(DICOM_TAG_SPECIFIC_CHARACTER_SET))
+    {
+      return Encoding_Ascii;
+    }
+
+    const gdcm::DataElement& element = 
+      dicom.GetDataElement(DICOM_TAG_SPECIFIC_CHARACTER_SET);
+
+    const gdcm::ByteValue* data = element.GetByteValue();
+    if (!data)
+    {
+      return Encoding_Unknown;
+    }
+
+    std::string tmp(data->GetPointer(), data->GetLength());
+    StripSpaces(tmp);
+
+    return GetDicomEncoding(tmp.c_str());
+  }
+
+
+  static bool ConvertDicomStringToUf8(std::string& result,
+                                      const gdcm::DataElement& element,
+                                      const Encoding sourceEncoding)
+  {
+    const gdcm::ByteValue* data = element.GetByteValue();
+    if (!data)
+    {
+      return false;
+    }
+
+    if (sourceEncoding == Encoding_Utf8)
+    {
+      result.assign(data->GetPointer(), data->GetLength());
+    }
+    else
+    {
+      std::string tmp(data->GetPointer(), data->GetLength());
+      result = ConvertToUtf8(tmp, sourceEncoding);
+    }
+
+    StripSpaces(result);
+    return true;
+  }
+
+
   static void DicomToXmlInternal(pugi::xml_node& target,
                                  const gdcm::Dict& dictionary,
-                                 const gdcm::DataSet& dicom)
+                                 const gdcm::DataSet& dicom,
+                                 const Encoding sourceEncoding)
   {
     for (gdcm::DataSet::ConstIterator it = dicom.Begin();
          it != dicom.End(); ++it)  // "*it" represents a "gdcm::DataElement"
@@ -196,7 +245,7 @@ namespace OrthancPlugins
           pugi::xml_node item = node.append_child("Item");
           std::string number = boost::lexical_cast<std::string>(i);
           item.append_attribute("number").set_value(number.c_str());
-          DicomToXmlInternal(item, dictionary, seq->GetItem(i).GetNestedDataSet());
+          DicomToXmlInternal(item, dictionary, seq->GetItem(i).GetNestedDataSet(), sourceEncoding);
         }
       }
       else
@@ -205,11 +254,9 @@ namespace OrthancPlugins
         pugi::xml_node value = node.append_child("Value");
         value.append_attribute("number").set_value("1");
 
-        const gdcm::ByteValue* data = it->GetByteValue();
-        if (data)
+        std::string tmp;
+        if (ConvertDicomStringToUf8(tmp, *it, sourceEncoding)) 
         {
-          std::string tmp(data->GetPointer(), data->GetLength());
-          tmp = OrthancPlugins::StripSpaces(tmp);
           value.append_child(pugi::node_pcdata).set_value(tmp.c_str());
         }
       }
@@ -226,7 +273,8 @@ namespace OrthancPlugins
     root.append_attribute("xsi:schemaLocation").set_value("http://dicom.nema.org/PS3.19/models/NativeDICOM");
     root.append_attribute("xmlns:xsi").set_value("http://www.w3.org/2001/XMLSchema-instance");
 
-    DicomToXmlInternal(root, dictionary, dicom);
+    Encoding encoding = DetectEncoding(dicom);
+    DicomToXmlInternal(root, dictionary, dicom, encoding);
 
     pugi::xml_node decl = target.prepend_child(pugi::node_declaration);
     decl.append_attribute("version").set_value("1.0");
@@ -234,11 +282,10 @@ namespace OrthancPlugins
   }
 
 
-
-
-  void DicomToJson(Json::Value& target,
-                   const gdcm::Dict& dictionary,
-                   const gdcm::DataSet& dicom)
+  static void DicomToJsonInternal(Json::Value& target,
+                                  const gdcm::Dict& dictionary,
+                                  const gdcm::DataSet& dicom,
+                                  Encoding sourceEncoding)
   {
     target = Json::objectValue;
 
@@ -268,7 +315,7 @@ namespace OrthancPlugins
         for (gdcm::SequenceOfItems::SizeType i = 1; i <= seq->GetNumberOfItems(); i++)
         {
           Json::Value child;
-          DicomToJson(child, dictionary, seq->GetItem(i).GetNestedDataSet());
+          DicomToJsonInternal(child, dictionary, seq->GetItem(i).GetNestedDataSet(), sourceEncoding);
           node["Value"].append(child);
         }
       }
@@ -277,16 +324,24 @@ namespace OrthancPlugins
         // Deal with other value representations
         node["Value"] = Json::arrayValue;
 
-        const gdcm::ByteValue* data = it->GetByteValue();
-        if (data)
+        std::string value;
+        if (ConvertDicomStringToUf8(value, *it, sourceEncoding)) 
         {
-          std::string tmp(data->GetPointer(), data->GetLength());
-          node["Value"].append(OrthancPlugins::StripSpaces(tmp));
+          node["Value"].append(value.c_str());
         }
       }
 
       target[FormatTag(it->GetTag())] = node;
     }
+  }
+
+
+  void DicomToJson(Json::Value& target,
+                   const gdcm::Dict& dictionary,
+                   const gdcm::DataSet& dicom)
+  {
+    Encoding encoding = DetectEncoding(dicom);
+    DicomToJsonInternal(target, dictionary, dicom, encoding);
   }
 
 

@@ -21,7 +21,7 @@ if (STATIC_BUILD OR NOT USE_SYSTEM_BOOST)
 else()
   include(FindBoost)
   set(BOOST_STATIC 0)
-  find_package(Boost COMPONENTS system thread filesystem regex)
+  find_package(Boost COMPONENTS system thread filesystem regex locale)
 
   if (NOT Boost_FOUND)
     message(FATAL_ERROR "Unable to locate Boost on this system")
@@ -118,6 +118,14 @@ if (BOOST_STATIC)
 
   aux_source_directory(${BOOST_SOURCES_DIR}/libs/regex/src BOOST_REGEX_SOURCES)
   list(APPEND BOOST_SOURCES ${BOOST_REGEX_SOURCES})
+
+
+  ## Boost::locale
+
+  list(APPEND BOOST_SOURCES 
+    ${BOOST_SOURCES_DIR}/libs/locale/src/encoding/codepage.cpp
+    ${BOOST_SOURCES_DIR}/libs/system/src/error_code.cpp
+    )
 
 
   source_group(ThirdParty\\Boost REGULAR_EXPRESSION ${BOOST_SOURCES_DIR}/.*)

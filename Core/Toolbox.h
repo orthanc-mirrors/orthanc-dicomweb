@@ -35,6 +35,29 @@ namespace OrthancPlugins
     std::string   contentType_;
   };
 
+  // http://www.dabsoft.ch/dicom/3/C.12.1.1.2/
+  enum Encoding
+  {
+    Encoding_Unknown,
+    Encoding_Ascii,
+    Encoding_Utf8,
+    Encoding_Latin1,
+    Encoding_Latin2,
+    Encoding_Latin3,
+    Encoding_Latin4,
+    Encoding_Latin5,                        // Turkish
+    Encoding_Cyrillic,
+    Encoding_Arabic,
+    Encoding_Greek,
+    Encoding_Hebrew,
+    Encoding_Thai,                          // TIS 620-2533
+    Encoding_Japanese,                      // JIS X 0201 (Shift JIS): Katakana
+    Encoding_Chinese                        // GB18030 - Chinese simplified
+    //Encoding_JapaneseKanji,               // Multibyte - JIS X 0208: Kanji
+    //Encoding_JapaneseSupplementaryKanji,  // Multibyte - JIS X 0212: Supplementary Kanji set
+    //Encoding_Korean,                      // Multibyte - KS X 1001: Hangul and Hanja
+  };
+
   void ToLowerCase(std::string& s);
 
   void ToUpperCase(std::string& s);
@@ -65,4 +88,11 @@ namespace OrthancPlugins
   bool RestApiGetJson(Json::Value& result,
                       OrthancPluginContext* context,
                       const std::string& uri);
+
+  std::string ConvertToAscii(const std::string& source);
+
+  std::string ConvertToUtf8(const std::string& source,
+                            const Encoding sourceEncoding);
+
+  Encoding GetDicomEncoding(const char* specificCharacterSet);
 }

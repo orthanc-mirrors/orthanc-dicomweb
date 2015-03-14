@@ -23,6 +23,7 @@
 #include <string>
 #include <algorithm>
 #include <boost/regex.hpp>
+#include <boost/locale.hpp>
 #include <json/reader.h>
 
 
@@ -240,5 +241,193 @@ namespace OrthancPlugins
     
     Json::Reader reader;
     return reader.parse(content, result);
+  }
+
+
+  std::string ConvertToAscii(const std::string& source)
+  {
+    std::string result;
+
+    result.reserve(source.size() + 1);
+    for (size_t i = 0; i < source.size(); i++)
+    {
+      if (source[i] < 128 && source[i] >= 0 && !iscntrl(source[i]))
+      {
+        result.push_back(source[i]);
+      }
+    }
+
+    return result;
+  }
+
+  
+  std::string ConvertToUtf8(const std::string& source,
+                            const Encoding sourceEncoding)
+  {
+    const char* encoding;
+
+    // http://bradleyross.users.sourceforge.net/docs/dicom/doc/src-html/org/dcm4che2/data/SpecificCharacterSet.html
+    switch (sourceEncoding)
+    {
+      case Encoding_Utf8:
+        // Already in UTF-8: No conversion is required
+        return source;
+
+      case Encoding_Unknown:
+      case Encoding_Ascii:
+        return ConvertToAscii(source);
+
+      case Encoding_Latin1:
+        encoding = "ISO-8859-1";
+        break;
+
+      case Encoding_Latin2:
+        encoding = "ISO-8859-2";
+        break;
+
+      case Encoding_Latin3:
+        encoding = "ISO-8859-3";
+        break;
+
+      case Encoding_Latin4:
+        encoding = "ISO-8859-4";
+        break;
+
+      case Encoding_Latin5:
+        encoding = "ISO-8859-9";
+        break;
+
+      case Encoding_Cyrillic:
+        encoding = "ISO-8859-5";
+        break;
+
+      case Encoding_Arabic:
+        encoding = "ISO-8859-6";
+        break;
+
+      case Encoding_Greek:
+        encoding = "ISO-8859-7";
+        break;
+
+      case Encoding_Hebrew:
+        encoding = "ISO-8859-8";
+        break;
+        
+      case Encoding_Japanese:
+        encoding = "SHIFT-JIS";
+        break;
+
+      case Encoding_Chinese:
+        encoding = "GB18030";
+        break;
+
+      case Encoding_Thai:
+        encoding = "TIS620.2533-0";
+        break;
+
+      default:
+        throw std::runtime_error("Unsupported encoding");
+    }
+
+    try
+    {
+      return boost::locale::conv::to_utf<char>(source, encoding);
+    }
+    catch (std::runtime_error&)
+    {
+      // Bad input string or bad encoding
+      return ConvertToAscii(source);
+    }
+  }
+
+
+  Encoding GetDicomEncoding(const char* specificCharacterSet)
+  {
+    std::string s = specificCharacterSet;
+    ToUpperCase(s);
+
+    // http://www.dabsoft.ch/dicom/3/C.12.1.1.2/
+    // https://github.com/dcm4che/dcm4che/blob/master/dcm4che-core/src/main/java/org/dcm4che3/data/SpecificCharacterSet.java
+    if (s == "ISO_IR 6" ||
+        s == "ISO_IR 192" ||
+        s == "ISO 2022 IR 6")
+    {
+      return Encoding_Utf8;
+    }
+    else if (s == "ISO_IR 100" ||
+             s == "ISO 2022 IR 100")
+    {
+      return Encoding_Latin1;
+    }
+    else if (s == "ISO_IR 101" ||
+             s == "ISO 2022 IR 101")
+    {
+      return Encoding_Latin2;
+    }
+    else if (s == "ISO_IR 109" ||
+             s == "ISO 2022 IR 109")
+    {
+      return Encoding_Latin3;
+    }
+    else if (s == "ISO_IR 110" ||
+             s == "ISO 2022 IR 110")
+    {
+      return Encoding_Latin4;
+    }
+    else if (s == "ISO_IR 148" ||
+             s == "ISO 2022 IR 148")
+    {
+      return Encoding_Latin5;
+    }
+    else if (s == "ISO_IR 144" ||
+             s == "ISO 2022 IR 144")
+    {
+      return Encoding_Cyrillic;
+    }
+    else if (s == "ISO_IR 127" ||
+             s == "ISO 2022 IR 127")
+    {
+      return Encoding_Arabic;
+    }
+    else if (s == "ISO_IR 126" ||
+             s == "ISO 2022 IR 126")
+    {
+      return Encoding_Greek;
+    }
+    else if (s == "ISO_IR 138" ||
+             s == "ISO 2022 IR 138")
+    {
+      return Encoding_Hebrew;
+    }
+    else if (s == "ISO_IR 166" || s == "ISO 2022 IR 166")
+    {
+      return Encoding_Thai;
+    }
+    else if (s == "ISO_IR 13" || s == "ISO 2022 IR 13")
+    {
+      return Encoding_Japanese;
+    }
+    else if (s == "GB18030")
+    {
+      return Encoding_Chinese;
+    }
+    /*
+      else if (s == "ISO 2022 IR 149")
+      {
+      TODO
+      }
+      else if (s == "ISO 2022 IR 159")
+      {
+      TODO
+      }
+      else if (s == "ISO 2022 IR 87")
+      {
+      TODO
+      }
+    */
+    else
+    {
+      return Encoding_Unknown;
+    }
   }
 }

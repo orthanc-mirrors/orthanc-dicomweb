@@ -1,0 +1,44 @@
+<!doctype html>
+
+<html lang="us">
+  <head>
+    <meta charset="utf-8" />
+    <title>Orthanc DICOM Web Demo</title>
+  </head>
+
+  <body>
+    <h1>Orthanc DICOM Web Demo</h2>
+
+    <h2>QIDO-RS - Search for series</h2>
+    <form id="qido-series">
+      <p>
+        Patient ID:
+        <input type="text" name="PatientID" value="*"></input>
+      </p>
+
+      <p>
+        Patient Name:
+        <input type="text" name="PatientName" value="*"></input>
+      </p>
+
+      <p>
+        Study Description:
+        <input type="text" name="StudyDescription" value="*"></input>
+      </p>
+
+      <p>
+        Series Description:
+        <input type="text" name="SeriesDescription" value="*"></input>
+      </p>
+
+      <input type="submit"></input>
+    </form>
+
+    <h3>Results</h3>
+    <ul id="qido-series-results">
+    </ul>
+
+    <script src="jquery-1.11.2.min.js" type="text/javascript"></script>
+    <script src="orthanc.js" type="text/javascript"></script>
+  </body>
+</html>

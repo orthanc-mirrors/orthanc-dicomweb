@@ -778,10 +778,6 @@ public:
       for (Results::const_iterator it = results_.begin();
            it != results_.end(); it++)
       {
-        std::string item;
-        OrthancPlugins::GenerateSingleDicomAnswer(item, *dictionary_, **it, false);
-        chunks.AddChunk(item);
-        
         if (isFirst)
         {
           isFirst = false;
@@ -790,6 +786,10 @@ public:
         {
           chunks.AddChunk(",\n");
         }
+
+        std::string item;
+        OrthancPlugins::GenerateSingleDicomAnswer(item, *dictionary_, **it, false);
+        chunks.AddChunk(item);
       }
 
       chunks.AddChunk("]\n");
