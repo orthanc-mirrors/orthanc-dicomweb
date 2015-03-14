@@ -19,27 +19,12 @@
 
 
 
-
-
-
 // http://www.artandlogic.com/blog/2013/11/jquery-ajax-blobs-and-array-buffers/
 
 
 
 
 var BOUNDARY = 'BOUNDARY_123456789';
-
-
-function GetTag(answer, tag)
-{
-  if (!(tag in answer) ||
-      !("Value" in answer[tag]) ||
-      answer[tag].length == 0) {
-    return '';
-  } else {
-    return answer[tag]["Value"][0];
-  }
-}
 
 
 function StringToArrayBuffer(str) 
@@ -53,6 +38,7 @@ function StringToArrayBuffer(str)
 
   return bufView;
 }
+
 
 function ConstructMultipart(body, contentType) 
 {
@@ -71,7 +57,6 @@ function ConstructMultipart(body, contentType)
 
   return b;
 }
-
 
 
 $(document).ready(function() {
@@ -102,44 +87,6 @@ $(document).ready(function() {
     };
 
     reader.readAsArrayBuffer(file);
-
-    // Prevent default action
-    return false;
-  });
-
-
-  // QIDO-RS to search for series
-  $('#qido-series').submit(function() {
-    var data = {};
-    $('input[name]', this).each(function() {
-      data[$(this).attr('name')] = $(this).val();
-    });
-
-    $.ajax({
-      headers: {
-        'Accept' : 'application/json'
-      },
-      data: data,
-      cache: true,  // If set to false, the "_" GET argument is added, resulting in a bad QIDO-RS request
-      dataType: 'json',
-      url: '../qido-rs/series',
-      success: function(answer) {
-        $('#qido-series-results').empty();
-        for (var i = 0; i < answer.length; i++) {
-          var patientId = GetTag(answer[i], '00100020');
-          var patientName = GetTag(answer[i], '00100010');
-          var studyDescription = GetTag(answer[i], '00081030');
-          var seriesDescription = GetTag(answer[i], '0008103E');
-          $('#qido-series-results').append(
-            '<li>' + patientId + ' - ' + patientName + ' - ' +
-              studyDescription + ' - ' + seriesDescription +
-              '</li>');
-        }
-      },
-      error: function() {
-        alert('Cannot process this query');
-      }
-    });
 
     // Prevent default action
     return false;
