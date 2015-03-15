@@ -152,12 +152,6 @@ int32_t StowCallback(OrthancPluginRestOutput* output,
     gdcm::SmartPointer<gdcm::SequenceOfItems> success = new gdcm::SequenceOfItems();
     gdcm::SmartPointer<gdcm::SequenceOfItems> failed = new gdcm::SequenceOfItems();
   
-    {
-      FILE* fp=fopen("tutu.dcm", "wb");
-      fwrite(request->body, 1, request->bodySize, fp);
-      fclose(fp);
-    }
-
     std::vector<OrthancPlugins::MultipartItem> items;
     OrthancPlugins::ParseMultipartBody(items, request->body, request->bodySize, boundary);
     for (size_t i = 0; i < items.size(); i++)

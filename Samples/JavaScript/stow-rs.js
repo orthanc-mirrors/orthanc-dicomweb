@@ -42,8 +42,8 @@ function StringToArrayBuffer(str)
 
 function ConstructMultipart(body, contentType) 
 {
-  var header = '--' + BOUNDARY + '\nContent-Type: ' + contentType + '\n\n';
-  var trailer = '\n--' + BOUNDARY + '--\n';
+  var header = '--' + BOUNDARY + '\r\nContent-Type: ' + contentType + '\r\n\r\n';
+  var trailer = '\r\n--' + BOUNDARY + '--\r\n';
   
   header = StringToArrayBuffer(header);
   trailer = StringToArrayBuffer(trailer);
@@ -78,7 +78,8 @@ $(document).ready(function() {
         processData: false, // Very important!
         dataType: 'json',
         success: function(resp) {
-          alert('Upload was a success!');
+          count = resp['00081199'].Value.length;
+          alert('Upload was a success! ' + count + ' instance was uploaded.');
         },
         error: function() {
           alert('Cannot process this query');

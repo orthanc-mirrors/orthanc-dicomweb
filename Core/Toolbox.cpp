@@ -157,7 +157,7 @@ namespace OrthancPlugins
   {
     result.clear();
 
-    boost::regex header("(\n?)--" + boundary + "(--|.*\n\n)");
+    boost::regex header("\r?(\n?)--" + boundary + "(--|.*\r?\n\r?\n)");
     boost::regex pattern(".*^Content-Type\\s*:\\s*([^\\s]*).*",
                          boost::regex::icase /* case insensitive */);
     
