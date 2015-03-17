@@ -53,10 +53,11 @@ $(document).ready(function() {
           var patientName = GetTag(answer[i], '00100010');
           var studyDescription = GetTag(answer[i], '00081030');
           var seriesDescription = GetTag(answer[i], '0008103E');
+          var url = GetTag(answer[i], '00081190');
           $('#qido-series-results').append(
             '<li>' + patientId + ' - ' + patientName + ' - ' +
               studyDescription + ' - ' + seriesDescription +
-              '</li>');
+              + ' - ' + url + '</li>');
         }
       },
       error: function() {
