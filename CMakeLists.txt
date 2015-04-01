@@ -18,7 +18,7 @@
 
 cmake_minimum_required(VERSION 2.8)
 
-project(OrthancPostgreSQL)
+project(OrthancDicomWeb)
 
 set(ORTHANC_DICOM_WEB_VERSION "1.0")
 
@@ -41,7 +41,6 @@ mark_as_advanced(USE_GTEST_DEBIAN_SOURCE_PACKAGE)
 # Force static build when cross-compiling
 if (CMAKE_CROSSCOMPILING)
   set(STATIC_BUILD ON)
-  set(STANDALONE_BUILD ON)
 endif()
 
 if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
@@ -58,6 +57,28 @@ endif ()
 
 if (CMAKE_COMPILER_IS_GNUCXX)
   SET(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--version-script=${CMAKE_SOURCE_DIR}/Resources/VersionScript.map -Wl,--no-undefined")
+endif()
+
+if (MSVC)
+  # Use static runtime under Visual Studio
+  # http://www.cmake.org/Wiki/CMake_FAQ#Dynamic_Replace
+  # http://stackoverflow.com/a/6510446
+  foreach(flag_var
+    CMAKE_C_FLAGS_DEBUG
+    CMAKE_CXX_FLAGS_DEBUG
+    CMAKE_C_FLAGS_RELEASE 
+    CMAKE_CXX_FLAGS_RELEASE
+    CMAKE_C_FLAGS_MINSIZEREL 
+    CMAKE_CXX_FLAGS_MINSIZEREL 
+    CMAKE_C_FLAGS_RELWITHDEBINFO 
+    CMAKE_CXX_FLAGS_RELWITHDEBINFO) 
+    string(REGEX REPLACE "/MD" "/MT" ${flag_var} "${${flag_var}}")
+    string(REGEX REPLACE "/MDd" "/MTd" ${flag_var} "${${flag_var}}")
+  endforeach(flag_var)
+
+  add_definitions(
+    -D_CRT_SECURE_NO_WARNINGS=1
+    -D_CRT_NONSTDC_NO_DEPRECATE=1)
 endif()
 
 
