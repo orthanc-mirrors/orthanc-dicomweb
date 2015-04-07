@@ -94,6 +94,7 @@ static int32_t AnswerListOfDicomInstances(OrthancPluginRestOutput* output,
   }
 
   writer.Answer(context_, output);
+  return 0;
 }
 
 

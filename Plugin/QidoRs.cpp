@@ -562,14 +562,16 @@ private:
 
     Json::Value instances;
     if (!OrthancPlugins::RestApiGetJson(instances, context_, uri) ||
-        instances.type() != Json::arrayValue &&
-        instances.size() != 0)
+        instances.type() != Json::arrayValue ||
+        instances.size() == 0)
     {
       return false;
     }
-
-    instance = instances[0]["ID"].asString();
-    return true;
+    else
+    {
+      instance = instances[0]["ID"].asString();
+      return true;
+    }
   }
 
 

@@ -251,7 +251,7 @@ namespace OrthancPlugins
     result.reserve(source.size() + 1);
     for (size_t i = 0; i < source.size(); i++)
     {
-      if (source[i] < 128 && source[i] >= 0 && !iscntrl(source[i]))
+      if (source[i] <= 127 && source[i] >= 0 && !iscntrl(source[i]))
       {
         result.push_back(source[i]);
       }

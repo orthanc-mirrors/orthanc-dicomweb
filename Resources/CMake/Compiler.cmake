@@ -32,6 +32,11 @@ elseif (${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
     SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libgcc -static-libstdc++")
     SET(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -static-libgcc -static-libstdc++")
   endif()
+elseif (${CMAKE_SYSTEM_NAME} STREQUAL "FreeBSD")
+  link_libraries(uuid)
+  link_directories("/usr/local/lib")
+  # This line helps CHECK_INCLUDE_FILE_CXX macro to find files
+  SET(CMAKE_REQUIRED_INCLUDES "/usr/local/include")
 endif ()
 
 if (CMAKE_COMPILER_IS_GNUCXX)
