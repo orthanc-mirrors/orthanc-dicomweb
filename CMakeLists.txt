@@ -18,7 +18,7 @@
 
 cmake_minimum_required(VERSION 2.8)
 
-project(OrthancPostgreSQL)
+project(OrthancDicomWeb)
 
 set(ORTHANC_DICOM_WEB_VERSION "1.0")
 
@@ -37,6 +37,7 @@ SET(USE_SYSTEM_PUGIXML ON CACHE BOOL "Use the system version of Pugixml)")
 # Distribution-specific settings
 set(USE_GTEST_DEBIAN_SOURCE_PACKAGE OFF CACHE BOOL "Use the sources of Google Test shipped with libgtest-dev (Debian only)")
 mark_as_advanced(USE_GTEST_DEBIAN_SOURCE_PACKAGE)
+
 
 include(CheckIncludeFiles)
 include(CheckIncludeFileCXX)
