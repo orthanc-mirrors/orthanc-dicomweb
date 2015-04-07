@@ -38,32 +38,10 @@ SET(USE_SYSTEM_PUGIXML ON CACHE BOOL "Use the system version of Pugixml)")
 set(USE_GTEST_DEBIAN_SOURCE_PACKAGE OFF CACHE BOOL "Use the sources of Google Test shipped with libgtest-dev (Debian only)")
 mark_as_advanced(USE_GTEST_DEBIAN_SOURCE_PACKAGE)
 
-# Force static build when cross-compiling
-if (CMAKE_CROSSCOMPILING)
-  set(STATIC_BUILD ON)
-  set(STANDALONE_BUILD ON)
-endif()
-
-if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
-  SET(OS_LIBRARIES uuid rt dl)
-  SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pthread")
-  SET(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -pthread")
-elseif (${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
-  SET(OS_LIBRARIES rpcrt4 ws2_32 secur32)
-  if (CMAKE_COMPILER_IS_GNUCXX)
-    SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libgcc -static-libstdc++")
-    SET(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -static-libgcc -static-libstdc++")
-  endif()
-endif ()
-
-if (CMAKE_COMPILER_IS_GNUCXX)
-  SET(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--version-script=${CMAKE_SOURCE_DIR}/Resources/VersionScript.map -Wl,--no-undefined")
-endif()
-
-
 include(CheckIncludeFiles)
 include(CheckIncludeFileCXX)
 include(CheckLibraryExists)
+include(${CMAKE_SOURCE_DIR}/Resources/CMake/Compiler.cmake)
 include(${CMAKE_SOURCE_DIR}/Resources/CMake/DownloadPackage.cmake)
 
 include(${CMAKE_SOURCE_DIR}/Resources/CMake/BoostConfiguration.cmake)
