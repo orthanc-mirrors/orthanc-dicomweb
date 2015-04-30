@@ -93,6 +93,16 @@ if (BOOST_STATIC)
       )
   endif()
 
+  if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+    # This is a patch to compile Boost 1.55.0 with Clang 3.4 and later
+    # (including XCode 5.1). Fixes issue 14 of Orthanc.
+    # https://trac.macports.org/ticket/42282#comment:10
+    execute_process(
+      COMMAND patch -p0 -i ${CMAKE_SOURCE_DIR}/Resources/Patches/boost-1.55.0-clang-atomic.patch
+      WORKING_DIRECTORY ${BOOST_SOURCES_DIR}
+      )
+  endif()
+
 
   ## Boost::filesystem
 
@@ -126,6 +136,13 @@ if (BOOST_STATIC)
     ${BOOST_SOURCES_DIR}/libs/locale/src/encoding/codepage.cpp
     ${BOOST_SOURCES_DIR}/libs/system/src/error_code.cpp
     )
+
+  if (${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
+    SET(GCC_ICONV_LINK_FLAGS  "-liconv -framework CoreFoundation")
+    SET(CMAKE_SHARED_LINKER_FLAGS  "${CMAKE_SHARED_LINKER_FLAGS} ${GCC_ICONV_LINK_FLAGS}" )
+    SET(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} ${GCC_ICONV_LINK_FLAGS}" )
+    add_definitions(-DBOOST_LOCALE_WITH_ICONV=1)
+  endif()
 
 
   source_group(ThirdParty\\Boost REGULAR_EXPRESSION ${BOOST_SOURCES_DIR}/.*)
