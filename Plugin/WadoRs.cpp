@@ -20,6 +20,8 @@
 
 #include "Plugin.h"
 
+#include <boost/lexical_cast.hpp>
+
 #include "../Core/Configuration.h"
 #include "../Core/Dicom.h"
 #include "../Core/DicomResults.h"
@@ -124,6 +126,50 @@ static bool AcceptMetadata(const OrthancPluginHttpRequest* request,
   return true;
 }
 
+
+
+static bool AcceptBulkData(const OrthancPluginHttpRequest* request)
+{
+  std::string accept;
+
+  if (!OrthancPlugins::LookupHttpHeader(accept, request, "accept"))
+  {
+    return true;   // By default, return "multipart/related; type=application/octet-stream;"
+  }
+
+  std::string application;
+  std::map<std::string, std::string> attributes;
+  OrthancPlugins::ParseContentType(application, attributes, accept);
+
+  if (application != "multipart/related" &&
+      application != "*/*")
+  {
+    std::string s = "This WADO-RS plugin cannot generate the following bulk data type: " + accept;
+    OrthancPluginLogError(context_, s.c_str());
+    return false;
+  }
+
+  if (attributes.find("type") != attributes.end())
+  {
+    std::string s = attributes["type"];
+    OrthancPlugins::ToLowerCase(s);
+    if (s != "application/octet-stream")
+    {
+      std::string s = "This WADO-RS plugin only supports application/octet-stream return type for bulk data retrieval (" + accept + ")";
+      OrthancPluginLogError(context_, s.c_str());
+      return false;
+    }
+  }
+
+  if (attributes.find("ra,ge") != attributes.end())
+  {
+    std::string s = "This WADO-RS plugin does not support Range retrieval, it can only return entire bulk data object";
+    OrthancPluginLogError(context_, s.c_str());
+    return false;
+  }
+
+  return true;
+}
 
 
 static int32_t AnswerListOfDicomInstances(OrthancPluginRestOutput* output,
@@ -336,7 +382,7 @@ int32_t RetrieveDicomStudy(OrthancPluginRestOutput* output,
     if (!AcceptMultipartDicom(request))
     {
       OrthancPluginSendHttpStatusCode(context_, output, 400 /* Bad request */);
-      return false;
+      return 0;
     }
 
     std::string uri;
@@ -364,7 +410,7 @@ int32_t RetrieveDicomSeries(OrthancPluginRestOutput* output,
     if (!AcceptMultipartDicom(request))
     {
       OrthancPluginSendHttpStatusCode(context_, output, 400 /* Bad request */);
-      return false;
+      return 0;
     }
 
     std::string uri;
@@ -393,7 +439,7 @@ int32_t RetrieveDicomInstance(OrthancPluginRestOutput* output,
     if (!AcceptMultipartDicom(request))
     {
       OrthancPluginSendHttpStatusCode(context_, output, 400 /* Bad request */);
-      return false;
+      return 0;
     }
 
     std::string uri;
@@ -430,7 +476,7 @@ int32_t RetrieveStudyMetadata(OrthancPluginRestOutput* output,
     if (!AcceptMetadata(request, isXml))
     {
       OrthancPluginSendHttpStatusCode(context_, output, 400 /* Bad request */);
-      return false;
+      return 0;
     }
 
     std::string uri;
@@ -459,7 +505,7 @@ int32_t RetrieveSeriesMetadata(OrthancPluginRestOutput* output,
     if (!AcceptMetadata(request, isXml))
     {
       OrthancPluginSendHttpStatusCode(context_, output, 400 /* Bad request */);
-      return false;
+      return 0;
     }
 
     std::string uri;
@@ -488,13 +534,127 @@ int32_t RetrieveInstanceMetadata(OrthancPluginRestOutput* output,
     if (!AcceptMetadata(request, isXml))
     {
       OrthancPluginSendHttpStatusCode(context_, output, 400 /* Bad request */);
-      return false;
+      return 0;
     }
 
     std::string uri;
     if (LocateInstance(output, uri, request))
     {
       AnswerMetadata(output, uri, true, isXml);
+    }
+
+    return 0;
+  }
+  catch (std::runtime_error& e)
+  {
+    OrthancPluginLogError(context_, e.what());
+    return -1;
+  }
+}
+
+
+
+static uint32_t Hex2Dec(char c)
+{
+  return (c >= '0' && c <= '9') ? c - '0' : c - 'a' + 10;
+}
+
+
+static bool ParseBulkTag(gdcm::Tag& tag,
+                         const std::string& s)
+{
+  if (s.size() != 8)
+  {
+    return false;
+  }
+
+  for (size_t i = 0; i < 8; i++)
+  {
+    if ((s[i] < '0' || s[i] > '9') &&
+        (s[i] < 'a' || s[i] > 'f'))
+    {
+      return false;
+    }
+  }
+
+  uint32_t g = ((Hex2Dec(s[0]) << 12) +
+                (Hex2Dec(s[1]) << 8) +
+                (Hex2Dec(s[2]) << 4) +
+                Hex2Dec(s[3]));
+
+  uint32_t e = ((Hex2Dec(s[4]) << 12) +
+                (Hex2Dec(s[5]) << 8) +
+                (Hex2Dec(s[6]) << 4) +
+                Hex2Dec(s[7]));
+
+  tag = gdcm::Tag(g, e);
+  return true;
+}
+
+
+static bool ExploreBulkData(std::string& content,
+                            const std::vector<std::string>& path,
+                            size_t position,
+                            const gdcm::DataSet& dataset)
+{
+  gdcm::Tag tag;
+  if (!ParseBulkTag(tag, path[position]) ||
+      !dataset.FindDataElement(tag))
+  {
+    return false;
+  }
+
+  const gdcm::DataElement& element = dataset.GetDataElement(tag);
+
+  if (position + 1 == path.size())
+  {
+    const gdcm::ByteValue* data = element.GetByteValue();
+    if (!data)
+    {
+      printf("AIE\n");
+      return false;
+    }
+
+    content.assign(data->GetPointer(), data->GetLength());
+    return true;
+  }
+
+  return false;
+}
+
+int32_t RetrieveBulkData(OrthancPluginRestOutput* output,
+                         const char* url,
+                         const OrthancPluginHttpRequest* request)
+{
+  try
+  {
+    if (!AcceptBulkData(request))
+    {
+      OrthancPluginSendHttpStatusCode(context_, output, 400 /* Bad request */);
+      return 0;
+    }
+
+    std::string uri, content;
+    if (LocateInstance(output, uri, request) &&
+        OrthancPlugins::RestApiGetString(content, context_, uri + "/file"))
+    {
+      OrthancPlugins::ParsedDicomFile dicom(content);
+
+      std::vector<std::string> path;
+      OrthancPlugins::TokenizeString(path, request->groups[3], '/');
+      
+      std::string result;
+      if (path.size() % 2 == 1 &&
+          ExploreBulkData(result, path, 0, dicom.GetDataSet()))
+      {
+        OrthancPlugins::MultipartWriter writer("application/octet-stream");
+        writer.AddPart(result);
+        writer.Answer(context_, output);
+      }
+      else
+      {
+        OrthancPluginSendHttpStatusCode(context_, output, 400 /* Bad request */);
+      }      
     }
 
     return 0;

@@ -77,6 +77,7 @@ extern "C"
     OrthancPluginRegisterRestCallback(context, "/wado-rs/studies/([^/]*)/metadata", RetrieveStudyMetadata);
     OrthancPluginRegisterRestCallback(context, "/wado-rs/studies/([^/]*)/series/([^/]*)/metadata", RetrieveSeriesMetadata);
     OrthancPluginRegisterRestCallback(context, "/wado-rs/studies/([^/]*)/series/([^/]*)/instances/([^/]*)/metadata", RetrieveInstanceMetadata);
+    OrthancPluginRegisterRestCallback(context, "/wado-rs/studies/([^/]*)/series/([^/]*)/instances/([^/]*)/bulk/(.*)", RetrieveBulkData);
 
     // STOW-RS callbacks
     OrthancPluginRegisterRestCallback(context, "/stow-rs/studies", StowCallback);

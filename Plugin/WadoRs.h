@@ -46,3 +46,7 @@ int32_t RetrieveSeriesMetadata(OrthancPluginRestOutput* output,
 int32_t RetrieveInstanceMetadata(OrthancPluginRestOutput* output,
                                  const char* url,
                                  const OrthancPluginHttpRequest* request);
+
+int32_t RetrieveBulkData(OrthancPluginRestOutput* output,
+                         const char* url,
+                         const OrthancPluginHttpRequest* request);

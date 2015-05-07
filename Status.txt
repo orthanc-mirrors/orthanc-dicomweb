@@ -23,13 +23,30 @@ Not supported
 
 
 
-
 ================================
 6.5.4 WADO-RS / RetrieveFrames
-6.5.5 WADO-RS / RetrieveBulkdata
 ================================
 
 Not supported.
+
+
+
+================================
+6.5.5 WADO-RS / RetrieveBulkdata
+================================
+
+Supported
+---------
+
+* application/octet-stream response
+
+
+Not supported
+-------------
+
+* MediaType data response
+* Range query (only entire bulk data object can be returned)
+
 
 
 ================================
