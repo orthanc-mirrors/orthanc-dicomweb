@@ -3,6 +3,7 @@ Pending changes in the mainline
 
 No official release yet. Still work in progress.
 
+* Support of WADO-RS - RetrieveMetadata
 * Support of Visual Studio 2008
 * Support of FreeBSD
 * Support of OS X

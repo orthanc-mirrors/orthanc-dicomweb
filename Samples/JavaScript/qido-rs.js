@@ -57,7 +57,7 @@ $(document).ready(function() {
           $('#qido-series-results').append(
             '<li>' + patientId + ' - ' + patientName + ' - ' +
               studyDescription + ' - ' + seriesDescription +
-              + ' - ' + url + '</li>');
+              ' - ' + '<a href="' + url + '">WADO-RS URL</a></li>');
         }
       },
       error: function() {

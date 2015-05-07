@@ -23,6 +23,7 @@
 #include "Plugin.h"
 #include "StowRs.h"  // For IsXmlExpected()
 #include "../Core/Dicom.h"
+#include "../Core/DicomResults.h"
 #include "../Core/Toolbox.h"
 #include "../Core/Configuration.h"
 #include "../Core/MultipartWriter.h"
@@ -40,768 +41,692 @@
 
 
 
-enum QueryLevel
+namespace
 {
-  QueryLevel_Study,
-  QueryLevel_Series,
-  QueryLevel_Instance
-};
 
-
-class ModuleMatcher
-{
-private:
-  typedef std::map<gdcm::Tag, std::string>  Filters;
-
-  const gdcm::Dict&     dictionary_;
-  bool                  fuzzy_;
-  unsigned int          offset_;
-  unsigned int          limit_;
-  std::list<gdcm::Tag>  includeFields_;
-  bool                  includeAllFields_;
-  Filters               filters_;
-
-
-
-  static inline uint16_t GetCharValue(char c)
+  enum QueryLevel
   {
-    if (c >= '0' && c <= '9')
-      return c - '0';
-    else if (c >= 'a' && c <= 'f')
-      return c - 'a' + 10;
-    else if (c >= 'A' && c <= 'F')
-      return c - 'A' + 10;
-    else
-      return 0;
-  }
+    QueryLevel_Study,
+    QueryLevel_Series,
+    QueryLevel_Instance
+  };
 
-  static inline uint16_t GetTagValue(const char* c)
+
+  class ModuleMatcher
   {
-    return ((GetCharValue(c[0]) << 12) + 
-            (GetCharValue(c[1]) << 8) + 
-            (GetCharValue(c[2]) << 4) + 
-            GetCharValue(c[3]));
-  }
+  private:
+    typedef std::map<gdcm::Tag, std::string>  Filters;
+
+    const gdcm::Dict&     dictionary_;
+    bool                  fuzzy_;
+    unsigned int          offset_;
+    unsigned int          limit_;
+    std::list<gdcm::Tag>  includeFields_;
+    bool                  includeAllFields_;
+    Filters               filters_;
 
 
-  gdcm::Tag  ParseTag(const std::string& key) const
-  {
-    if (key.size() == 8 &&
-        isxdigit(key[0]) &&
-        isxdigit(key[1]) &&
-        isxdigit(key[2]) &&
-        isxdigit(key[3]) &&
-        isxdigit(key[4]) &&
-        isxdigit(key[5]) &&
-        isxdigit(key[6]) &&
-        isxdigit(key[7]))        
+
+    static inline uint16_t GetCharValue(char c)
     {
-      return gdcm::Tag(GetTagValue(key.c_str()),
-                       GetTagValue(key.c_str() + 4));
+      if (c >= '0' && c <= '9')
+        return c - '0';
+      else if (c >= 'a' && c <= 'f')
+        return c - 'a' + 10;
+      else if (c >= 'A' && c <= 'F')
+        return c - 'A' + 10;
+      else
+        return 0;
     }
-    else
-    {
-      gdcm::Tag tag;
-      dictionary_.GetDictEntryByKeyword(key.c_str(), tag);
 
-      if (tag.IsIllegal() || tag.IsPrivate())
+    static inline uint16_t GetTagValue(const char* c)
+    {
+      return ((GetCharValue(c[0]) << 12) + 
+              (GetCharValue(c[1]) << 8) + 
+              (GetCharValue(c[2]) << 4) + 
+              GetCharValue(c[3]));
+    }
+
+
+    gdcm::Tag  ParseTag(const std::string& key) const
+    {
+      if (key.size() == 8 &&
+          isxdigit(key[0]) &&
+          isxdigit(key[1]) &&
+          isxdigit(key[2]) &&
+          isxdigit(key[3]) &&
+          isxdigit(key[4]) &&
+          isxdigit(key[5]) &&
+          isxdigit(key[6]) &&
+          isxdigit(key[7]))        
       {
-        if (key.find('.') != std::string::npos)
+        return gdcm::Tag(GetTagValue(key.c_str()),
+                         GetTagValue(key.c_str() + 4));
+      }
+      else
+      {
+        gdcm::Tag tag;
+        dictionary_.GetDictEntryByKeyword(key.c_str(), tag);
+
+        if (tag.IsIllegal() || tag.IsPrivate())
         {
-          throw std::runtime_error("This QIDO-RS implementation does not support search over sequences: " + key);
+          if (key.find('.') != std::string::npos)
+          {
+            throw std::runtime_error("This QIDO-RS implementation does not support search over sequences: " + key);
+          }
+          else
+          {
+            throw std::runtime_error("Illegal tag name in QIDO-RS: " + key);
+          }
         }
-        else
+
+        return tag;
+      }
+    }
+
+
+    static bool IsWildcard(const std::string& constraint)
+    {
+      return (constraint.find('-') != std::string::npos ||
+              constraint.find('*') != std::string::npos ||
+              constraint.find('\\') != std::string::npos ||
+              constraint.find('?') != std::string::npos);
+    }
+
+    static bool ApplyRangeConstraint(const std::string& value,
+                                     const std::string& constraint)
+    {
+      size_t separator = constraint.find('-');
+      std::string lower(constraint.substr(0, separator));
+      std::string upper(constraint.substr(separator + 1));
+      std::string v(value);
+
+      OrthancPlugins::ToLowerCase(lower);
+      OrthancPlugins::ToLowerCase(upper);
+      OrthancPlugins::ToLowerCase(v);
+
+      if (lower.size() == 0 && upper.size() == 0)
+      {
+        return false;
+      }
+
+      if (lower.size() == 0)
+      {
+        return v <= upper;
+      }
+
+      if (upper.size() == 0)
+      {
+        return v >= lower;
+      }
+    
+      return (v >= lower && v <= upper);
+    }
+
+
+    static bool ApplyListConstraint(const std::string& value,
+                                    const std::string& constraint)
+    {
+      std::string v1(value);
+      OrthancPlugins::ToLowerCase(v1);
+
+      std::vector<std::string> items;
+      OrthancPlugins::TokenizeString(items, constraint, '\\');
+
+      for (size_t i = 0; i < items.size(); i++)
+      {
+        std::string lower(items[i]);
+        OrthancPlugins::ToLowerCase(lower);
+        if (lower == v1)
         {
-          throw std::runtime_error("Illegal tag name in QIDO-RS: " + key);
+          return true;
         }
       }
 
-      return tag;
-    }
-  }
-
-
-  static bool IsWildcard(const std::string& constraint)
-  {
-    return (constraint.find('-') != std::string::npos ||
-            constraint.find('*') != std::string::npos ||
-            constraint.find('\\') != std::string::npos ||
-            constraint.find('?') != std::string::npos);
-  }
-
-  static bool ApplyRangeConstraint(const std::string& value,
-                                   const std::string& constraint)
-  {
-    size_t separator = constraint.find('-');
-    std::string lower(constraint.substr(0, separator));
-    std::string upper(constraint.substr(separator + 1));
-    std::string v(value);
-
-    OrthancPlugins::ToLowerCase(lower);
-    OrthancPlugins::ToLowerCase(upper);
-    OrthancPlugins::ToLowerCase(v);
-
-    if (lower.size() == 0 && upper.size() == 0)
-    {
       return false;
     }
 
-    if (lower.size() == 0)
+
+    static std::string WildcardToRegularExpression(const std::string& source)
     {
-      return v <= upper;
+      std::string result = source;
+
+      // Escape all special characters
+      boost::replace_all(result, "\\", "\\\\");
+      boost::replace_all(result, "^", "\\^");
+      boost::replace_all(result, ".", "\\.");
+      boost::replace_all(result, "$", "\\$");
+      boost::replace_all(result, "|", "\\|");
+      boost::replace_all(result, "(", "\\(");
+      boost::replace_all(result, ")", "\\)");
+      boost::replace_all(result, "[", "\\[");
+      boost::replace_all(result, "]", "\\]");
+      boost::replace_all(result, "+", "\\+");
+      boost::replace_all(result, "/", "\\/");
+      boost::replace_all(result, "{", "\\{");
+      boost::replace_all(result, "}", "\\}");
+
+      // Convert wildcards '*' and '?' to their regex equivalents
+      boost::replace_all(result, "?", ".");
+      boost::replace_all(result, "*", ".*");
+
+      return result;
     }
 
-    if (upper.size() == 0)
+
+    static bool Matches(const std::string& value,
+                        const std::string& constraint)
     {
-      return v >= lower;
-    }
-    
-    return (v >= lower && v <= upper);
-  }
+      // http://www.itk.org/Wiki/DICOM_QueryRetrieve_Explained
+      // http://dicomiseasy.blogspot.be/2012/01/dicom-queryretrieve-part-i.html  
 
-
-  static bool ApplyListConstraint(const std::string& value,
-                                  const std::string& constraint)
-  {
-    std::string v1(value);
-    OrthancPlugins::ToLowerCase(v1);
-
-    std::vector<std::string> items;
-    OrthancPlugins::TokenizeString(items, constraint, '\\');
-
-    for (size_t i = 0; i < items.size(); i++)
-    {
-      std::string lower(items[i]);
-      OrthancPlugins::ToLowerCase(lower);
-      if (lower == v1)
+      if (constraint.find('-') != std::string::npos)
       {
+        return ApplyRangeConstraint(value, constraint);
+      }
+    
+      if (constraint.find('\\') != std::string::npos)
+      {
+        return ApplyListConstraint(value, constraint);
+      }
+
+      if (constraint.find('*') != std::string::npos ||
+          constraint.find('?') != std::string::npos)
+      {
+        boost::regex pattern(WildcardToRegularExpression(constraint),
+                             boost::regex::icase /* case insensitive search */);
+        return boost::regex_match(value, pattern);
+      }
+      else
+      {
+        std::string v(value), c(constraint);
+        OrthancPlugins::ToLowerCase(v);
+        OrthancPlugins::ToLowerCase(c);
+        return v == c;
+      }
+    }
+
+
+
+    static void AddResultAttributesForLevel(std::list<gdcm::Tag>& result,
+                                            QueryLevel level)
+    {
+      switch (level)
+      {
+        case QueryLevel_Study:
+          // http://medical.nema.org/medical/dicom/current/output/html/part18.html#table_6.7.1-2
+          result.push_back(gdcm::Tag(0x0008, 0x0005));  // Specific Character Set
+          result.push_back(gdcm::Tag(0x0008, 0x0020));  // Study Date
+          result.push_back(gdcm::Tag(0x0008, 0x0030));  // Study Time
+          result.push_back(gdcm::Tag(0x0008, 0x0050));  // Accession Number
+          result.push_back(gdcm::Tag(0x0008, 0x0056));  // Instance Availability
+          result.push_back(gdcm::Tag(0x0008, 0x0061));  // Modalities in Study
+          result.push_back(gdcm::Tag(0x0008, 0x0090));  // Referring Physician's Name
+          result.push_back(gdcm::Tag(0x0008, 0x0201));  // Timezone Offset From UTC
+          //result.push_back(gdcm::Tag(0x0008, 0x1190));  // Retrieve URL  => SPECIAL CASE
+          result.push_back(gdcm::Tag(0x0010, 0x0010));  // Patient's Name
+          result.push_back(gdcm::Tag(0x0010, 0x0020));  // Patient ID
+          result.push_back(gdcm::Tag(0x0010, 0x0030));  // Patient's Birth Date
+          result.push_back(gdcm::Tag(0x0010, 0x0040));  // Patient's Sex
+          result.push_back(gdcm::Tag(0x0020, 0x000D));  // Study Instance UID
+          result.push_back(gdcm::Tag(0x0020, 0x0010));  // Study ID
+          result.push_back(gdcm::Tag(0x0020, 0x1206));  // Number of Study Related Series
+          result.push_back(gdcm::Tag(0x0020, 0x1208));  // Number of Study Related Instances
+          break;
+
+        case QueryLevel_Series:
+          // http://medical.nema.org/medical/dicom/current/output/html/part18.html#table_6.7.1-2a
+          result.push_back(gdcm::Tag(0x0008, 0x0005));  // Specific Character Set
+          result.push_back(gdcm::Tag(0x0008, 0x0056));  // Modality
+          result.push_back(gdcm::Tag(0x0008, 0x0201));  // Timezone Offset From UTC
+          result.push_back(gdcm::Tag(0x0008, 0x103E));  // Series Description
+          //result.push_back(gdcm::Tag(0x0008, 0x1190));  // Retrieve URL  => SPECIAL CASE
+          result.push_back(gdcm::Tag(0x0020, 0x000E));  // Series Instance UID
+          result.push_back(gdcm::Tag(0x0020, 0x0011));  // Series Number
+          result.push_back(gdcm::Tag(0x0020, 0x1209));  // Number of Series Related Instances
+          result.push_back(gdcm::Tag(0x0040, 0x0244));  // Performed Procedure Step Start Date
+          result.push_back(gdcm::Tag(0x0040, 0x0245));  // Performed Procedure Step Start Time
+          result.push_back(gdcm::Tag(0x0040, 0x0275));  // Request Attribute Sequence
+          break;
+
+        case QueryLevel_Instance:
+          // http://medical.nema.org/medical/dicom/current/output/html/part18.html#table_6.7.1-2b
+          result.push_back(gdcm::Tag(0x0008, 0x0005));  // Specific Character Set
+          result.push_back(gdcm::Tag(0x0008, 0x0016));  // SOP Class UID
+          result.push_back(gdcm::Tag(0x0008, 0x0018));  // SOP Instance UID
+          result.push_back(gdcm::Tag(0x0008, 0x0056));  // Instance Availability
+          result.push_back(gdcm::Tag(0x0008, 0x0201));  // Timezone Offset From UTC
+          result.push_back(gdcm::Tag(0x0008, 0x1190));  // Retrieve URL
+          result.push_back(gdcm::Tag(0x0020, 0x0013));  // Instance Number
+          result.push_back(gdcm::Tag(0x0028, 0x0010));  // Rows
+          result.push_back(gdcm::Tag(0x0028, 0x0011));  // Columns
+          result.push_back(gdcm::Tag(0x0028, 0x0100));  // Bits Allocated
+          result.push_back(gdcm::Tag(0x0028, 0x0008));  // Number of Frames
+          break;
+
+        default:
+          throw std::runtime_error("Internal error");
+      }
+    }
+
+
+
+  public:
+    ModuleMatcher(const OrthancPluginHttpRequest* request) :
+      dictionary_(gdcm::Global::GetInstance().GetDicts().GetPublicDict()),
+      fuzzy_(false),
+      offset_(0),
+      limit_(0),
+      includeAllFields_(false)
+    {
+      for (int32_t i = 0; i < request->getCount; i++)
+      {
+        std::string key(request->getKeys[i]);
+        std::string value(request->getValues[i]);
+
+        if (key == "limit")
+        {
+          limit_ = boost::lexical_cast<unsigned int>(value);
+        }
+        else if (key == "offset")
+        {
+          offset_ = boost::lexical_cast<unsigned int>(value);
+        }
+        else if (key == "fuzzymatching")
+        {
+          if (value == "true")
+          {
+            fuzzy_ = true;
+          }
+          else if (value == "false")
+          {
+            fuzzy_ = false;
+          }
+          else
+          {
+            throw std::runtime_error("Not a proper value for fuzzy matching (true or false): " + value);
+          }
+        }
+        else if (key == "includefield")
+        {
+          if (key == "all")
+          {
+            includeAllFields_ = true;
+          }
+          else
+          {
+            includeFields_.push_back(ParseTag(key));
+          }
+        }
+        else
+        {
+          filters_[ParseTag(key)] = value;
+        }
+      }
+    }
+
+    unsigned int GetLimit() const
+    {
+      return limit_;
+    }
+
+    unsigned int GetOffset() const
+    {
+      return offset_;
+    }
+
+    void AddFilter(const gdcm::Tag& tag,
+                   const std::string& constraint)
+    {
+      filters_[tag] = constraint;
+    }
+
+    bool LookupExactFilter(std::string& constraint,
+                           const gdcm::Tag& tag) const
+    {
+      Filters::const_iterator it = filters_.find(tag);
+      if (it != filters_.end() &&
+          !IsWildcard(it->second))
+      {
+        constraint = it->second;
+        return true;
+      }
+      else
+      {
+        return false;
+      }
+    }
+
+    bool Matches(const OrthancPlugins::ParsedDicomFile& dicom) const
+    {
+      for (Filters::const_iterator it = filters_.begin();
+           it != filters_.end(); ++it)
+      {
+        std::string value;
+        if (!dicom.GetTag(value, it->first, true))
+        {
+          return false;
+        }
+
+        if (!Matches(value, it->second))
+        {
+          return false;
+        }
+      }
+
+      return true;
+    }
+
+
+    void ExtractFields(gdcm::DataSet& result,
+                       const OrthancPlugins::ParsedDicomFile& dicom,
+                       const std::string& wadoBase,
+                       QueryLevel level) const
+    {
+      std::list<gdcm::Tag> fields = includeFields_;
+
+      // The list of attributes for this query level
+      AddResultAttributesForLevel(fields, level);
+
+      // All other attributes passed as query keys
+      for (Filters::const_iterator it = filters_.begin();
+           it != filters_.end(); ++it)
+      {
+        fields.push_back(it->first);
+      }
+
+      // For instances and series, add all Study-level attributes if
+      // {StudyInstanceUID} is not specified.
+      if ((level == QueryLevel_Instance  || level == QueryLevel_Series) 
+          && filters_.find(OrthancPlugins::DICOM_TAG_STUDY_INSTANCE_UID) == filters_.end()
+        )
+      {
+        AddResultAttributesForLevel(fields, QueryLevel_Study);
+      }
+
+      // For instances, add all Series-level attributes if
+      // {SeriesInstanceUID} is not specified.
+      if (level == QueryLevel_Instance
+          && filters_.find(OrthancPlugins::DICOM_TAG_SERIES_INSTANCE_UID) == filters_.end()
+        )
+      {
+        AddResultAttributesForLevel(fields, QueryLevel_Series);
+      }
+
+      // Copy all the required fields to the target
+      for (std::list<gdcm::Tag>::const_iterator
+             it = fields.begin(); it != fields.end(); it++)
+      {
+        if (dicom.GetDataSet().FindDataElement(*it))
+        {
+          const gdcm::DataElement& element = dicom.GetDataSet().GetDataElement(*it);
+          result.Replace(element);
+        }
+      }
+
+      // Set the retrieve URL for WADO-RS
+      std::string url = (wadoBase + "/studies/" + 
+                         dicom.GetTagWithDefault(OrthancPlugins::DICOM_TAG_STUDY_INSTANCE_UID, "", true));
+
+      if (level == QueryLevel_Series || level == QueryLevel_Instance)
+      {
+        url += "/series/" + dicom.GetTagWithDefault(OrthancPlugins::DICOM_TAG_SERIES_INSTANCE_UID, "", true);
+      }
+
+      if (level == QueryLevel_Instance)
+      {
+        url += "/instances/" + dicom.GetTagWithDefault(OrthancPlugins::DICOM_TAG_SOP_INSTANCE_UID, "", true);
+      }
+    
+      gdcm::DataElement element(OrthancPlugins::DICOM_TAG_RETRIEVE_URL);
+      element.SetByteValue(url.c_str(), url.size());
+      result.Replace(element);
+    }
+  };
+
+
+
+
+  class CandidateResources
+  {
+  private:
+    typedef std::set<std::string>  Resources;
+
+    bool        all_;
+    QueryLevel  level_;
+    Resources   resources_;
+
+    static bool CallLookup(std::string& orthancId,
+                           const std::string& dicomId,
+                           char* (lookup) (OrthancPluginContext*, const char*))
+    {
+      bool result = false;
+
+      char* tmp = lookup(context_, dicomId.c_str());
+      if (tmp != NULL)
+      {
+        orthancId = tmp;
+        result = true;
+      }
+
+      OrthancPluginFreeString(context_, tmp);
+
+      return result;
+    }
+
+
+    void FilterByIdentifierInternal(const ModuleMatcher& matcher,
+                                    const gdcm::Tag& tag,
+                                    char* (lookup) (OrthancPluginContext*, const char*))
+    {
+      std::string orthancId, dicomId;
+
+      if (!matcher.LookupExactFilter(dicomId, tag))
+      {
+        // There is no restriction at this level
+        return;
+      }
+
+      if (CallLookup(orthancId, dicomId, lookup) &&
+          (all_ || resources_.find(orthancId) != resources_.end()))
+      {
+        // There remains a single candidate resource
+        resources_.clear();
+        resources_.insert(orthancId);
+      }
+      else
+      {
+        // No matching resource remains
+        resources_.clear();            
+      }
+
+      all_ = false;
+    }
+
+
+    bool PickOneInstance(std::string& instance,
+                         const std::string& resource) const
+    {
+      if (level_ == QueryLevel_Instance)
+      {
+        instance = resource;
+        return true;
+      }
+
+      std::string uri;
+      if (level_ == QueryLevel_Study)
+      {
+        uri = "/studies/" + resource + "/instances";
+      }
+      else
+      {
+        assert(level_ == QueryLevel_Series);
+        uri = "/series/" + resource + "/instances";
+      }
+
+      Json::Value instances;
+      if (!OrthancPlugins::RestApiGetJson(instances, context_, uri) ||
+          instances.type() != Json::arrayValue ||
+          instances.size() == 0)
+      {
+        return false;
+      }
+      else
+      {
+        instance = instances[0]["ID"].asString();
         return true;
       }
     }
 
-    return false;
-  }
 
-
-  static std::string WildcardToRegularExpression(const std::string& source)
-  {
-    std::string result = source;
-
-    // Escape all special characters
-    boost::replace_all(result, "\\", "\\\\");
-    boost::replace_all(result, "^", "\\^");
-    boost::replace_all(result, ".", "\\.");
-    boost::replace_all(result, "$", "\\$");
-    boost::replace_all(result, "|", "\\|");
-    boost::replace_all(result, "(", "\\(");
-    boost::replace_all(result, ")", "\\)");
-    boost::replace_all(result, "[", "\\[");
-    boost::replace_all(result, "]", "\\]");
-    boost::replace_all(result, "+", "\\+");
-    boost::replace_all(result, "/", "\\/");
-    boost::replace_all(result, "{", "\\{");
-    boost::replace_all(result, "}", "\\}");
-
-    // Convert wildcards '*' and '?' to their regex equivalents
-    boost::replace_all(result, "?", ".");
-    boost::replace_all(result, "*", ".*");
-
-    return result;
-  }
-
-
-  static bool Matches(const std::string& value,
-                      const std::string& constraint)
-  {
-    // http://www.itk.org/Wiki/DICOM_QueryRetrieve_Explained
-    // http://dicomiseasy.blogspot.be/2012/01/dicom-queryretrieve-part-i.html  
-
-    if (constraint.find('-') != std::string::npos)
+  public:
+    CandidateResources() : all_(true), level_(QueryLevel_Study)
     {
-      return ApplyRangeConstraint(value, constraint);
-    }
-    
-    if (constraint.find('\\') != std::string::npos)
-    {
-      return ApplyListConstraint(value, constraint);
     }
 
-    if (constraint.find('*') != std::string::npos ||
-        constraint.find('?') != std::string::npos)
+    void GoDown()
     {
-      boost::regex pattern(WildcardToRegularExpression(constraint),
-                           boost::regex::icase /* case insensitive search */);
-      return boost::regex_match(value, pattern);
-    }
-    else
-    {
-      std::string v(value), c(constraint);
-      OrthancPlugins::ToLowerCase(v);
-      OrthancPlugins::ToLowerCase(c);
-      return v == c;
-    }
-  }
-
-
-
-  static void AddResultAttributesForLevel(std::list<gdcm::Tag>& result,
-                                          QueryLevel level)
-  {
-    switch (level)
-    {
-      case QueryLevel_Study:
-        // http://medical.nema.org/medical/dicom/current/output/html/part18.html#table_6.7.1-2
-        result.push_back(gdcm::Tag(0x0008, 0x0005));  // Specific Character Set
-        result.push_back(gdcm::Tag(0x0008, 0x0020));  // Study Date
-        result.push_back(gdcm::Tag(0x0008, 0x0030));  // Study Time
-        result.push_back(gdcm::Tag(0x0008, 0x0050));  // Accession Number
-        result.push_back(gdcm::Tag(0x0008, 0x0056));  // Instance Availability
-        result.push_back(gdcm::Tag(0x0008, 0x0061));  // Modalities in Study
-        result.push_back(gdcm::Tag(0x0008, 0x0090));  // Referring Physician's Name
-        result.push_back(gdcm::Tag(0x0008, 0x0201));  // Timezone Offset From UTC
-        //result.push_back(gdcm::Tag(0x0008, 0x1190));  // Retrieve URL  => SPECIAL CASE
-        result.push_back(gdcm::Tag(0x0010, 0x0010));  // Patient's Name
-        result.push_back(gdcm::Tag(0x0010, 0x0020));  // Patient ID
-        result.push_back(gdcm::Tag(0x0010, 0x0030));  // Patient's Birth Date
-        result.push_back(gdcm::Tag(0x0010, 0x0040));  // Patient's Sex
-        result.push_back(gdcm::Tag(0x0020, 0x000D));  // Study Instance UID
-        result.push_back(gdcm::Tag(0x0020, 0x0010));  // Study ID
-        result.push_back(gdcm::Tag(0x0020, 0x1206));  // Number of Study Related Series
-        result.push_back(gdcm::Tag(0x0020, 0x1208));  // Number of Study Related Instances
-        break;
-
-      case QueryLevel_Series:
-        // http://medical.nema.org/medical/dicom/current/output/html/part18.html#table_6.7.1-2a
-        result.push_back(gdcm::Tag(0x0008, 0x0005));  // Specific Character Set
-        result.push_back(gdcm::Tag(0x0008, 0x0056));  // Modality
-        result.push_back(gdcm::Tag(0x0008, 0x0201));  // Timezone Offset From UTC
-        result.push_back(gdcm::Tag(0x0008, 0x103E));  // Series Description
-        //result.push_back(gdcm::Tag(0x0008, 0x1190));  // Retrieve URL  => SPECIAL CASE
-        result.push_back(gdcm::Tag(0x0020, 0x000E));  // Series Instance UID
-        result.push_back(gdcm::Tag(0x0020, 0x0011));  // Series Number
-        result.push_back(gdcm::Tag(0x0020, 0x1209));  // Number of Series Related Instances
-        result.push_back(gdcm::Tag(0x0040, 0x0244));  // Performed Procedure Step Start Date
-        result.push_back(gdcm::Tag(0x0040, 0x0245));  // Performed Procedure Step Start Time
-        result.push_back(gdcm::Tag(0x0040, 0x0275));  // Request Attribute Sequence
-        break;
-
-      case QueryLevel_Instance:
-        // http://medical.nema.org/medical/dicom/current/output/html/part18.html#table_6.7.1-2b
-        result.push_back(gdcm::Tag(0x0008, 0x0005));  // Specific Character Set
-        result.push_back(gdcm::Tag(0x0008, 0x0016));  // SOP Class UID
-        result.push_back(gdcm::Tag(0x0008, 0x0018));  // SOP Instance UID
-        result.push_back(gdcm::Tag(0x0008, 0x0056));  // Instance Availability
-        result.push_back(gdcm::Tag(0x0008, 0x0201));  // Timezone Offset From UTC
-        result.push_back(gdcm::Tag(0x0008, 0x1190));  // Retrieve URL
-        result.push_back(gdcm::Tag(0x0020, 0x0013));  // Instance Number
-        result.push_back(gdcm::Tag(0x0028, 0x0010));  // Rows
-        result.push_back(gdcm::Tag(0x0028, 0x0011));  // Columns
-        result.push_back(gdcm::Tag(0x0028, 0x0100));  // Bits Allocated
-        result.push_back(gdcm::Tag(0x0028, 0x0008));  // Number of Frames
-        break;
-
-      default:
-        throw std::runtime_error("Internal error");
-    }
-  }
-
-
-
-public:
-  ModuleMatcher(const OrthancPluginHttpRequest* request) :
-  dictionary_(gdcm::Global::GetInstance().GetDicts().GetPublicDict()),
-  fuzzy_(false),
-  offset_(0),
-  limit_(0),
-  includeAllFields_(false)
-  {
-    for (int32_t i = 0; i < request->getCount; i++)
-    {
-      std::string key(request->getKeys[i]);
-      std::string value(request->getValues[i]);
-
-      if (key == "limit")
-      {
-        limit_ = boost::lexical_cast<unsigned int>(value);
-      }
-      else if (key == "offset")
-      {
-        offset_ = boost::lexical_cast<unsigned int>(value);
-      }
-      else if (key == "fuzzymatching")
-      {
-        if (value == "true")
-        {
-          fuzzy_ = true;
-        }
-        else if (value == "false")
-        {
-          fuzzy_ = false;
-        }
-        else
-        {
-          throw std::runtime_error("Not a proper value for fuzzy matching (true or false): " + value);
-        }
-      }
-      else if (key == "includefield")
-      {
-        if (key == "all")
-        {
-          includeAllFields_ = true;
-        }
-        else
-        {
-          includeFields_.push_back(ParseTag(key));
-        }
-      }
-      else
-      {
-        filters_[ParseTag(key)] = value;
-      }
-    }
-  }
-
-  unsigned int GetLimit() const
-  {
-    return limit_;
-  }
-
-  unsigned int GetOffset() const
-  {
-    return offset_;
-  }
-
-  void AddFilter(const gdcm::Tag& tag,
-                 const std::string& constraint)
-  {
-    filters_[tag] = constraint;
-  }
-
-  bool LookupExactFilter(std::string& constraint,
-                         const gdcm::Tag& tag) const
-  {
-    Filters::const_iterator it = filters_.find(tag);
-    if (it != filters_.end() &&
-        !IsWildcard(it->second))
-    {
-      constraint = it->second;
-      return true;
-    }
-    else
-    {
-      return false;
-    }
-  }
-
-  bool Matches(const OrthancPlugins::ParsedDicomFile& dicom) const
-  {
-    for (Filters::const_iterator it = filters_.begin();
-         it != filters_.end(); ++it)
-    {
-      std::string value;
-      if (!dicom.GetTag(value, it->first, true))
-      {
-        return false;
-      }
-
-      if (!Matches(value, it->second))
-      {
-        return false;
-      }
-    }
-
-    return true;
-  }
-
-
-  void ExtractFields(gdcm::DataSet& result,
-                     const OrthancPlugins::ParsedDicomFile& dicom,
-                     const std::string& wadoBase,
-                     QueryLevel level) const
-  {
-    std::list<gdcm::Tag> fields = includeFields_;
-
-    // The list of attributes for this query level
-    AddResultAttributesForLevel(fields, level);
-
-    // All other attributes passed as query keys
-    for (Filters::const_iterator it = filters_.begin();
-         it != filters_.end(); ++it)
-    {
-      fields.push_back(it->first);
-    }
-
-    // For instances and series, add all Study-level attributes if
-    // {StudyInstanceUID} is not specified.
-    if ((level == QueryLevel_Instance  || level == QueryLevel_Series) 
-        && filters_.find(OrthancPlugins::DICOM_TAG_STUDY_INSTANCE_UID) == filters_.end()
-      )
-    {
-      AddResultAttributesForLevel(fields, QueryLevel_Study);
-    }
-
-    // For instances, add all Series-level attributes if
-    // {SeriesInstanceUID} is not specified.
-    if (level == QueryLevel_Instance
-        && filters_.find(OrthancPlugins::DICOM_TAG_SERIES_INSTANCE_UID) == filters_.end()
-      )
-    {
-      AddResultAttributesForLevel(fields, QueryLevel_Series);
-    }
-
-    // Copy all the required fields to the target
-    for (std::list<gdcm::Tag>::const_iterator
-           it = fields.begin(); it != fields.end(); it++)
-    {
-      if (dicom.GetDataSet().FindDataElement(*it))
-      {
-        const gdcm::DataElement& element = dicom.GetDataSet().GetDataElement(*it);
-        result.Replace(element);
-      }
-    }
-
-    // Set the retrieve URL for WADO-RS
-    std::string url = (wadoBase + "/studies/" + 
-                       dicom.GetTagWithDefault(OrthancPlugins::DICOM_TAG_STUDY_INSTANCE_UID, "", true));
-
-    if (level == QueryLevel_Series || level == QueryLevel_Instance)
-    {
-      url += "/series/" + dicom.GetTagWithDefault(OrthancPlugins::DICOM_TAG_SERIES_INSTANCE_UID, "", true);
-    }
-
-    if (level == QueryLevel_Instance)
-    {
-      url += "/instances/" + dicom.GetTagWithDefault(OrthancPlugins::DICOM_TAG_SOP_INSTANCE_UID, "", true);
-    }
-    
-    gdcm::DataElement element(OrthancPlugins::DICOM_TAG_RETRIEVE_URL);
-    element.SetByteValue(url.c_str(), url.size());
-    result.Replace(element);
-  }
-};
-
-
-
-
-class CandidateResources
-{
-private:
-  typedef std::set<std::string>  Resources;
-
-  bool        all_;
-  QueryLevel  level_;
-  Resources   resources_;
-
-  static bool CallLookup(std::string& orthancId,
-                         const std::string& dicomId,
-                         char* (lookup) (OrthancPluginContext*, const char*))
-  {
-    bool result = false;
-
-    char* tmp = lookup(context_, dicomId.c_str());
-    if (tmp != NULL)
-    {
-      orthancId = tmp;
-      result = true;
-    }
-
-    OrthancPluginFreeString(context_, tmp);
-
-    return result;
-  }
-
-
-  void FilterByIdentifierInternal(const ModuleMatcher& matcher,
-                                  const gdcm::Tag& tag,
-                                  char* (lookup) (OrthancPluginContext*, const char*))
-  {
-    std::string orthancId, dicomId;
-
-    if (!matcher.LookupExactFilter(dicomId, tag))
-    {
-      // There is no restriction at this level
-      return;
-    }
-
-    if (CallLookup(orthancId, dicomId, lookup) &&
-        (all_ || resources_.find(orthancId) != resources_.end()))
-    {
-      // There remains a single candidate resource
-      resources_.clear();
-      resources_.insert(orthancId);
-    }
-    else
-    {
-      // No matching resource remains
-      resources_.clear();            
-    }
-
-    all_ = false;
-  }
-
-
-  bool PickOneInstance(std::string& instance,
-                       const std::string& resource) const
-  {
-    if (level_ == QueryLevel_Instance)
-    {
-      instance = resource;
-      return true;
-    }
-
-    std::string uri;
-    if (level_ == QueryLevel_Study)
-    {
-      uri = "/studies/" + resource + "/instances";
-    }
-    else
-    {
-      assert(level_ == QueryLevel_Series);
-      uri = "/series/" + resource + "/instances";
-    }
-
-    Json::Value instances;
-    if (!OrthancPlugins::RestApiGetJson(instances, context_, uri) ||
-        instances.type() != Json::arrayValue ||
-        instances.size() == 0)
-    {
-      return false;
-    }
-    else
-    {
-      instance = instances[0]["ID"].asString();
-      return true;
-    }
-  }
-
-
-public:
-  CandidateResources() : all_(true), level_(QueryLevel_Study)
-  {
-  }
-
-  void GoDown()
-  {
-    std::string baseUri;
-    std::string nextLevel;
-    switch (level_)
-    {
-      case QueryLevel_Study:
-        baseUri = "/studies/";
-        nextLevel = "Series";
-        break;
-
-      case QueryLevel_Series:
-        baseUri = "/series/";
-        nextLevel = "Instances";
-        break;
-
-      default:
-        throw std::runtime_error("Internal error");
-    }
-
-
-    if (!all_)
-    {
-      Resources  children;
-      
-      for (Resources::const_iterator it = resources_.begin();
-           it != resources_.end(); it++)
-      {
-        Json::Value tmp;
-        if (OrthancPlugins::RestApiGetJson(tmp, context_, baseUri + *it) &&
-            tmp.type() == Json::objectValue &&
-            tmp.isMember(nextLevel) &&
-            tmp[nextLevel].type() == Json::arrayValue)
-        {
-          for (Json::Value::ArrayIndex i = 0; i < tmp[nextLevel].size(); i++)
-          {
-            children.insert(tmp[nextLevel][i].asString());
-          }
-        }
-      }
-
-      resources_ = children;
-    }
-
-
-    switch (level_)
-    {
-      case QueryLevel_Study:
-        level_ = QueryLevel_Series;
-        break;
-
-      case QueryLevel_Series:
-        level_ = QueryLevel_Instance;
-        break;
-
-      default:
-        throw std::runtime_error("Internal error");
-    }
-  }
-
-
-  void FilterByIdentifier(const ModuleMatcher& matcher)
-  {
-    switch (level_)
-    {
-      case QueryLevel_Study:
-        FilterByIdentifierInternal(matcher, OrthancPlugins::DICOM_TAG_STUDY_INSTANCE_UID,
-                                   OrthancPluginLookupStudy);
-        FilterByIdentifierInternal(matcher, OrthancPlugins::DICOM_TAG_ACCESSION_NUMBER,
-                                   OrthancPluginLookupStudyWithAccessionNumber);
-        break;
-
-      case QueryLevel_Series:
-        FilterByIdentifierInternal(matcher, OrthancPlugins::DICOM_TAG_SERIES_INSTANCE_UID,
-                                   OrthancPluginLookupSeries);
-        break;
-
-      case QueryLevel_Instance:
-        FilterByIdentifierInternal(matcher, OrthancPlugins::DICOM_TAG_SOP_INSTANCE_UID,
-                                   OrthancPluginLookupInstance);
-        break;
-
-      default:
-        throw std::runtime_error("Internal error");
-    }
-  }
-
-
-  void Flatten(std::list<std::string>& result) const
-  {
-    std::string instance;
-
-    result.clear();
-
-    if (all_)
-    {
-      std::string uri;
+      std::string baseUri;
+      std::string nextLevel;
       switch (level_)
       {
         case QueryLevel_Study:
-          uri = "/studies/";
+          baseUri = "/studies/";
+          nextLevel = "Series";
           break;
 
         case QueryLevel_Series:
-          uri = "/series/";
-          break;
-
-        case QueryLevel_Instance:
-          uri = "/instances/";
+          baseUri = "/series/";
+          nextLevel = "Instances";
           break;
 
         default:
           throw std::runtime_error("Internal error");
       }
 
-      Json::Value tmp;
-      if (OrthancPlugins::RestApiGetJson(tmp, context_, uri) &&
-          tmp.type() == Json::arrayValue)
+
+      if (!all_)
       {
-        for (Json::Value::ArrayIndex i = 0; i < tmp.size(); i++)
+        Resources  children;
+      
+        for (Resources::const_iterator it = resources_.begin();
+             it != resources_.end(); it++)
         {
-          if (PickOneInstance(instance, tmp[i].asString()))
+          Json::Value tmp;
+          if (OrthancPlugins::RestApiGetJson(tmp, context_, baseUri + *it) &&
+              tmp.type() == Json::objectValue &&
+              tmp.isMember(nextLevel) &&
+              tmp[nextLevel].type() == Json::arrayValue)
+          {
+            for (Json::Value::ArrayIndex i = 0; i < tmp[nextLevel].size(); i++)
+            {
+              children.insert(tmp[nextLevel][i].asString());
+            }
+          }
+        }
+
+        resources_ = children;
+      }
+
+
+      switch (level_)
+      {
+        case QueryLevel_Study:
+          level_ = QueryLevel_Series;
+          break;
+
+        case QueryLevel_Series:
+          level_ = QueryLevel_Instance;
+          break;
+
+        default:
+          throw std::runtime_error("Internal error");
+      }
+    }
+
+
+    void FilterByIdentifier(const ModuleMatcher& matcher)
+    {
+      switch (level_)
+      {
+        case QueryLevel_Study:
+          FilterByIdentifierInternal(matcher, OrthancPlugins::DICOM_TAG_STUDY_INSTANCE_UID,
+                                     OrthancPluginLookupStudy);
+          FilterByIdentifierInternal(matcher, OrthancPlugins::DICOM_TAG_ACCESSION_NUMBER,
+                                     OrthancPluginLookupStudyWithAccessionNumber);
+          break;
+
+        case QueryLevel_Series:
+          FilterByIdentifierInternal(matcher, OrthancPlugins::DICOM_TAG_SERIES_INSTANCE_UID,
+                                     OrthancPluginLookupSeries);
+          break;
+
+        case QueryLevel_Instance:
+          FilterByIdentifierInternal(matcher, OrthancPlugins::DICOM_TAG_SOP_INSTANCE_UID,
+                                     OrthancPluginLookupInstance);
+          break;
+
+        default:
+          throw std::runtime_error("Internal error");
+      }
+    }
+
+
+    void Flatten(std::list<std::string>& result) const
+    {
+      std::string instance;
+
+      result.clear();
+
+      if (all_)
+      {
+        std::string uri;
+        switch (level_)
+        {
+          case QueryLevel_Study:
+            uri = "/studies/";
+            break;
+
+          case QueryLevel_Series:
+            uri = "/series/";
+            break;
+
+          case QueryLevel_Instance:
+            uri = "/instances/";
+            break;
+
+          default:
+            throw std::runtime_error("Internal error");
+        }
+
+        Json::Value tmp;
+        if (OrthancPlugins::RestApiGetJson(tmp, context_, uri) &&
+            tmp.type() == Json::arrayValue)
+        {
+          for (Json::Value::ArrayIndex i = 0; i < tmp.size(); i++)
+          {
+            if (PickOneInstance(instance, tmp[i].asString()))
+            {
+              result.push_back(instance);
+            }
+          }
+        }
+      }
+      else
+      {
+        for (Resources::const_iterator 
+               it = resources_.begin(); it != resources_.end(); it++)
+        {
+          if (PickOneInstance(instance, *it))
           {
             result.push_back(instance);
           }
         }
       }
     }
-    else
-    {
-      for (Resources::const_iterator 
-             it = resources_.begin(); it != resources_.end(); it++)
-      {
-        if (PickOneInstance(instance, *it))
-        {
-          result.push_back(instance);
-        }
-      }
-    }
-  }
-};
+  };
+}
 
-
-
-class SearchResults
-{
-private:
-  typedef std::list<gdcm::DataSet*>   Results;
-
-  Results results_;
-
-public:
-  ~SearchResults()
-  {
-    for (Results::iterator it = results_.begin();
-         it != results_.end(); it++)
-    {
-      delete *it;
-    }
-  }
-
-  void Add(const OrthancPlugins::ParsedDicomFile& dicom,
-           const ModuleMatcher& matcher,
-           const std::string& wadoBase,
-           QueryLevel level)
-  {
-    std::auto_ptr<gdcm::DataSet> result(new gdcm::DataSet);
-    matcher.ExtractFields(*result, dicom, wadoBase, level);
-    results_.push_back(result.release());
-  }
-
-  void Answer(OrthancPluginContext* context,
-              OrthancPluginRestOutput* output,
-              bool isXml)
-  {
-    if (isXml)
-    {
-      OrthancPlugins::MultipartWriter writer("application/dicom+xml");
-
-      for (Results::const_iterator it = results_.begin();
-           it != results_.end(); it++)
-      {
-        std::string answer;
-        OrthancPlugins::GenerateSingleDicomAnswer(answer, *dictionary_, **it, true);
-        writer.AddPart(answer);
-      }
-
-      writer.Answer(context_, output);
-    }
-    else
-    {
-      OrthancPlugins::ChunkedBuffer chunks;
-      chunks.AddChunk("[\n");
-
-      std::string s = "[\n";
-
-      bool isFirst = true;
-      for (Results::const_iterator it = results_.begin();
-           it != results_.end(); it++)
-      {
-        if (isFirst)
-        {
-          isFirst = false;
-        }
-        else
-        {
-          chunks.AddChunk(",\n");
-        }
-
-        std::string item;
-        OrthancPlugins::GenerateSingleDicomAnswer(item, *dictionary_, **it, false);
-        chunks.AddChunk(item);
-      }
-
-      chunks.AddChunk("]\n");
-
-      std::string answer;
-      chunks.Flatten(answer);
-      OrthancPluginAnswerBuffer(context, output, answer.c_str(), answer.size(), "application/json");
-    }
-  }
-};
 
 
 
@@ -815,7 +740,9 @@ static void ApplyMatcher(OrthancPluginRestOutput* output,
   candidates.Flatten(resources);
 
   std::string wadoBase = OrthancPlugins::Configuration::GetBaseUrl(configuration_, request) + "/wado-rs";
-  SearchResults results;
+
+  OrthancPlugins::DicomResults results(*dictionary_, IsXmlExpected(request), true);
+
   for (std::list<std::string>::const_iterator
          it = resources.begin(); it != resources.end(); it++)
   {
@@ -825,12 +752,14 @@ static void ApplyMatcher(OrthancPluginRestOutput* output,
       OrthancPlugins::ParsedDicomFile dicom(file);
       if (matcher.Matches(dicom))
       {
-        results.Add(dicom, matcher, wadoBase, level);
+        std::auto_ptr<gdcm::DataSet> result(new gdcm::DataSet);
+        matcher.ExtractFields(*result, dicom, wadoBase, level);
+        results.Add(*result);
       }
     }
   }
 
-  results.Answer(context_, output, IsXmlExpected(request));
+  results.Answer(context_, output);
 }
 
 

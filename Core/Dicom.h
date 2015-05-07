@@ -26,6 +26,7 @@
 #include <gdcmDataSet.h>
 #include <pugixml.hpp>
 #include <gdcmDict.h>
+#include <list>
 
 
 namespace OrthancPlugins
@@ -74,22 +75,16 @@ namespace OrthancPlugins
   };
 
 
-  void DicomToXml(pugi::xml_document& target,
-                  const gdcm::Dict& dictionary,
-                  const gdcm::DataSet& dicom);
-
-  void DicomToJson(Json::Value& target,
-                  const gdcm::Dict& dictionary,
-                   const gdcm::DataSet& dicom);
-
   void GenerateSingleDicomAnswer(std::string& result,
                                  const gdcm::Dict& dictionary,
                                  const gdcm::DataSet& dicom,
-                                 bool isXml);
+                                 bool isXml,
+                                 bool isBulkAccessible);
 
   void AnswerDicom(OrthancPluginContext* context,
                    OrthancPluginRestOutput* output,
                    const gdcm::Dict& dictionary,
                    const gdcm::DataSet& dicom,
-                   bool isXml);
+                   bool isXml,
+                   bool isBulkAccessible);
 }

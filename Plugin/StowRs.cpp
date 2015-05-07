@@ -223,7 +223,7 @@ int32_t StowCallback(OrthancPluginRestOutput* output,
     SetSequenceTag(result, OrthancPlugins::DICOM_TAG_FAILED_SOP_SEQUENCE, failed);
     SetSequenceTag(result, OrthancPlugins::DICOM_TAG_REFERENCED_SOP_SEQUENCE, success);
 
-    OrthancPlugins::AnswerDicom(context_, output, *dictionary_, result, isXml);
+    OrthancPlugins::AnswerDicom(context_, output, *dictionary_, result, isXml, false);
 
     return 0;
   }

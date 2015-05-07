@@ -34,3 +34,15 @@ int32_t RetrieveDicomSeries(OrthancPluginRestOutput* output,
 int32_t RetrieveDicomInstance(OrthancPluginRestOutput* output,
                               const char* url,
                               const OrthancPluginHttpRequest* request);
+
+int32_t RetrieveStudyMetadata(OrthancPluginRestOutput* output,
+                              const char* url,
+                              const OrthancPluginHttpRequest* request);
+
+int32_t RetrieveSeriesMetadata(OrthancPluginRestOutput* output,
+                               const char* url,
+                               const OrthancPluginHttpRequest* request);
+
+int32_t RetrieveInstanceMetadata(OrthancPluginRestOutput* output,
+                                 const char* url,
+                                 const OrthancPluginHttpRequest* request);

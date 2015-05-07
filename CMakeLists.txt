@@ -79,9 +79,10 @@ set(CORE_SOURCES
   ${PUGIXML_SOURCES}
   Core/ChunkedBuffer.cpp
   Core/Configuration.cpp
-  Core/Toolbox.cpp
   Core/Dicom.cpp
+  Core/DicomResults.cpp
   Core/MultipartWriter.cpp
+  Core/Toolbox.cpp
   )
 
 add_library(OrthancDicomWeb SHARED ${CORE_SOURCES}

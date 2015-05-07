@@ -27,10 +27,16 @@ Not supported
 ================================
 6.5.4 WADO-RS / RetrieveFrames
 6.5.5 WADO-RS / RetrieveBulkdata
-6.5.6 WADO-RS / RetrieveMetadata
 ================================
 
 Not supported.
+
+
+================================
+6.5.6 WADO-RS / RetrieveMetadata
+================================
+
+Supported.
 
 
 
