@@ -36,12 +36,14 @@ namespace OrthancPlugins
     jsonWriter_.AddChunk("[\n");
   }
 
-  void DicomResults::Add(const gdcm::DataSet& dicom)
+
+  void DicomResults::AddInternal(const gdcm::File* file,
+                                 const gdcm::DataSet& dicom)
   {
     if (isXml_)
     {
       std::string answer;
-      GenerateSingleDicomAnswer(answer, dictionary_, dicom, true, isBulkAccessible_);
+      GenerateSingleDicomAnswer(answer, dictionary_, file, dicom, true, isBulkAccessible_);
       xmlWriter_.AddPart(answer);
     }
     else
@@ -52,7 +54,7 @@ namespace OrthancPlugins
       }
 
       std::string item;
-      GenerateSingleDicomAnswer(item, dictionary_, dicom, false, isBulkAccessible_);
+      GenerateSingleDicomAnswer(item, dictionary_, file, dicom, false, isBulkAccessible_);
       jsonWriter_.AddChunk(item);
     }
 

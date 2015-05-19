@@ -60,6 +60,11 @@ namespace OrthancPlugins
       Setup(dicom);
     }
 
+    const gdcm::File& GetFile() const
+    {
+      return reader_.GetFile();
+    }
+
     const gdcm::DataSet& GetDataSet() const
     {
       return reader_.GetFile().GetDataSet();
@@ -77,6 +82,7 @@ namespace OrthancPlugins
 
   void GenerateSingleDicomAnswer(std::string& result,
                                  const gdcm::Dict& dictionary,
+                                 const gdcm::File* file,  // Can be NULL
                                  const gdcm::DataSet& dicom,
                                  bool isXml,
                                  bool isBulkAccessible);

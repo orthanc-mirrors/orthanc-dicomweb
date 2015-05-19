@@ -236,7 +236,7 @@ static void AnswerMetadata(OrthancPluginRestOutput* output,
     if (OrthancPlugins::RestApiGetString(content, context_, *it))
     {
       OrthancPlugins::ParsedDicomFile dicom(content);
-      results.Add(dicom.GetDataSet());
+      results.Add(dicom.GetFile());
     }
   }
 
@@ -611,11 +611,13 @@ static bool ExploreBulkData(std::string& content,
     const gdcm::ByteValue* data = element.GetByteValue();
     if (!data)
     {
-      printf("AIE\n");
-      return false;
+      content.clear();
+    }
+    else
+    {
+      content.assign(data->GetPointer(), data->GetLength());
     }
 
-    content.assign(data->GetPointer(), data->GetLength());
     return true;
   }
 

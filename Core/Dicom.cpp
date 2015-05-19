@@ -24,6 +24,7 @@
 #include "MultipartWriter.h"
 
 #include <gdcmDictEntry.h>
+#include <gdcmStringFilter.h>
 #include <boost/lexical_cast.hpp>
 #include <json/writer.h>
 
@@ -191,20 +192,20 @@ namespace OrthancPlugins
      * being retrieved as bulk data. We commented out some of them, as
      * they correspond to strings and not to binary data.
      **/
-    return (vr == "FL" ||
-            vr == "FD" ||
+    return (//vr == "FL" ||
+            //vr == "FD" ||
             //vr == "IS" ||
             vr == "LT" ||
             vr == "OB" ||
             vr == "OD" ||
             vr == "OF" ||
             vr == "OW" ||
-            vr == "SL" ||
-            vr == "SS" ||
+            //vr == "SL" ||
+            //vr == "SS" ||
             //vr == "ST" ||
-            vr == "UL" ||
+            //vr == "UL" ||
             vr == "UN" ||
-            vr == "US" ||
+            //vr == "US" ||
             vr == "UT");
   }
 
@@ -250,6 +251,8 @@ namespace OrthancPlugins
 
 
   static bool ConvertDicomStringToUf8(std::string& result,
+                                      const gdcm::Dict& dictionary,
+                                      const gdcm::File* file,
                                       const gdcm::DataElement& element,
                                       const Encoding sourceEncoding)
   {
@@ -257,6 +260,26 @@ namespace OrthancPlugins
     if (!data)
     {
       return false;
+    }
+
+    if (file != NULL)
+    {
+      bool isSequence;
+      std::string vr = GetVRName(isSequence, dictionary, element);
+      if (!isSequence && (
+            vr == "FL" ||
+            vr == "FD" ||
+            vr == "SL" ||
+            vr == "SS" ||
+            vr == "UL" ||
+            vr == "US"
+            ))
+      {      
+        gdcm::StringFilter f;
+        f.SetFile(*file);
+        result = f.ToString(element.GetTag());
+        return true;
+      }
     }
 
     if (sourceEncoding == Encoding_Utf8)
@@ -276,6 +299,7 @@ namespace OrthancPlugins
 
   static void DicomToXmlInternal(pugi::xml_node& target,
                                  const gdcm::Dict& dictionary,
+                                 const gdcm::File* file,
                                  const gdcm::DataSet& dicom,
                                  const Encoding sourceEncoding,
                                  const std::string& bulkUri)
@@ -325,7 +349,7 @@ namespace OrthancPlugins
             childUri = bulkUri + std::string(path) + "/" + number + "/";
           }
 
-          DicomToXmlInternal(item, dictionary, seq->GetItem(i).GetNestedDataSet(), sourceEncoding, childUri);
+          DicomToXmlInternal(item, dictionary, file, seq->GetItem(i).GetNestedDataSet(), sourceEncoding, childUri);
         }
       }
       else if (IsBulkData(vr))
@@ -345,7 +369,7 @@ namespace OrthancPlugins
         value.append_attribute("number").set_value("1");
 
         std::string tmp;
-        if (ConvertDicomStringToUf8(tmp, *it, sourceEncoding)) 
+        if (ConvertDicomStringToUf8(tmp, dictionary, file, *it, sourceEncoding)) 
         {
           value.append_child(pugi::node_pcdata).set_value(tmp.c_str());
         }
@@ -356,6 +380,7 @@ namespace OrthancPlugins
 
   static void DicomToXml(pugi::xml_document& target,
                          const gdcm::Dict& dictionary,
+                         const gdcm::File* file,
                          const gdcm::DataSet& dicom,
                          const std::string& bulkUriRoot)
   {
@@ -365,7 +390,7 @@ namespace OrthancPlugins
     root.append_attribute("xmlns:xsi").set_value("http://www.w3.org/2001/XMLSchema-instance");
 
     Encoding encoding = DetectEncoding(dicom);
-    DicomToXmlInternal(root, dictionary, dicom, encoding, bulkUriRoot);
+    DicomToXmlInternal(root, dictionary, file, dicom, encoding, bulkUriRoot);
 
     pugi::xml_node decl = target.prepend_child(pugi::node_declaration);
     decl.append_attribute("version").set_value("1.0");
@@ -375,6 +400,7 @@ namespace OrthancPlugins
 
   static void DicomToJsonInternal(Json::Value& target,
                                   const gdcm::Dict& dictionary,
+                                  const gdcm::File* file,
                                   const gdcm::DataSet& dicom,
                                   const std::string& bulkUri,
                                   Encoding sourceEncoding)
@@ -421,7 +447,7 @@ namespace OrthancPlugins
             childUri = bulkUri + std::string(path) + "/" + number + "/";
           }
 
-          DicomToJsonInternal(child, dictionary, seq->GetItem(i).GetNestedDataSet(), childUri, sourceEncoding);
+          DicomToJsonInternal(child, dictionary, file, seq->GetItem(i).GetNestedDataSet(), childUri, sourceEncoding);
           node["Value"].append(child);
         }
       }
@@ -439,7 +465,7 @@ namespace OrthancPlugins
         node["Value"] = Json::arrayValue;
 
         std::string value;
-        if (ConvertDicomStringToUf8(value, *it, sourceEncoding)) 
+        if (ConvertDicomStringToUf8(value, dictionary, file, *it, sourceEncoding)) 
         {
           node["Value"].append(value.c_str());
         }
@@ -452,16 +478,18 @@ namespace OrthancPlugins
 
   static void DicomToJson(Json::Value& target,
                           const gdcm::Dict& dictionary,
+                          const gdcm::File* file,
                           const gdcm::DataSet& dicom,
                           const std::string& bulkUriRoot)
   {
     Encoding encoding = DetectEncoding(dicom);
-    DicomToJsonInternal(target, dictionary, dicom, bulkUriRoot, encoding);
+    DicomToJsonInternal(target, dictionary, file, dicom, bulkUriRoot, encoding);
   }
 
 
   void GenerateSingleDicomAnswer(std::string& result,
                                  const gdcm::Dict& dictionary,
+                                 const gdcm::File* file,  // Can be NULL
                                  const gdcm::DataSet& dicom,
                                  bool isXml,
                                  bool isBulkAccessible)
@@ -475,7 +503,7 @@ namespace OrthancPlugins
     if (isXml)
     {
       pugi::xml_document doc;
-      DicomToXml(doc, dictionary, dicom, bulkUriRoot);
+      DicomToXml(doc, dictionary, file, dicom, bulkUriRoot);
     
       ChunkedBufferWriter writer;
       doc.save(writer, "  ", pugi::format_default, pugi::encoding_utf8);
@@ -485,7 +513,7 @@ namespace OrthancPlugins
     else
     {
       Json::Value v;
-      DicomToJson(v, dictionary, dicom, bulkUriRoot);
+      DicomToJson(v, dictionary, file, dicom, bulkUriRoot);
 
       Json::FastWriter writer;
       result = writer.write(v); 
@@ -501,7 +529,7 @@ namespace OrthancPlugins
                    bool isBulkAccessible)
   {
     std::string answer;
-    GenerateSingleDicomAnswer(answer, dictionary, dicom, isXml, isBulkAccessible);
+    GenerateSingleDicomAnswer(answer, dictionary, NULL, dicom, isXml, isBulkAccessible);
     OrthancPluginAnswerBuffer(context, output, answer.c_str(), answer.size(), 
                               isXml ? "application/dicom+xml" : "application/json");
   }

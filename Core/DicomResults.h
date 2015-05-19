@@ -25,6 +25,7 @@
 
 #include <gdcmDataSet.h>
 #include <gdcmDict.h>
+#include <gdcmFile.h>
 
 namespace OrthancPlugins
 {
@@ -38,12 +39,23 @@ namespace OrthancPlugins
     bool              isXml_;
     bool              isBulkAccessible_;
 
+    void AddInternal(const gdcm::File* file,
+                     const gdcm::DataSet& dicom);
+
   public:
     DicomResults(const gdcm::Dict& dictionary,
                  bool isXml,
                  bool isBulkAccessible);
 
-    void Add(const gdcm::DataSet& dicom);
+    void Add(const gdcm::File& file)
+    {
+      AddInternal(&file, file.GetDataSet());
+    }
+
+    void Add(const gdcm::DataSet& dicom)
+    {
+      AddInternal(NULL, dicom);
+    }
 
     void Answer(OrthancPluginContext* context,
                 OrthancPluginRestOutput* output);

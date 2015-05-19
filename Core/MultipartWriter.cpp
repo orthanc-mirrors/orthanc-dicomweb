@@ -20,6 +20,8 @@
 
 #include "MultipartWriter.h"
 
+#include <boost/lexical_cast.hpp>
+
 namespace OrthancPlugins
 {
   MultipartWriter::MultipartWriter(const std::string& contentType) : 
@@ -33,6 +35,7 @@ namespace OrthancPlugins
   {
     std::string header = "--" + boundary_ + "\n";
     header += "Content-Type: " + contentType_ + "\n";
+    header += "Content-Length: " + boost::lexical_cast<std::string>(part.size()) + "\n";
     header += "MIME-Version: 1.0\n\n";
     chunks_.AddChunk(header);
     chunks_.AddChunk(part);
