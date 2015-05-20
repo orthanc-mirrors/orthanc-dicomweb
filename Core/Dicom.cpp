@@ -336,20 +336,22 @@ namespace OrthancPlugins
       if (isSequence)
       {
         gdcm::SmartPointer<gdcm::SequenceOfItems> seq = it->GetValueAsSQ();
-
-        for (gdcm::SequenceOfItems::SizeType i = 1; i <= seq->GetNumberOfItems(); i++)
+        if (seq.GetPointer() != NULL)
         {
-          pugi::xml_node item = node.append_child("Item");
-          std::string number = boost::lexical_cast<std::string>(i);
-          item.append_attribute("number").set_value(number.c_str());
-
-          std::string childUri;
-          if (!bulkUri.empty())
+          for (gdcm::SequenceOfItems::SizeType i = 1; i <= seq->GetNumberOfItems(); i++)
           {
-            childUri = bulkUri + std::string(path) + "/" + number + "/";
-          }
+            pugi::xml_node item = node.append_child("Item");
+            std::string number = boost::lexical_cast<std::string>(i);
+            item.append_attribute("number").set_value(number.c_str());
 
-          DicomToXmlInternal(item, dictionary, file, seq->GetItem(i).GetNestedDataSet(), sourceEncoding, childUri);
+            std::string childUri;
+            if (!bulkUri.empty())
+            {
+              childUri = bulkUri + std::string(path) + "/" + number + "/";
+            }
+
+            DicomToXmlInternal(item, dictionary, file, seq->GetItem(i).GetNestedDataSet(), sourceEncoding, childUri);
+          }
         }
       }
       else if (IsBulkData(vr))
@@ -435,20 +437,22 @@ namespace OrthancPlugins
         node["Value"] = Json::arrayValue;
 
         gdcm::SmartPointer<gdcm::SequenceOfItems> seq = it->GetValueAsSQ();
-
-        for (gdcm::SequenceOfItems::SizeType i = 1; i <= seq->GetNumberOfItems(); i++)
+        if (seq.GetPointer() != NULL)
         {
-          Json::Value child;
-
-          std::string childUri;
-          if (!bulkUri.empty())
+          for (gdcm::SequenceOfItems::SizeType i = 1; i <= seq->GetNumberOfItems(); i++)
           {
-            std::string number = boost::lexical_cast<std::string>(i);
-            childUri = bulkUri + std::string(path) + "/" + number + "/";
-          }
+            Json::Value child;
 
-          DicomToJsonInternal(child, dictionary, file, seq->GetItem(i).GetNestedDataSet(), childUri, sourceEncoding);
-          node["Value"].append(child);
+            std::string childUri;
+            if (!bulkUri.empty())
+            {
+              std::string number = boost::lexical_cast<std::string>(i);
+              childUri = bulkUri + std::string(path) + "/" + number + "/";
+            }
+
+            DicomToJsonInternal(child, dictionary, file, seq->GetItem(i).GetNestedDataSet(), childUri, sourceEncoding);
+            node["Value"].append(child);
+          }
         }
       }
       else if (IsBulkData(vr))
