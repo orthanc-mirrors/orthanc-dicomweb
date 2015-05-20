@@ -197,7 +197,6 @@ namespace OrthancPlugins
         !(str[0] >= 'A' && str[0] <= 'Z') ||
         !(str[1] >= 'A' && str[1] <= 'Z'))
     {
-      printf("[%s]\n", str);
       return "UN";
     }
     else
