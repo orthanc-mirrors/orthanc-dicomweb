@@ -754,7 +754,7 @@ static void ApplyMatcher(OrthancPluginRestOutput* output,
       {
         std::auto_ptr<gdcm::DataSet> result(new gdcm::DataSet);
         matcher.ExtractFields(*result, dicom, wadoBase, level);
-        results.Add(*result);
+        results.Add(dicom.GetFile(), *result);
       }
     }
   }

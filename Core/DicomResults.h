@@ -52,9 +52,10 @@ namespace OrthancPlugins
       AddInternal(&file, file.GetDataSet());
     }
 
-    void Add(const gdcm::DataSet& dicom)
+    void Add(const gdcm::File& file,
+             const gdcm::DataSet& subset)
     {
-      AddInternal(NULL, dicom);
+      AddInternal(&file, subset);
     }
 
     void Answer(OrthancPluginContext* context,
