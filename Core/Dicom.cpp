@@ -177,11 +177,33 @@ namespace OrthancPlugins
     {
       const gdcm::DictEntry &entry = dictionary.GetDictEntry(element.GetTag());
       vr = entry.GetVR();
+
+      if (vr == gdcm::VR::OB_OW)
+      {
+        vr = gdcm::VR::OB;
+      }
     }
 
     isSequence = (vr == gdcm::VR::SQ);
 
-    return gdcm::VR::GetVRString(vr);
+    const char* str = gdcm::VR::GetVRString(vr);
+    if (isSequence)
+    {
+      return str;
+    }
+
+    if (str == NULL ||
+        strlen(str) != 2 ||
+        !(str[0] >= 'A' && str[0] <= 'Z') ||
+        !(str[1] >= 'A' && str[1] <= 'Z'))
+    {
+      printf("[%s]\n", str);
+      return "UN";
+    }
+    else
+    {
+      return str;
+    }
   }
 
 
