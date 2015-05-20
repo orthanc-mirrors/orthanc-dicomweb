@@ -355,7 +355,13 @@ namespace
           }
           else
           {
-            includeFields_.push_back(ParseTag(key));
+            // Split a comma-separated list of tags
+            std::vector<std::string> tags;
+            OrthancPlugins::TokenizeString(tags, value, ',');
+            for (size_t i = 0; i < tags.size(); i++)
+            {
+              includeFields_.push_back(ParseTag(tags[i]));
+            }
           }
         }
         else
