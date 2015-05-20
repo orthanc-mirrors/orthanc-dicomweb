@@ -265,7 +265,7 @@ namespace OrthancPlugins
     }
 
     std::string tmp(data->GetPointer(), data->GetLength());
-    StripSpaces(tmp);
+    tmp = StripSpaces(tmp);
 
     return GetDicomEncoding(tmp.c_str());
   }
@@ -313,7 +313,7 @@ namespace OrthancPlugins
       result = ConvertToUtf8(tmp, sourceEncoding);
     }
 
-    StripSpaces(result);
+    result = StripSpaces(result);
     return true;
   }
 
