@@ -31,6 +31,10 @@ elseif (${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
   if (CMAKE_COMPILER_IS_GNUCXX)
     SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libgcc -static-libstdc++")
     SET(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -static-libgcc -static-libstdc++")
+
+    # This line is necessary to compile with recent versions of MinGW,
+    # otherwise "libwinpthread-1.dll" is not statically linked.
+    SET(CMAKE_CXX_STANDARD_LIBRARIES "${CMAKE_CXX_STANDARD_LIBRARIES} -Wl,-Bstatic -lstdc++ -lpthread -Wl,-Bdynamic")
   endif()
 elseif (${CMAKE_SYSTEM_NAME} STREQUAL "FreeBSD")
   link_libraries(uuid)
