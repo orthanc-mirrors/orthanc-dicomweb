@@ -32,33 +32,30 @@ namespace OrthancPlugins
     bool Read(Json::Value& configuration,
               OrthancPluginContext* context)
     {
-      std::string path;
+      std::string s;
 
       {
-        char* pathTmp = OrthancPluginGetConfigurationPath(context);
-        if (pathTmp == NULL)
+        char* tmp = OrthancPluginGetConfiguration(context);
+        if (tmp == NULL)
         {
-          OrthancPluginLogError(context, "No configuration file is provided");
+          OrthancPluginLogError(context, "Error while retrieving the configuration from Orthanc");
           return false;
         }
 
-        path = std::string(pathTmp);
-
-        OrthancPluginFreeString(context, pathTmp);
+        s.assign(tmp);
+        OrthancPluginFreeString(context, tmp);      
       }
-
-      std::ifstream f(path.c_str());
 
       Json::Reader reader;
-      if (!reader.parse(f, configuration) ||
-          configuration.type() != Json::objectValue)
+      if (reader.parse(s, configuration))
       {
-        std::string s = "Unable to parse the configuration file: " + std::string(path);
-        OrthancPluginLogError(context, s.c_str());
+        return true;
+      }
+      else
+      {
+        OrthancPluginLogError(context, "Unable to parse the configuration");
         return false;
       }
-
-      return true;
     }
 
 
