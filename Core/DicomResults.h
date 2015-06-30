@@ -20,9 +20,9 @@
 
 #pragma once
 
-#include "MultipartWriter.h"
 #include "ChunkedBuffer.h"
 
+#include <orthanc/OrthancCPlugin.h>
 #include <gdcmDataSet.h>
 #include <gdcmDict.h>
 #include <gdcmFile.h>
@@ -32,18 +32,21 @@ namespace OrthancPlugins
   class DicomResults
   {
   private:
-    const gdcm::Dict& dictionary_;
-    MultipartWriter   xmlWriter_;  // Used for XML output
-    ChunkedBuffer     jsonWriter_;  // Used for JSON output
-    bool              isFirst_; 
-    bool              isXml_;
-    bool              isBulkAccessible_;
+    OrthancPluginContext*     context_;
+    OrthancPluginRestOutput*  output_;
+    const gdcm::Dict&         dictionary_;
+    ChunkedBuffer             jsonWriter_;  // Used for JSON output
+    bool                      isFirst_; 
+    bool                      isXml_;
+    bool                      isBulkAccessible_;
 
     void AddInternal(const gdcm::File* file,
                      const gdcm::DataSet& dicom);
 
   public:
-    DicomResults(const gdcm::Dict& dictionary,
+    DicomResults(OrthancPluginContext* context,
+                 OrthancPluginRestOutput* output,
+                 const gdcm::Dict& dictionary,
                  bool isXml,
                  bool isBulkAccessible);
 
@@ -58,7 +61,6 @@ namespace OrthancPlugins
       AddInternal(&file, subset);
     }
 
-    void Answer(OrthancPluginContext* context,
-                OrthancPluginRestOutput* output);
+    void Answer();
   };
 }

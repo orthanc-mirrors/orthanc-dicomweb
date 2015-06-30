@@ -25,8 +25,6 @@
 #include "../Core/Configuration.h"
 #include "../Core/Dicom.h"
 #include "../Core/DicomResults.h"
-#include "../Core/MultipartWriter.h"
-
 
 static bool AcceptMultipartDicom(const OrthancPluginHttpRequest* request)
 {
@@ -182,20 +180,23 @@ static int32_t AnswerListOfDicomInstances(OrthancPluginRestOutput* output,
     OrthancPluginSendHttpStatusCode(context_, output, 400);
     return 0;
   }
+
+  if (OrthancPluginStartMultipartAnswer(context_, output, "related", "application/dicom"))
+  {
+    return -1;
+  }
   
-  
-  OrthancPlugins::MultipartWriter writer("application/dicom");
   for (Json::Value::ArrayIndex i = 0; i < instances.size(); i++)
   {
     std::string uri = "/instances/" + instances[i]["ID"].asString() + "/file";
     std::string dicom;
-    if (OrthancPlugins::RestApiGetString(dicom, context_, uri))
+    if (OrthancPlugins::RestApiGetString(dicom, context_, uri) &&
+        OrthancPluginSendMultipartItem(context_, output, dicom.c_str(), dicom.size()) != 0)
     {
-      writer.AddPart(dicom);
+      return -1;
     }
   }
 
-  writer.Answer(context_, output);
   return 0;
 }
 
@@ -227,7 +228,7 @@ static void AnswerMetadata(OrthancPluginRestOutput* output,
     }
   }
 
-  OrthancPlugins::DicomResults results(*dictionary_, isXml, true);
+  OrthancPlugins::DicomResults results(context_, output, *dictionary_, isXml, true);
   
   for (std::list<std::string>::const_iterator
          it = files.begin(); it != files.end(); ++it)
@@ -240,7 +241,7 @@ static void AnswerMetadata(OrthancPluginRestOutput* output,
     }
   }
 
-  results.Answer(context_, output);
+  results.Answer();
 }
 
 
@@ -445,14 +446,17 @@ int32_t RetrieveDicomInstance(OrthancPluginRestOutput* output,
     std::string uri;
     if (LocateInstance(output, uri, request))
     {
-      OrthancPlugins::MultipartWriter writer("application/dicom");
-      std::string dicom;
-      if (OrthancPlugins::RestApiGetString(dicom, context_, uri + "/file"))
+      if (OrthancPluginStartMultipartAnswer(context_, output, "related", "application/dicom"))
       {
-        writer.AddPart(dicom);
+        return -1;
       }
-
-      writer.Answer(context_, output);
+  
+      std::string dicom;
+      if (OrthancPlugins::RestApiGetString(dicom, context_, uri + "/file") &&
+          OrthancPluginSendMultipartItem(context_, output, dicom.c_str(), dicom.size()) != 0)
+      {
+        return -1;
+      }
     }
 
     return 0;
@@ -649,9 +653,11 @@ int32_t RetrieveBulkData(OrthancPluginRestOutput* output,
       if (path.size() % 2 == 1 &&
           ExploreBulkData(result, path, 0, dicom.GetDataSet()))
       {
-        OrthancPlugins::MultipartWriter writer("application/octet-stream");
-        writer.AddPart(result);
-        writer.Answer(context_, output);
+        if (OrthancPluginStartMultipartAnswer(context_, output, "related", "application/octet-stream") != 0 ||
+            OrthancPluginSendMultipartItem(context_, output, result.c_str(), result.size()) != 0)
+        {
+          return -1;
+        }
       }
       else
       {
