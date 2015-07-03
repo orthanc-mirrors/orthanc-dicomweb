@@ -82,7 +82,6 @@ set(CORE_SOURCES
   Core/Configuration.cpp
   Core/Dicom.cpp
   Core/DicomResults.cpp
-  Core/MultipartWriter.cpp
   Core/Toolbox.cpp
   )
 

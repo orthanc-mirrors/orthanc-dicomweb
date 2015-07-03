@@ -7,6 +7,15 @@ Generic Linux (static linking)
 # make
 
 
+Dynamic linking for Ubuntu 14.04
+================================
+
+# mkdir Build
+# cd Build
+# cmake .. -DCMAKE_BUILD_TYPE=Debug -DUSE_GTEST_DEBIAN_SOURCE_PACKAGE=ON
+# make
+
+
 Dynamic linking for Ubuntu 12.10
 ================================
 

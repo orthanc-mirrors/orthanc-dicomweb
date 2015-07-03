@@ -50,11 +50,11 @@ if (STATIC_BUILD OR NOT USE_SYSTEM_GDCM)
     )
 
   if(MSVC)
-    set(Prefix "")
     set(Suffix ".lib")
+    set(Prefix "")
   else()
-    list(GET CMAKE_FIND_LIBRARY_PREFIXES 0 Prefix)
     set(Suffix ".a")
+    list(GET CMAKE_FIND_LIBRARY_PREFIXES 0 Prefix)
   endif()
 
   set(GDCM_LIBRARIES 

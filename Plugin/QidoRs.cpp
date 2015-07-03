@@ -26,7 +26,6 @@
 #include "../Core/DicomResults.h"
 #include "../Core/Toolbox.h"
 #include "../Core/Configuration.h"
-#include "../Core/MultipartWriter.h"
 
 #include <gdcmTag.h>
 #include <list>
@@ -747,7 +746,7 @@ static void ApplyMatcher(OrthancPluginRestOutput* output,
 
   std::string wadoBase = OrthancPlugins::Configuration::GetBaseUrl(configuration_, request) + "/wado-rs";
 
-  OrthancPlugins::DicomResults results(*dictionary_, IsXmlExpected(request), true);
+  OrthancPlugins::DicomResults results(context_, output, *dictionary_, IsXmlExpected(request), true);
 
   for (std::list<std::string>::const_iterator
          it = resources.begin(); it != resources.end(); it++)
@@ -765,7 +764,7 @@ static void ApplyMatcher(OrthancPluginRestOutput* output,
     }
   }
 
-  results.Answer(context_, output);
+  results.Answer();
 }
 
 

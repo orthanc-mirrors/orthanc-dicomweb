@@ -24,15 +24,24 @@
 
 namespace OrthancPlugins
 {
-  DicomResults::DicomResults(const gdcm::Dict& dictionary,
+  DicomResults::DicomResults(OrthancPluginContext* context,
+                             OrthancPluginRestOutput* output,
+                             const gdcm::Dict& dictionary,
                              bool isXml,
                              bool isBulkAccessible) :
+    context_(context),
+    output_(output),
     dictionary_(dictionary),
-    xmlWriter_("application/dicom+xml"),
     isFirst_(true),
     isXml_(isXml),
     isBulkAccessible_(isBulkAccessible)
   {
+    if (isXml_ &&
+        OrthancPluginStartMultipartAnswer(context_, output_, "related", "application/dicom+xml") != 0)
+    {
+      throw std::runtime_error("Unable to create a multipart stream of DICOM+XML answers");
+    }
+
     jsonWriter_.AddChunk("[\n");
   }
 
@@ -44,7 +53,11 @@ namespace OrthancPlugins
     {
       std::string answer;
       GenerateSingleDicomAnswer(answer, dictionary_, file, dicom, true, isBulkAccessible_);
-      xmlWriter_.AddPart(answer);
+
+      if (OrthancPluginSendMultipartItem(context_, output_, answer.c_str(), answer.size()) != 0)
+      {
+        throw std::runtime_error("Unable to write an item to a multipart stream of DICOM+XML answers");
+      }
     }
     else
     {
@@ -61,12 +74,11 @@ namespace OrthancPlugins
     isFirst_ = false;
   }
 
-  void DicomResults::Answer(OrthancPluginContext* context,
-                            OrthancPluginRestOutput* output)
+  void DicomResults::Answer()
   {
     if (isXml_)
     {
-      xmlWriter_.Answer(context, output);
+      // Nothing to do in this case
     }
     else
     {
@@ -74,7 +86,7 @@ namespace OrthancPlugins
 
       std::string answer;
       jsonWriter_.Flatten(answer);
-      OrthancPluginAnswerBuffer(context, output, answer.c_str(), answer.size(), "application/json");
+      OrthancPluginAnswerBuffer(context_, output_, answer.c_str(), answer.size(), "application/json");
     }
   }
 }

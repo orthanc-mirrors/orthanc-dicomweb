@@ -21,7 +21,6 @@
 #include "Dicom.h"
 
 #include "ChunkedBuffer.h"
-#include "MultipartWriter.h"
 
 #include <gdcmDictEntry.h>
 #include <gdcmStringFilter.h>
