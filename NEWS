@@ -3,6 +3,7 @@ Pending changes in the mainline
 
 No official release yet. Still work in progress.
 
+* All the APIs are now under the same root
 * Use of Orthanc built-in API for multipart answers (requires Orthanc >= 0.9.1)
 * Support of WADO-RS - RetrieveMetadata
 * Support of Visual Studio 2008
