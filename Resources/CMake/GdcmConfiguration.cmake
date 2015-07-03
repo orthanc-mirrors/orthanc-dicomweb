@@ -19,7 +19,9 @@
 if (STATIC_BUILD OR NOT USE_SYSTEM_GDCM)
   # If using gcc, build GDCM with the "-fPIC" argument to allow its
   # embedding into the shared library containing the Orthanc plugin
-  if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
+  if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux" OR
+      ${CMAKE_SYSTEM_NAME} STREQUAL "FreeBSD" OR
+      ${CMAKE_SYSTEM_NAME} STREQUAL "kFreeBSD")
     set(Flags -DCMAKE_CXX_FLAGS:STRING=-fPIC -DCMAKE_C_FLAGS:STRING=-fPIC)
   else()
     set(Flags
