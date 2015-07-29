@@ -103,6 +103,12 @@ set_target_properties(OrthancDicomWeb PROPERTIES
   SOVERSION ${ORTHANC_DICOM_WEB_VERSION}
   )
 
+install(
+  TARGETS OrthancDicomWeb
+  RUNTIME DESTINATION lib    # Destination for Windows
+  LIBRARY DESTINATION share/orthanc/plugins    # Destination for Linux
+  )
+
 add_executable(UnitTests
   ${CORE_SOURCES}
   ${GTEST_SOURCES}
