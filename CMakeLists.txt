@@ -43,6 +43,7 @@ set(ORTHANC_ROOT ${CMAKE_SOURCE_DIR}/Orthanc)
 include(CheckIncludeFiles)
 include(CheckIncludeFileCXX)
 include(CheckLibraryExists)
+include(FindPythonInterp)
 include(${ORTHANC_ROOT}/Resources/CMake/Compiler.cmake)
 include(${ORTHANC_ROOT}/Resources/CMake/DownloadPackage.cmake)
 
