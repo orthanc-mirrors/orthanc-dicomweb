@@ -111,6 +111,15 @@ extern "C"
       return -1;
     }
 
+    {
+      std::string version(context_->orthancVersion);
+      if (version == "0.9.1")
+      {
+        OrthancPluginLogWarning(context_, "If using STOW-RS, the DICOMweb plugin can lead to "
+                                "deadlocks in Orthanc version 0.9.1. Please upgrade Orthanc!");
+      }
+    }
+
 
     dictionary_ = &gdcm::Global::GetInstance().GetDicts().GetPublicDict();
 
