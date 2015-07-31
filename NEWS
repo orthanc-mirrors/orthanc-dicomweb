@@ -10,6 +10,7 @@ No official release yet. Still work in progress.
 * Support of Visual Studio 2008
 * Support of FreeBSD
 * Support of OS X
+* Update to Boost 1.58.0 for static and Windows builds
 
 
 2015/03/13

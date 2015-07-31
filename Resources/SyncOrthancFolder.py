@@ -26,7 +26,6 @@ FILES = [
     'Resources/MinGW-W64-Toolchain32.cmake',
     'Resources/MinGW-W64-Toolchain64.cmake',
     'Resources/MinGWToolchain.cmake',
-    'Resources/Patches/boost-1.55.0-clang-atomic.patch',
     'Resources/ThirdParty/VisualStudio/stdint.h',
     'Resources/WindowsResources.py',
     'Resources/WindowsResources.rc',
