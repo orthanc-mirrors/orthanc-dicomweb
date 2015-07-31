@@ -34,6 +34,7 @@ namespace OrthancPlugins
   private:
     OrthancPluginContext*     context_;
     OrthancPluginRestOutput*  output_;
+    std::string               wadoBase_;
     const gdcm::Dict&         dictionary_;
     ChunkedBuffer             jsonWriter_;  // Used for JSON output
     bool                      isFirst_; 
@@ -46,6 +47,7 @@ namespace OrthancPlugins
   public:
     DicomResults(OrthancPluginContext* context,
                  OrthancPluginRestOutput* output,
+                 const std::string& wadoBase,
                  const gdcm::Dict& dictionary,
                  bool isXml,
                  bool isBulkAccessible);

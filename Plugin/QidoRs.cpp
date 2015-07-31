@@ -318,7 +318,7 @@ namespace
       limit_(0),
       includeAllFields_(false)
     {
-      for (int32_t i = 0; i < request->getCount; i++)
+      for (uint32_t i = 0; i < request->getCount; i++)
       {
         std::string key(request->getKeys[i]);
         std::string value(request->getValues[i]);
@@ -470,7 +470,7 @@ namespace
       }
 
       // Set the retrieve URL for WADO-RS
-      std::string url = (wadoBase + "/studies/" + 
+      std::string url = (wadoBase + "studies/" + 
                          dicom.GetTagWithDefault(OrthancPlugins::DICOM_TAG_STUDY_INSTANCE_UID, "", true));
 
       if (level == QueryLevel_Series || level == QueryLevel_Instance)
@@ -744,9 +744,9 @@ static void ApplyMatcher(OrthancPluginRestOutput* output,
   std::list<std::string> resources;
   candidates.Flatten(resources);
 
-  std::string wadoBase = OrthancPlugins::Configuration::GetBaseUrl(configuration_, request) + "/wado-rs";
+  std::string wadoBase = OrthancPlugins::Configuration::GetBaseUrl(configuration_, request);
 
-  OrthancPlugins::DicomResults results(context_, output, *dictionary_, IsXmlExpected(request), true);
+  OrthancPlugins::DicomResults results(context_, output, wadoBase, *dictionary_, IsXmlExpected(request), true);
 
   for (std::list<std::string>::const_iterator
          it = resources.begin(); it != resources.end(); it++)

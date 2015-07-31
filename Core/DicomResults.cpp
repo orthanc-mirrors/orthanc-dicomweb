@@ -26,11 +26,13 @@ namespace OrthancPlugins
 {
   DicomResults::DicomResults(OrthancPluginContext* context,
                              OrthancPluginRestOutput* output,
+                             const std::string& wadoBase,
                              const gdcm::Dict& dictionary,
                              bool isXml,
                              bool isBulkAccessible) :
     context_(context),
     output_(output),
+    wadoBase_(wadoBase),
     dictionary_(dictionary),
     isFirst_(true),
     isXml_(isXml),
@@ -52,7 +54,7 @@ namespace OrthancPlugins
     if (isXml_)
     {
       std::string answer;
-      GenerateSingleDicomAnswer(answer, dictionary_, file, dicom, true, isBulkAccessible_);
+      GenerateSingleDicomAnswer(answer, wadoBase_, dictionary_, file, dicom, true, isBulkAccessible_);
 
       if (OrthancPluginSendMultipartItem(context_, output_, answer.c_str(), answer.size()) != 0)
       {
@@ -67,7 +69,7 @@ namespace OrthancPlugins
       }
 
       std::string item;
-      GenerateSingleDicomAnswer(item, dictionary_, file, dicom, false, isBulkAccessible_);
+      GenerateSingleDicomAnswer(item, wadoBase_, dictionary_, file, dicom, false, isBulkAccessible_);
       jsonWriter_.AddChunk(item);
     }
 

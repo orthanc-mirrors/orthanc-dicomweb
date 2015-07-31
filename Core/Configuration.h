@@ -34,7 +34,13 @@ namespace OrthancPlugins
                                const std::string& key,
                                const std::string& defaultValue);
     
-    std::string  GetBaseUrl(const Json::Value& configuration,
-                            const OrthancPluginHttpRequest* request);
+    bool GetBoolValue(const Json::Value& configuration,
+                      const std::string& key,
+                      bool defaultValue);
+
+    std::string GetRoot(const Json::Value& configuration);
+
+    std::string GetBaseUrl(const Json::Value& configuration,
+                           const OrthancPluginHttpRequest* request);
   }
 }

@@ -81,6 +81,7 @@ namespace OrthancPlugins
 
 
   void GenerateSingleDicomAnswer(std::string& result,
+                                 const std::string& wadoBase,
                                  const gdcm::Dict& dictionary,
                                  const gdcm::File* file,  // Can be NULL
                                  const gdcm::DataSet& dicom,
@@ -89,6 +90,7 @@ namespace OrthancPlugins
 
   void AnswerDicom(OrthancPluginContext* context,
                    OrthancPluginRestOutput* output,
+                   const std::string& wadoBase,
                    const gdcm::Dict& dictionary,
                    const gdcm::DataSet& dicom,
                    bool isXml,

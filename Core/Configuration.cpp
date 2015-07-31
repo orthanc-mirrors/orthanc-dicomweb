@@ -76,29 +76,73 @@ namespace OrthancPlugins
     }
 
 
+    bool GetBoolValue(const Json::Value& configuration,
+                      const std::string& key,
+                      bool defaultValue)
+    {
+      if (configuration.type() != Json::objectValue ||
+          !configuration.isMember(key) ||
+          configuration[key].type() != Json::booleanValue)
+      {
+        return defaultValue;
+      }
+      else
+      {
+        return configuration[key].asBool();
+      }
+    }
+
+
+    std::string GetRoot(const Json::Value& configuration)
+    {
+      std::string root;
+
+      if (configuration.isMember("DicomWeb"))
+      {
+        root = GetStringValue(configuration["DicomWeb"], "Root", "");
+      }
+
+      if (root.empty())
+      {
+        root = "/dicom-web/";
+      }
+
+      // Make sure the root URI starts and ends with a slash
+      if (root[0] != '/')
+      {
+        root = "/" + root;
+      }
+    
+      if (root[root.length() - 1] != '/')
+      {
+        root += "/";
+      }
+
+      return root;
+    }
+
+
     std::string  GetBaseUrl(const Json::Value& configuration,
                             const OrthancPluginHttpRequest* request)
     {
       std::string host;
+      bool ssl = false;
 
-      if (configuration.isMember("DicomWeb") &&
-          configuration["DicomWeb"].type() == Json::objectValue)
+      if (configuration.isMember("DicomWeb"))
       {
         host = GetStringValue(configuration["DicomWeb"], "Host", "");
-        if (!host.empty())
-        {
-          return host;
-        }
+        ssl = GetBoolValue(configuration["DicomWeb"], "Ssl", false);
       }
 
-      if (LookupHttpHeader(host, request, "host"))
+      if (host.empty() &&
+          !LookupHttpHeader(host, request, "host"))
       {
-        return "http://" + host;
+        // Should never happen: The "host" header should always be present
+        // in HTTP requests. Provide a default value anyway.
+        host = "localhost:8042";
       }
 
-      // Should never happen: The "host" header should always be present
-      // in HTTP requests. Provide a default value anyway.
-      return "http://localhost:8042/";
+      return (ssl ? "https://" : "http://") + host + GetRoot(configuration);
     }
   }
 }

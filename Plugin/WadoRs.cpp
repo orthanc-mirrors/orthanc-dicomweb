@@ -203,6 +203,7 @@ static int32_t AnswerListOfDicomInstances(OrthancPluginRestOutput* output,
 
 
 static void AnswerMetadata(OrthancPluginRestOutput* output,
+                           const OrthancPluginHttpRequest* request,
                            const std::string& resource,
                            bool isInstance,
                            bool isXml)
@@ -228,7 +229,8 @@ static void AnswerMetadata(OrthancPluginRestOutput* output,
     }
   }
 
-  OrthancPlugins::DicomResults results(context_, output, *dictionary_, isXml, true);
+  const std::string wadoBase = OrthancPlugins::Configuration::GetBaseUrl(configuration_, request);
+  OrthancPlugins::DicomResults results(context_, output, wadoBase, *dictionary_, isXml, true);
   
   for (std::list<std::string>::const_iterator
          it = files.begin(); it != files.end(); ++it)
@@ -486,7 +488,7 @@ int32_t RetrieveStudyMetadata(OrthancPluginRestOutput* output,
     std::string uri;
     if (LocateStudy(output, uri, request))
     {
-      AnswerMetadata(output, uri, false, isXml);
+      AnswerMetadata(output, request, uri, false, isXml);
     }
 
     return 0;
@@ -515,7 +517,7 @@ int32_t RetrieveSeriesMetadata(OrthancPluginRestOutput* output,
     std::string uri;
     if (LocateSeries(output, uri, request))
     {
-      AnswerMetadata(output, uri, false, isXml);
+      AnswerMetadata(output, request, uri, false, isXml);
     }
 
     return 0;
@@ -544,7 +546,7 @@ int32_t RetrieveInstanceMetadata(OrthancPluginRestOutput* output,
     std::string uri;
     if (LocateInstance(output, uri, request))
     {
-      AnswerMetadata(output, uri, true, isXml);
+      AnswerMetadata(output, request, uri, true, isXml);
     }
 
     return 0;

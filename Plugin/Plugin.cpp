@@ -37,8 +37,6 @@ OrthancPluginContext* context_ = NULL;
 Json::Value configuration_;
 const gdcm::Dict* dictionary_ = NULL;
 
-static std::string root_ = "/dicom-web/";
-
 
 static int32_t SwitchStudies(OrthancPluginRestOutput* output,
                              const char* url,
@@ -82,11 +80,12 @@ static int32_t SwitchStudy(OrthancPluginRestOutput* output,
 }
 
 
-static void Register(const std::string& uri,
+static void Register(const std::string& root,
+                     const std::string& uri,
                      OrthancPluginRestCallback callback)
 {
   assert(!uri.empty() && uri[0] != '/');
-  std::string s = root_ + uri;
+  std::string s = root + uri;
   OrthancPluginRegisterRestCallback(context_, s.c_str(), callback);
 }
 
@@ -131,58 +130,28 @@ extern "C"
       return -1;
     }
 
-    if (configuration_.isMember("DicomWeb") &&
-        configuration_["DicomWeb"].isMember("Root"))
-    {
-      if (configuration_["DicomWeb"]["Root"].type() == Json::stringValue)
-      {
-        root_ = configuration_["DicomWeb"]["Root"].asString();
-      }
-      else
-      {
-        OrthancPluginLogError(context_, "Bad data type for DicomWeb::Root inside the configuration file");
-        return -1;
-      }
-    }
-
-    // Make sure the root URI starts and ends with a slash
-    if (root_.empty())
-    {
-      root_ = "/";
-    }
-    else
-    {
-      if (root_[0] != '/')
-      {
-        root_ = "/" + root_;
-      }
-    
-      if (root_[root_.length() - 1] != '/')
-      {
-        root_ += "/";
-      }
-    }
+    std::string root = OrthancPlugins::Configuration::GetRoot(configuration_);
 
     {
-      std::string message = "URI to the DICOMweb REST API: " + root_;
+      std::string message = "URI to the DICOMweb REST API: " + root;
       OrthancPluginLogWarning(context_, message.c_str());
     }
 
     OrthancPluginSetDescription(context_, "Implementation of DICOM Web (QIDO-RS, STOW-RS and WADO-RS).");
 
-    Register("instances", SearchForInstances);    
-    Register("series", SearchForSeries);    
-    Register("studies", SwitchStudies);
-    Register("studies/([^/]*)", SwitchStudy);
-    Register("studies/([^/]*)/instances", SearchForInstances);    
-    Register("studies/([^/]*)/metadata", RetrieveStudyMetadata);
-    Register("studies/([^/]*)/series", SearchForSeries);    
-    Register("studies/([^/]*)/series/([^/]*)", RetrieveDicomSeries);
-    Register("studies/([^/]*)/series/([^/]*)/instances", SearchForInstances);    
-    Register("studies/([^/]*)/series/([^/]*)/instances/([^/]*)", RetrieveDicomInstance);
-    Register("studies/([^/]*)/series/([^/]*)/instances/([^/]*)/bulk/(.*)", RetrieveBulkData);
-    Register("studies/([^/]*)/series/([^/]*)/instances/([^/]*)/metadata", RetrieveInstanceMetadata);
-    Register("studies/([^/]*)/series/([^/]*)/metadata", RetrieveSeriesMetadata);
+    Register(root, "instances", SearchForInstances);    
+    Register(root, "series", SearchForSeries);    
+    Register(root, "studies", SwitchStudies);
+    Register(root, "studies/([^/]*)", SwitchStudy);
+    Register(root, "studies/([^/]*)/instances", SearchForInstances);    
+    Register(root, "studies/([^/]*)/metadata", RetrieveStudyMetadata);
+    Register(root, "studies/([^/]*)/series", SearchForSeries);    
+    Register(root, "studies/([^/]*)/series/([^/]*)", RetrieveDicomSeries);
+    Register(root, "studies/([^/]*)/series/([^/]*)/instances", SearchForInstances);    
+    Register(root, "studies/([^/]*)/series/([^/]*)/instances/([^/]*)", RetrieveDicomInstance);
+    Register(root, "studies/([^/]*)/series/([^/]*)/instances/([^/]*)/bulk/(.*)", RetrieveBulkData);
+    Register(root, "studies/([^/]*)/series/([^/]*)/instances/([^/]*)/metadata", RetrieveInstanceMetadata);
+    Register(root, "studies/([^/]*)/series/([^/]*)/metadata", RetrieveSeriesMetadata);
 
     return 0;
   }

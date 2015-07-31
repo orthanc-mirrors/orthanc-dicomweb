@@ -86,7 +86,7 @@ int32_t StowCallback(OrthancPluginRestOutput* output,
 {
   try
   {
-    const std::string wadoBase = OrthancPlugins::Configuration::GetBaseUrl(configuration_, request) + "/wado-rs";
+    const std::string wadoBase = OrthancPlugins::Configuration::GetBaseUrl(configuration_, request);
 
 
     if (request->method != OrthancPluginHttpMethod_Post)
@@ -192,7 +192,7 @@ int32_t StowCallback(OrthancPluginRestOutput* output,
       {
         if (isFirst)
         {
-          std::string url = wadoBase + "/studies/" + studyInstanceUid;
+          std::string url = wadoBase + "studies/" + studyInstanceUid;
           SetTag(result, OrthancPlugins::DICOM_TAG_RETRIEVE_URL, gdcm::VR::UT, url);
           isFirst = false;
         }
@@ -204,7 +204,7 @@ int32_t StowCallback(OrthancPluginRestOutput* output,
         if (ok)
         {
           std::string url = (wadoBase + 
-                             "/studies/" + studyInstanceUid +
+                             "studies/" + studyInstanceUid +
                              "/series/" + dicom.GetTagWithDefault(OrthancPlugins::DICOM_TAG_SERIES_INSTANCE_UID, "", true) +
                              "/instances/" + sopInstanceUid);
 
@@ -223,7 +223,7 @@ int32_t StowCallback(OrthancPluginRestOutput* output,
     SetSequenceTag(result, OrthancPlugins::DICOM_TAG_FAILED_SOP_SEQUENCE, failed);
     SetSequenceTag(result, OrthancPlugins::DICOM_TAG_REFERENCED_SOP_SEQUENCE, success);
 
-    OrthancPlugins::AnswerDicom(context_, output, *dictionary_, result, isXml, false);
+    OrthancPlugins::AnswerDicom(context_, output, wadoBase, *dictionary_, result, isXml, false);
 
     return 0;
   }

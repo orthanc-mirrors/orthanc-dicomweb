@@ -230,7 +230,8 @@ namespace OrthancPlugins
   }
 
 
-  static std::string GetBulkUriRoot(const gdcm::DataSet& dicom)
+  static std::string GetBulkUriRoot(const std::string& wadoBase,
+                                    const gdcm::DataSet& dicom)
   {
     std::string study, series, instance;
 
@@ -242,7 +243,7 @@ namespace OrthancPlugins
     }
     else
     {
-      return "/wado-rs/studies/" + study + "/series/" + series + "/instances/" + instance + "/bulk/";
+      return wadoBase + "studies/" + study + "/series/" + series + "/instances/" + instance + "/bulk/";
     }
   }
 
@@ -512,6 +513,7 @@ namespace OrthancPlugins
 
 
   void GenerateSingleDicomAnswer(std::string& result,
+                                 const std::string& wadoBase,
                                  const gdcm::Dict& dictionary,
                                  const gdcm::File* file,  // Can be NULL
                                  const gdcm::DataSet& dicom,
@@ -521,7 +523,7 @@ namespace OrthancPlugins
     std::string bulkUriRoot;
     if (isBulkAccessible)
     {
-      bulkUriRoot = GetBulkUriRoot(dicom);
+      bulkUriRoot = GetBulkUriRoot(wadoBase, dicom);
     }
 
     if (isXml)
@@ -547,13 +549,14 @@ namespace OrthancPlugins
 
   void AnswerDicom(OrthancPluginContext* context,
                    OrthancPluginRestOutput* output,
+                   const std::string& wadoBase,
                    const gdcm::Dict& dictionary,
                    const gdcm::DataSet& dicom,
                    bool isXml,
                    bool isBulkAccessible)
   {
     std::string answer;
-    GenerateSingleDicomAnswer(answer, dictionary, NULL, dicom, isXml, isBulkAccessible);
+    GenerateSingleDicomAnswer(answer, wadoBase, dictionary, NULL, dicom, isXml, isBulkAccessible);
     OrthancPluginAnswerBuffer(context, output, answer.c_str(), answer.size(), 
                               isXml ? "application/dicom+xml" : "application/json");
   }
