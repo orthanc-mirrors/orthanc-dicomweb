@@ -45,7 +45,7 @@ $(document).ready(function() {
       data: data,
       cache: true,  // If set to false, the "_" GET argument is added, resulting in a bad QIDO-RS request
       dataType: 'json',
-      url: '../qido-rs/series',
+      url: '../dicom-web/series',
       success: function(answer) {
         $('#qido-series-results').empty();
         for (var i = 0; i < answer.length; i++) {

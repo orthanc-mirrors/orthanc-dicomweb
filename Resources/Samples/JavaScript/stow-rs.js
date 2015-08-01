@@ -73,7 +73,7 @@ $(document).ready(function() {
           'Accept' : 'application/json',
           'Content-type' : 'multipart/related; type=application/dicom; boundary=' + BOUNDARY,
         },
-        url: '../stow-rs/studies',
+        url: '../dicom-web/studies',
         data: ConstructMultipart(reader.result, 'application/dicom'),
         processData: false, // Very important!
         dataType: 'json',

@@ -28,7 +28,7 @@ from email.mime.application import MIMEApplication
 if len(sys.argv) < 2:
     print('Usage: %s <StowUri> <file>...' % sys.argv[0])
     print('')
-    print('Example: %s http://localhost:8042/stow-rs/studies hello.dcm world.dcm' % sys.argv[0])
+    print('Example: %s http://localhost:8042/dicom-web/studies hello.dcm world.dcm' % sys.argv[0])
     sys.exit(-1)
 
 URL = sys.argv[1]
