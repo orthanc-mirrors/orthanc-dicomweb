@@ -22,9 +22,9 @@
 
 #include <boost/lexical_cast.hpp>
 
-#include "../Core/Configuration.h"
-#include "../Core/Dicom.h"
-#include "../Core/DicomResults.h"
+#include "Configuration.h"
+#include "Dicom.h"
+#include "DicomResults.h"
 
 static bool AcceptMultipartDicom(const OrthancPluginHttpRequest* request)
 {

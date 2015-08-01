@@ -21,8 +21,8 @@
 #include "StowRs.h"
 #include "Plugin.h"
 
-#include "../Core/Configuration.h"
-#include "../Core/Dicom.h"
+#include "Configuration.h"
+#include "Dicom.h"
 
 
 static void SetTag(gdcm::DataSet& dataset,

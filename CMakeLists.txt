@@ -98,11 +98,11 @@ set(CORE_SOURCES
   ${BOOST_SOURCES}
   ${JSONCPP_SOURCES}
   ${PUGIXML_SOURCES}
-  Core/ChunkedBuffer.cpp
-  Core/Configuration.cpp
-  Core/Dicom.cpp
-  Core/DicomResults.cpp
-  Core/Toolbox.cpp
+  Plugin/ChunkedBuffer.cpp
+  Plugin/Configuration.cpp
+  Plugin/Dicom.cpp
+  Plugin/DicomResults.cpp
+  Plugin/Toolbox.cpp
   )
 
 add_library(OrthancDicomWeb SHARED ${CORE_SOURCES}

@@ -23,7 +23,7 @@
 #include "QidoRs.h"
 #include "StowRs.h"
 #include "WadoRs.h"
-#include "../Core/Configuration.h"
+#include "Configuration.h"
 
 
 #include <gdcmDictEntry.h>

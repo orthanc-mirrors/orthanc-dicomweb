@@ -22,10 +22,10 @@
 
 #include "Plugin.h"
 #include "StowRs.h"  // For IsXmlExpected()
-#include "../Core/Dicom.h"
-#include "../Core/DicomResults.h"
-#include "../Core/Toolbox.h"
-#include "../Core/Configuration.h"
+#include "Dicom.h"
+#include "DicomResults.h"
+#include "Toolbox.h"
+#include "Configuration.h"
 
 #include <gdcmTag.h>
 #include <list>
