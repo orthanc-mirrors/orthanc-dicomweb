@@ -128,10 +128,20 @@ namespace OrthancPlugins
 
   bool RestApiGetString(std::string& result,
                         OrthancPluginContext* context,
-                        const std::string& uri)
+                        const std::string& uri,
+                        bool applyPlugins)
   {
     OrthancPluginMemoryBuffer buffer;
-    int code = OrthancPluginRestApiGet(context, &buffer, uri.c_str());
+    int code;
+    if (applyPlugins)
+    {
+      code = OrthancPluginRestApiGetAfterPlugins(context, &buffer, uri.c_str());
+    }
+    else
+    {
+      code = OrthancPluginRestApiGet(context, &buffer, uri.c_str());
+    }
+
     if (code)
     {
       // Error
@@ -242,20 +252,11 @@ namespace OrthancPlugins
 
     std::string GetRoot(const Json::Value& configuration)
     {
-      std::string root;
-
-      if (configuration.isMember("DicomWeb"))
-      {
-        root = GetStringValue(configuration["DicomWeb"], "Root", "");
-      }
-
-      if (root.empty())
-      {
-        root = "/dicom-web/";
-      }
+      std::string root = GetStringValue(configuration, "Root", "/dicom-web/");
 
       // Make sure the root URI starts and ends with a slash
-      if (root[0] != '/')
+      if (root.size() == 0 ||
+          root[0] != '/')
       {
         root = "/" + root;
       }
@@ -269,17 +270,32 @@ namespace OrthancPlugins
     }
 
 
+    std::string GetWadoRoot(const Json::Value& configuration)
+    {
+      std::string root = GetStringValue(configuration, "WadoRoot", "/wado/");
+
+      // Make sure the root URI starts with a slash
+      if (root.size() == 0 ||
+          root[0] != '/')
+      {
+        root = "/" + root;
+      }
+
+      // Remove the trailing slash, if any
+      if (root[root.length() - 1] == '/')
+      {
+        root = root.substr(0, root.length() - 1);
+      }
+
+      return root;
+    }
+
+
     std::string  GetBaseUrl(const Json::Value& configuration,
                             const OrthancPluginHttpRequest* request)
     {
-      std::string host;
-      bool ssl = false;
-
-      if (configuration.isMember("DicomWeb"))
-      {
-        host = GetStringValue(configuration["DicomWeb"], "Host", "");
-        ssl = GetBoolValue(configuration["DicomWeb"], "Ssl", false);
-      }
+      std::string host = GetStringValue(configuration, "Host", "");
+      bool ssl = GetBoolValue(configuration, "Ssl", false);
 
       if (host.empty() &&
           !LookupHttpHeader(host, request, "host"))

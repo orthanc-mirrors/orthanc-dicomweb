@@ -47,7 +47,8 @@ namespace OrthancPlugins
 
   bool RestApiGetString(std::string& result,
                         OrthancPluginContext* context,
-                        const std::string& uri);
+                        const std::string& uri,
+                        bool applyPlugins = false);
 
   bool RestApiGetJson(Json::Value& result,
                       OrthancPluginContext* context,
@@ -68,6 +69,8 @@ namespace OrthancPlugins
 
     std::string GetRoot(const Json::Value& configuration);
 
+    std::string GetWadoRoot(const Json::Value& configuration);
+      
     std::string GetBaseUrl(const Json::Value& configuration,
                            const OrthancPluginHttpRequest* request);
   }

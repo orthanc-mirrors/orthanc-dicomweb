@@ -23,6 +23,7 @@
 #include "QidoRs.h"
 #include "StowRs.h"
 #include "WadoRs.h"
+#include "Wado.h"
 #include "Configuration.h"
 
 
@@ -120,38 +121,70 @@ extern "C"
     }
 
 
+    OrthancPluginSetDescription(context_, "Implementation of DICOM Web (QIDO-RS, STOW-RS and WADO-RS) and WADO.");
+
+    // Read the configuration
     dictionary_ = &gdcm::Global::GetInstance().GetDicts().GetPublicDict();
 
+    configuration_ = Json::objectValue;
 
-    if (!OrthancPlugins::Configuration::Read(configuration_, context) ||
-        configuration_.type() != Json::objectValue)
     {
-      OrthancPluginLogError(context_, "Unable to read the configuration file");
-      return -1;
+      Json::Value tmp;
+      if (!OrthancPlugins::Configuration::Read(tmp, context) ||
+          tmp.type() != Json::objectValue)
+      {
+        OrthancPluginLogError(context_, "Unable to read the configuration file");
+        return -1;
+      }
+
+      if (tmp.isMember("DicomWeb") &&
+          tmp["DicomWeb"].type() == Json::objectValue)
+      {
+        configuration_ = tmp["DicomWeb"];
+      }
     }
 
-    std::string root = OrthancPlugins::Configuration::GetRoot(configuration_);
-
+    // Configure the DICOMweb callbacks
+    if (OrthancPlugins::Configuration::GetBoolValue(configuration_, "Enable", true))
     {
+      std::string root = OrthancPlugins::Configuration::GetRoot(configuration_);
+
       std::string message = "URI to the DICOMweb REST API: " + root;
       OrthancPluginLogWarning(context_, message.c_str());
+
+      Register(root, "instances", SearchForInstances);    
+      Register(root, "series", SearchForSeries);    
+      Register(root, "studies", SwitchStudies);
+      Register(root, "studies/([^/]*)", SwitchStudy);
+      Register(root, "studies/([^/]*)/instances", SearchForInstances);    
+      Register(root, "studies/([^/]*)/metadata", RetrieveStudyMetadata);
+      Register(root, "studies/([^/]*)/series", SearchForSeries);    
+      Register(root, "studies/([^/]*)/series/([^/]*)", RetrieveDicomSeries);
+      Register(root, "studies/([^/]*)/series/([^/]*)/instances", SearchForInstances);    
+      Register(root, "studies/([^/]*)/series/([^/]*)/instances/([^/]*)", RetrieveDicomInstance);
+      Register(root, "studies/([^/]*)/series/([^/]*)/instances/([^/]*)/bulk/(.*)", RetrieveBulkData);
+      Register(root, "studies/([^/]*)/series/([^/]*)/instances/([^/]*)/metadata", RetrieveInstanceMetadata);
+      Register(root, "studies/([^/]*)/series/([^/]*)/metadata", RetrieveSeriesMetadata);
+    }
+    else
+    {
+      OrthancPluginLogWarning(context_, "DICOMweb support is disabled");
     }
 
-    OrthancPluginSetDescription(context_, "Implementation of DICOM Web (QIDO-RS, STOW-RS and WADO-RS).");
+    // Configure the WADO callback
+    if (OrthancPlugins::Configuration::GetBoolValue(configuration_, "EnableWado", true))
+    {
+      std::string wado = OrthancPlugins::Configuration::GetWadoRoot(configuration_);
 
-    Register(root, "instances", SearchForInstances);    
-    Register(root, "series", SearchForSeries);    
-    Register(root, "studies", SwitchStudies);
-    Register(root, "studies/([^/]*)", SwitchStudy);
-    Register(root, "studies/([^/]*)/instances", SearchForInstances);    
-    Register(root, "studies/([^/]*)/metadata", RetrieveStudyMetadata);
-    Register(root, "studies/([^/]*)/series", SearchForSeries);    
-    Register(root, "studies/([^/]*)/series/([^/]*)", RetrieveDicomSeries);
-    Register(root, "studies/([^/]*)/series/([^/]*)/instances", SearchForInstances);    
-    Register(root, "studies/([^/]*)/series/([^/]*)/instances/([^/]*)", RetrieveDicomInstance);
-    Register(root, "studies/([^/]*)/series/([^/]*)/instances/([^/]*)/bulk/(.*)", RetrieveBulkData);
-    Register(root, "studies/([^/]*)/series/([^/]*)/instances/([^/]*)/metadata", RetrieveInstanceMetadata);
-    Register(root, "studies/([^/]*)/series/([^/]*)/metadata", RetrieveSeriesMetadata);
+      std::string message = "URI to the WADO API: " + wado;
+      OrthancPluginLogWarning(context_, message.c_str());
+
+      OrthancPluginRegisterRestCallback(context_, wado.c_str(), WadoCallback);
+    }
+    else
+    {
+      OrthancPluginLogWarning(context_, "WADO support is disabled");
+    }
 
     return 0;
   }
