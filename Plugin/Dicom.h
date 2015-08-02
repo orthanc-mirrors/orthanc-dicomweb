@@ -20,7 +20,7 @@
 
 #pragma once
 
-#include "Toolbox.h"
+#include "Configuration.h"
 
 #include <gdcmReader.h>
 #include <gdcmDataSet.h>

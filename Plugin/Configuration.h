@@ -25,6 +25,34 @@
 
 namespace OrthancPlugins
 {
+  struct MultipartItem
+  {
+    const char*   data_;
+    size_t        size_;
+    std::string   contentType_;
+  };
+
+  bool LookupHttpHeader(std::string& value,
+                        const OrthancPluginHttpRequest* request,
+                        const std::string& header);
+
+  void ParseContentType(std::string& application,
+                        std::map<std::string, std::string>& attributes,
+                        const std::string& header);
+
+  void ParseMultipartBody(std::vector<MultipartItem>& result,
+                          const char* body,
+                          const uint64_t bodySize,
+                          const std::string& boundary);
+
+  bool RestApiGetString(std::string& result,
+                        OrthancPluginContext* context,
+                        const std::string& uri);
+
+  bool RestApiGetJson(Json::Value& result,
+                      OrthancPluginContext* context,
+                      const std::string& uri);
+
   namespace Configuration
   {
     bool Read(Json::Value& configuration,

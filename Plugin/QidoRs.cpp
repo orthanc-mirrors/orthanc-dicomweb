@@ -24,7 +24,6 @@
 #include "StowRs.h"  // For IsXmlExpected()
 #include "Dicom.h"
 #include "DicomResults.h"
-#include "Toolbox.h"
 #include "Configuration.h"
 
 #include <gdcmTag.h>

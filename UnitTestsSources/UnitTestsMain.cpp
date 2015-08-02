@@ -21,7 +21,7 @@
 #include <gtest/gtest.h>
 #include <boost/lexical_cast.hpp>
 
-#include "../Plugin/Toolbox.h"
+#include "../Plugin/Configuration.h"
 #include "../Plugin/Plugin.h"
 
 using namespace OrthancPlugins;

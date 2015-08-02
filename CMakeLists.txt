@@ -106,7 +106,6 @@ set(CORE_SOURCES
   Plugin/Configuration.cpp
   Plugin/Dicom.cpp
   Plugin/DicomResults.cpp
-  Plugin/Toolbox.cpp
   )
 
 add_library(OrthancDicomWeb SHARED ${CORE_SOURCES}
