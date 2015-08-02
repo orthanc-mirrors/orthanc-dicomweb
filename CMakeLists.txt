@@ -34,6 +34,7 @@ set(USE_SYSTEM_GOOGLE_TEST ON CACHE BOOL "Use the system version of Google Test"
 set(USE_SYSTEM_JSONCPP ON CACHE BOOL "Use the system version of JsonCpp")
 set(USE_SYSTEM_LIBJPEG ON CACHE BOOL "Use the system version of libjpeg")
 set(USE_SYSTEM_LIBPNG ON CACHE BOOL "Use the system version of libpng")
+set(USE_SYSTEM_ZLIB ON CACHE BOOL "Use the system version of zlib")
 SET(USE_SYSTEM_PUGIXML ON CACHE BOOL "Use the system version of Pugixml")
 
 # Distribution-specific settings
@@ -53,6 +54,7 @@ include(${ORTHANC_ROOT}/Resources/CMake/BoostConfiguration.cmake)
 include(${ORTHANC_ROOT}/Resources/CMake/GoogleTestConfiguration.cmake)
 include(${ORTHANC_ROOT}/Resources/CMake/JsonCppConfiguration.cmake)
 include(${ORTHANC_ROOT}/Resources/CMake/LibPngConfiguration.cmake)
+include(${ORTHANC_ROOT}/Resources/CMake/ZlibConfiguration.cmake)
 include(${ORTHANC_ROOT}/Resources/CMake/PugixmlConfiguration.cmake)
 
 include(${CMAKE_SOURCE_DIR}/Resources/CMake/GdcmConfiguration.cmake)
@@ -107,6 +109,7 @@ set(CORE_SOURCES
   ${JSONCPP_SOURCES}
   ${LIBJPEG_SOURCES}
   ${LIBPNG_SOURCES}
+  ${ZLIB}
   ${PUGIXML_SOURCES}
 
   ${ORTHANC_ROOT}/Core/ChunkedBuffer.cpp

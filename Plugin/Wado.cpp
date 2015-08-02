@@ -178,7 +178,7 @@ static bool RetrievePngPreview(std::string& png,
 {
   std::string uri = "/instances/" + instance + "/preview";
 
-  if (OrthancPlugins::RestApiGetString(png, context_, uri))
+  if (OrthancPlugins::RestApiGetString(png, context_, uri, true))
   {
     return true;
   }

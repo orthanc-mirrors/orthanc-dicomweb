@@ -38,6 +38,7 @@ FILES = [
     'Resources/CMake/GoogleTestConfiguration.cmake',
     'Resources/CMake/JsonCppConfiguration.cmake',
     'Resources/CMake/LibPngConfiguration.cmake',
+    'Resources/CMake/ZlibConfiguration.cmake',
     'Resources/CMake/PugixmlConfiguration.cmake',
     'Resources/MinGW-W64-Toolchain32.cmake',
     'Resources/MinGW-W64-Toolchain64.cmake',
