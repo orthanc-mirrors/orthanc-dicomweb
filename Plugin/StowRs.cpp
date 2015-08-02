@@ -24,6 +24,9 @@
 #include "Configuration.h"
 #include "Dicom.h"
 #include "../Orthanc/Core/Toolbox.h"
+#include "../Orthanc/Core/OrthancException.h"
+
+#include <stdexcept>
 
 
 static void SetTag(gdcm::DataSet& dataset,
@@ -227,6 +230,11 @@ int32_t StowCallback(OrthancPluginRestOutput* output,
     OrthancPlugins::AnswerDicom(context_, output, wadoBase, *dictionary_, result, isXml, false);
 
     return 0;
+  }
+  catch (Orthanc::OrthancException& e)
+  {
+    OrthancPluginLogError(context_, e.What());
+    return -1;
   }
   catch (std::runtime_error& e)
   {

@@ -27,6 +27,7 @@
 #include <boost/lexical_cast.hpp>
 #include <json/writer.h>
 
+#include "../Orthanc/Core/OrthancException.h"
 #include "../Orthanc/Core/Toolbox.h"
 
 namespace OrthancPlugins
@@ -65,8 +66,8 @@ namespace OrthancPlugins
     reader_.SetStream(stream);
     if (!reader_.Read())
     {
-      throw std::runtime_error("GDCM cannot read this DICOM instance of length " + 
-                               boost::lexical_cast<std::string>(dicom.size()));
+      throw Orthanc::OrthancException("GDCM cannot read this DICOM instance of length " + 
+                                      boost::lexical_cast<std::string>(dicom.size()));
     }
   }
 
@@ -163,7 +164,7 @@ namespace OrthancPlugins
       return "RetrieveURL";
     }
 
-    //throw std::runtime_error("Unknown keyword for tag: " + FormatTag(tag));
+    //throw Orthanc::OrthancException("Unknown keyword for tag: " + FormatTag(tag));
     return NULL;
   }
 

@@ -26,6 +26,7 @@
 #include "DicomResults.h"
 #include "Configuration.h"
 #include "../Orthanc/Core/Toolbox.h"
+#include "../Orthanc/Core/OrthancException.h"
 
 #include <gdcmTag.h>
 #include <list>
@@ -110,11 +111,11 @@ namespace
         {
           if (key.find('.') != std::string::npos)
           {
-            throw std::runtime_error("This QIDO-RS implementation does not support search over sequences: " + key);
+            throw Orthanc::OrthancException("This QIDO-RS implementation does not support search over sequences: " + key);
           }
           else
           {
-            throw std::runtime_error("Illegal tag name in QIDO-RS: " + key);
+            throw Orthanc::OrthancException("Illegal tag name in QIDO-RS: " + key);
           }
         }
 
@@ -303,7 +304,7 @@ namespace
           break;
 
         default:
-          throw std::runtime_error("Internal error");
+          throw Orthanc::OrthancException("Internal error");
       }
     }
 
@@ -342,7 +343,7 @@ namespace
           }
           else
           {
-            throw std::runtime_error("Not a proper value for fuzzy matching (true or false): " + value);
+            throw Orthanc::OrthancException("Not a proper value for fuzzy matching (true or false): " + value);
           }
         }
         else if (key == "includefield")
@@ -605,7 +606,7 @@ namespace
           break;
 
         default:
-          throw std::runtime_error("Internal error");
+          throw Orthanc::OrthancException("Internal error");
       }
 
 
@@ -644,7 +645,7 @@ namespace
           break;
 
         default:
-          throw std::runtime_error("Internal error");
+          throw Orthanc::OrthancException("Internal error");
       }
     }
 
@@ -671,7 +672,7 @@ namespace
           break;
 
         default:
-          throw std::runtime_error("Internal error");
+          throw Orthanc::OrthancException("Internal error");
       }
     }
 
@@ -700,7 +701,7 @@ namespace
             break;
 
           default:
-            throw std::runtime_error("Internal error");
+            throw Orthanc::OrthancException("Internal error");
         }
 
         Json::Value tmp;
@@ -789,12 +790,17 @@ int32_t SearchForStudies(OrthancPluginRestOutput* output,
 
     return 0;
   }
-  catch (std::runtime_error& e)
+  catch (Orthanc::OrthancException& e)
+  {
+    OrthancPluginLogError(context_, e.What());
+    return -1;
+  }
+  catch (boost::bad_lexical_cast& e)
   {
     OrthancPluginLogError(context_, e.what());
     return -1;
   }
-  catch (boost::bad_lexical_cast& e)
+  catch (std::runtime_error& e)
   {
     OrthancPluginLogError(context_, e.what());
     return -1;
@@ -831,12 +837,17 @@ int32_t SearchForSeries(OrthancPluginRestOutput* output,
 
     return 0;
   }
-  catch (std::runtime_error& e)
+  catch (Orthanc::OrthancException& e)
+  {
+    OrthancPluginLogError(context_, e.What());
+    return -1;
+  }
+  catch (boost::bad_lexical_cast& e)
   {
     OrthancPluginLogError(context_, e.what());
     return -1;
   }
-  catch (boost::bad_lexical_cast& e)
+  catch (std::runtime_error& e)
   {
     OrthancPluginLogError(context_, e.what());
     return -1;
@@ -881,12 +892,17 @@ int32_t SearchForInstances(OrthancPluginRestOutput* output,
 
     return 0;
   }
-  catch (std::runtime_error& e)
+  catch (Orthanc::OrthancException& e)
+  {
+    OrthancPluginLogError(context_, e.What());
+    return -1;
+  }
+  catch (boost::bad_lexical_cast& e)
   {
     OrthancPluginLogError(context_, e.what());
     return -1;
   }
-  catch (boost::bad_lexical_cast& e)
+  catch (std::runtime_error& e)
   {
     OrthancPluginLogError(context_, e.what());
     return -1;

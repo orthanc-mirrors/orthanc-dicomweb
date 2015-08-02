@@ -26,6 +26,7 @@
 #include "Dicom.h"
 #include "DicomResults.h"
 #include "../Orthanc/Core/Toolbox.h"
+#include "../Orthanc/Core/OrthancException.h"
 
 static bool AcceptMultipartDicom(const OrthancPluginHttpRequest* request)
 {
@@ -397,6 +398,11 @@ int32_t RetrieveDicomStudy(OrthancPluginRestOutput* output,
 
     return 0;
   }
+  catch (Orthanc::OrthancException& e)
+  {
+    OrthancPluginLogError(context_, e.What());
+    return -1;
+  }
   catch (std::runtime_error& e)
   {
     OrthancPluginLogError(context_, e.what());
@@ -424,6 +430,11 @@ int32_t RetrieveDicomSeries(OrthancPluginRestOutput* output,
     }
 
     return 0;
+  }
+  catch (Orthanc::OrthancException& e)
+  {
+    OrthancPluginLogError(context_, e.What());
+    return -1;
   }
   catch (std::runtime_error& e)
   {
@@ -464,6 +475,11 @@ int32_t RetrieveDicomInstance(OrthancPluginRestOutput* output,
 
     return 0;
   }
+  catch (Orthanc::OrthancException& e)
+  {
+    OrthancPluginLogError(context_, e.What());
+    return -1;
+  }
   catch (std::runtime_error& e)
   {
     OrthancPluginLogError(context_, e.what());
@@ -494,6 +510,11 @@ int32_t RetrieveStudyMetadata(OrthancPluginRestOutput* output,
 
     return 0;
   }
+  catch (Orthanc::OrthancException& e)
+  {
+    OrthancPluginLogError(context_, e.What());
+    return -1;
+  }
   catch (std::runtime_error& e)
   {
     OrthancPluginLogError(context_, e.what());
@@ -523,6 +544,11 @@ int32_t RetrieveSeriesMetadata(OrthancPluginRestOutput* output,
 
     return 0;
   }
+  catch (Orthanc::OrthancException& e)
+  {
+    OrthancPluginLogError(context_, e.What());
+    return -1;
+  }
   catch (std::runtime_error& e)
   {
     OrthancPluginLogError(context_, e.what());
@@ -551,6 +577,11 @@ int32_t RetrieveInstanceMetadata(OrthancPluginRestOutput* output,
     }
 
     return 0;
+  }
+  catch (Orthanc::OrthancException& e)
+  {
+    OrthancPluginLogError(context_, e.What());
+    return -1;
   }
   catch (std::runtime_error& e)
   {
@@ -669,6 +700,11 @@ int32_t RetrieveBulkData(OrthancPluginRestOutput* output,
     }
 
     return 0;
+  }
+  catch (Orthanc::OrthancException& e)
+  {
+    OrthancPluginLogError(context_, e.What());
+    return -1;
   }
   catch (std::runtime_error& e)
   {

@@ -21,6 +21,7 @@
 #include "DicomResults.h"
 
 #include "Dicom.h"
+#include "../Orthanc/Core/OrthancException.h"
 
 namespace OrthancPlugins
 {
@@ -41,7 +42,7 @@ namespace OrthancPlugins
     if (isXml_ &&
         OrthancPluginStartMultipartAnswer(context_, output_, "related", "application/dicom+xml") != 0)
     {
-      throw std::runtime_error("Unable to create a multipart stream of DICOM+XML answers");
+      throw Orthanc::OrthancException("Unable to create a multipart stream of DICOM+XML answers");
     }
 
     jsonWriter_.AddChunk("[\n");
@@ -58,7 +59,7 @@ namespace OrthancPlugins
 
       if (OrthancPluginSendMultipartItem(context_, output_, answer.c_str(), answer.size()) != 0)
       {
-        throw std::runtime_error("Unable to write an item to a multipart stream of DICOM+XML answers");
+        throw Orthanc::OrthancException("Unable to write an item to a multipart stream of DICOM+XML answers");
       }
     }
     else
