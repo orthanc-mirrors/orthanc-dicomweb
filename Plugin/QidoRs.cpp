@@ -25,6 +25,7 @@
 #include "Dicom.h"
 #include "DicomResults.h"
 #include "Configuration.h"
+#include "../Orthanc/Core/Toolbox.h"
 
 #include <gdcmTag.h>
 #include <list>
@@ -36,7 +37,6 @@
 #include <gdcmDictEntry.h>
 #include <boost/regex.hpp>
 #include <boost/algorithm/string/replace.hpp>
-
 
 
 namespace
@@ -139,9 +139,9 @@ namespace
       std::string upper(constraint.substr(separator + 1));
       std::string v(value);
 
-      OrthancPlugins::ToLowerCase(lower);
-      OrthancPlugins::ToLowerCase(upper);
-      OrthancPlugins::ToLowerCase(v);
+      Orthanc::Toolbox::ToLowerCase(lower);
+      Orthanc::Toolbox::ToLowerCase(upper);
+      Orthanc::Toolbox::ToLowerCase(v);
 
       if (lower.size() == 0 && upper.size() == 0)
       {
@@ -166,15 +166,15 @@ namespace
                                     const std::string& constraint)
     {
       std::string v1(value);
-      OrthancPlugins::ToLowerCase(v1);
+      Orthanc::Toolbox::ToLowerCase(v1);
 
       std::vector<std::string> items;
-      OrthancPlugins::TokenizeString(items, constraint, '\\');
+      Orthanc::Toolbox::TokenizeString(items, constraint, '\\');
 
       for (size_t i = 0; i < items.size(); i++)
       {
         std::string lower(items[i]);
-        OrthancPlugins::ToLowerCase(lower);
+        Orthanc::Toolbox::ToLowerCase(lower);
         if (lower == v1)
         {
           return true;
@@ -238,8 +238,8 @@ namespace
       else
       {
         std::string v(value), c(constraint);
-        OrthancPlugins::ToLowerCase(v);
-        OrthancPlugins::ToLowerCase(c);
+        Orthanc::Toolbox::ToLowerCase(v);
+        Orthanc::Toolbox::ToLowerCase(c);
         return v == c;
       }
     }
@@ -355,7 +355,7 @@ namespace
           {
             // Split a comma-separated list of tags
             std::vector<std::string> tags;
-            OrthancPlugins::TokenizeString(tags, value, ',');
+            Orthanc::Toolbox::TokenizeString(tags, value, ',');
             for (size_t i = 0; i < tags.size(); i++)
             {
               includeFields_.push_back(ParseTag(tags[i]));

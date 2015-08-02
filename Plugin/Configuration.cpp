@@ -24,6 +24,8 @@
 #include <json/reader.h>
 #include <boost/regex.hpp>
 
+#include "../Orthanc/Core/Toolbox.h"
+
 namespace OrthancPlugins
 {
   bool LookupHttpHeader(std::string& value,
@@ -35,7 +37,7 @@ namespace OrthancPlugins
     for (uint32_t i = 0; i < request->headersCount; i++)
     {
       std::string s = request->headersKeys[i];
-      ToLowerCase(s);
+      Orthanc::Toolbox::ToLowerCase(s);
       if (s == header)
       {
         value = request->headersValues[i];
@@ -55,12 +57,12 @@ namespace OrthancPlugins
     attributes.clear();
 
     std::vector<std::string> tokens;
-    TokenizeString(tokens, header, ';');
+    Orthanc::Toolbox::TokenizeString(tokens, header, ';');
 
     assert(tokens.size() > 0);
     application = tokens[0];
-    StripSpaces(application);
-    ToLowerCase(application);
+    Orthanc::Toolbox::StripSpaces(application);
+    Orthanc::Toolbox::ToLowerCase(application);
 
     boost::regex pattern("\\s*([^=]+)\\s*=\\s*([^=]+)\\s*");
 
@@ -71,7 +73,7 @@ namespace OrthancPlugins
       {
         std::string key(what[1]);
         std::string value(what[2]);
-        ToLowerCase(key);
+        Orthanc::Toolbox::ToLowerCase(key);
         attributes[key] = value;
       }
     }

@@ -102,6 +102,14 @@ set(CORE_SOURCES
   ${BOOST_SOURCES}
   ${JSONCPP_SOURCES}
   ${PUGIXML_SOURCES}
+
+  ${ORTHANC_ROOT}/Core/ChunkedBuffer.cpp
+  ${ORTHANC_ROOT}/Core/Enumerations.cpp
+  ${ORTHANC_ROOT}/Core/OrthancException.cpp
+  ${ORTHANC_ROOT}/Core/Toolbox.cpp
+  ${ORTHANC_ROOT}/Resources/ThirdParty/base64/base64.cpp
+  ${ORTHANC_ROOT}/Resources/ThirdParty/md5/md5.c
+
   Plugin/ChunkedBuffer.cpp
   Plugin/Configuration.cpp
   Plugin/Dicom.cpp

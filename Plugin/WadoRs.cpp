@@ -25,6 +25,7 @@
 #include "Configuration.h"
 #include "Dicom.h"
 #include "DicomResults.h"
+#include "../Orthanc/Core/Toolbox.h"
 
 static bool AcceptMultipartDicom(const OrthancPluginHttpRequest* request)
 {
@@ -50,7 +51,7 @@ static bool AcceptMultipartDicom(const OrthancPluginHttpRequest* request)
   if (attributes.find("type") != attributes.end())
   {
     std::string s = attributes["type"];
-    OrthancPlugins::ToLowerCase(s);
+    Orthanc::Toolbox::ToLowerCase(s);
     if (s != "application/dicom")
     {
       std::string s = "This WADO-RS plugin only supports application/dicom return type for DICOM retrieval (" + accept + ")";
@@ -105,7 +106,7 @@ static bool AcceptMetadata(const OrthancPluginHttpRequest* request,
   if (attributes.find("type") != attributes.end())
   {
     std::string s = attributes["type"];
-    OrthancPlugins::ToLowerCase(s);
+    Orthanc::Toolbox::ToLowerCase(s);
     if (s != "application/dicom+xml")
     {
       std::string s = "This WADO-RS plugin only supports application/json or application/dicom+xml return types for metadata (" + accept + ")";
@@ -150,7 +151,7 @@ static bool AcceptBulkData(const OrthancPluginHttpRequest* request)
   if (attributes.find("type") != attributes.end())
   {
     std::string s = attributes["type"];
-    OrthancPlugins::ToLowerCase(s);
+    Orthanc::Toolbox::ToLowerCase(s);
     if (s != "application/octet-stream")
     {
       std::string s = "This WADO-RS plugin only supports application/octet-stream return type for bulk data retrieval (" + accept + ")";
@@ -649,7 +650,7 @@ int32_t RetrieveBulkData(OrthancPluginRestOutput* output,
       OrthancPlugins::ParsedDicomFile dicom(content);
 
       std::vector<std::string> path;
-      OrthancPlugins::TokenizeString(path, request->groups[3], '/');
+      Orthanc::Toolbox::TokenizeString(path, request->groups[3], '/');
       
       std::string result;
       if (path.size() % 2 == 1 &&

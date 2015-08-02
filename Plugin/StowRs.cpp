@@ -23,6 +23,7 @@
 
 #include "Configuration.h"
 #include "Dicom.h"
+#include "../Orthanc/Core/Toolbox.h"
 
 
 static void SetTag(gdcm::DataSet& dataset,
@@ -60,7 +61,7 @@ bool IsXmlExpected(const OrthancPluginHttpRequest* request)
     return true;   // By default, return XML Native DICOM Model
   }
 
-  OrthancPlugins::ToLowerCase(accept);
+  Orthanc::Toolbox::ToLowerCase(accept);
   if (accept == "application/json")
   {
     return false;

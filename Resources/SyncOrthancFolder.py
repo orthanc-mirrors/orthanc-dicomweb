@@ -16,6 +16,15 @@ TARGET = os.path.join(os.path.dirname(__file__), '..', 'Orthanc')
 REPOSITORY = 'https://bitbucket.org/sjodogne/orthanc/raw/Orthanc-%s/Plugins/Include' % PLUGIN_SDK_VERSION
 
 FILES = [
+    'Core/ChunkedBuffer.cpp',
+    'Core/ChunkedBuffer.h',
+    'Core/Enumerations.cpp',
+    'Core/Enumerations.h',
+    'Core/OrthancException.cpp',
+    'Core/OrthancException.h',
+    'Core/PrecompiledHeaders.h',
+    'Core/Toolbox.cpp',
+    'Core/Toolbox.h',
     'Plugins/Samples/Common/VersionScript.map',
     'Resources/CMake/BoostConfiguration.cmake',
     'Resources/CMake/Compiler.cmake',
@@ -27,6 +36,10 @@ FILES = [
     'Resources/MinGW-W64-Toolchain64.cmake',
     'Resources/MinGWToolchain.cmake',
     'Resources/ThirdParty/VisualStudio/stdint.h',
+    'Resources/ThirdParty/base64/base64.cpp',
+    'Resources/ThirdParty/base64/base64.h',
+    'Resources/ThirdParty/md5/md5.c',
+    'Resources/ThirdParty/md5/md5.h',
     'Resources/WindowsResources.py',
     'Resources/WindowsResources.rc',
 ]

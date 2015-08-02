@@ -27,6 +27,8 @@
 #include <boost/lexical_cast.hpp>
 #include <json/writer.h>
 
+#include "../Orthanc/Core/Toolbox.h"
+
 namespace OrthancPlugins
 {
   namespace
@@ -90,7 +92,7 @@ namespace OrthancPlugins
 
         if (stripSpaces)
         {
-          result = OrthancPlugins::StripSpaces(result);
+          result = Orthanc::Toolbox::StripSpaces(result);
         }
 
         return true;
@@ -114,7 +116,7 @@ namespace OrthancPlugins
 
     if (stripSpaces)
     {
-      result = StripSpaces(result);
+      result = Orthanc::Toolbox::StripSpaces(result);
     }
 
     return result;
@@ -248,11 +250,11 @@ namespace OrthancPlugins
   }
 
 
-  static Encoding DetectEncoding(const gdcm::DataSet& dicom)
+  static Orthanc::Encoding DetectEncoding(const gdcm::DataSet& dicom)
   {
     if (!dicom.FindDataElement(DICOM_TAG_SPECIFIC_CHARACTER_SET))
     {
-      return Encoding_Ascii;
+      return Orthanc::Encoding_Ascii;
     }
 
     const gdcm::DataElement& element = 
@@ -261,13 +263,23 @@ namespace OrthancPlugins
     const gdcm::ByteValue* data = element.GetByteValue();
     if (!data)
     {
-      return Encoding_Unknown;
+      // Assume Latin-1 encoding (TODO add a parameter as in Orthanc)
+      return Orthanc::Encoding_Latin1;
     }
 
     std::string tmp(data->GetPointer(), data->GetLength());
-    tmp = StripSpaces(tmp);
+    tmp = Orthanc::Toolbox::StripSpaces(tmp);
 
-    return GetDicomEncoding(tmp.c_str());
+    Orthanc::Encoding encoding;
+    if (Orthanc::GetDicomEncoding(encoding, tmp.c_str()))
+    {
+      return encoding;
+    }
+    else
+    {
+      // Assume Latin-1 encoding (TODO add a parameter as in Orthanc)
+      return Orthanc::Encoding_Latin1;
+    }
   }
 
 
@@ -275,7 +287,7 @@ namespace OrthancPlugins
                                       const gdcm::Dict& dictionary,
                                       const gdcm::File* file,
                                       const gdcm::DataElement& element,
-                                      const Encoding sourceEncoding)
+                                      const Orthanc::Encoding sourceEncoding)
   {
     const gdcm::ByteValue* data = element.GetByteValue();
     if (!data)
@@ -303,17 +315,17 @@ namespace OrthancPlugins
       }
     }
 
-    if (sourceEncoding == Encoding_Utf8)
+    if (sourceEncoding == Orthanc::Encoding_Utf8)
     {
       result.assign(data->GetPointer(), data->GetLength());
     }
     else
     {
       std::string tmp(data->GetPointer(), data->GetLength());
-      result = ConvertToUtf8(tmp, sourceEncoding);
+      result = Orthanc::Toolbox::ConvertToUtf8(tmp, sourceEncoding);
     }
 
-    result = StripSpaces(result);
+    result = Orthanc::Toolbox::StripSpaces(result);
     return true;
   }
 
@@ -322,7 +334,7 @@ namespace OrthancPlugins
                                  const gdcm::Dict& dictionary,
                                  const gdcm::File* file,
                                  const gdcm::DataSet& dicom,
-                                 const Encoding sourceEncoding,
+                                 const Orthanc::Encoding sourceEncoding,
                                  const std::string& bulkUri)
   {
     for (gdcm::DataSet::ConstIterator it = dicom.Begin();
@@ -412,7 +424,7 @@ namespace OrthancPlugins
     root.append_attribute("xsi:schemaLocation").set_value("http://dicom.nema.org/PS3.19/models/NativeDICOM");
     root.append_attribute("xmlns:xsi").set_value("http://www.w3.org/2001/XMLSchema-instance");
 
-    Encoding encoding = DetectEncoding(dicom);
+    Orthanc::Encoding encoding = DetectEncoding(dicom);
     DicomToXmlInternal(root, dictionary, file, dicom, encoding, bulkUriRoot);
 
     pugi::xml_node decl = target.prepend_child(pugi::node_declaration);
@@ -426,7 +438,7 @@ namespace OrthancPlugins
                                   const gdcm::File* file,
                                   const gdcm::DataSet& dicom,
                                   const std::string& bulkUri,
-                                  Encoding sourceEncoding)
+                                  Orthanc::Encoding sourceEncoding)
   {
     target = Json::objectValue;
 
@@ -507,7 +519,7 @@ namespace OrthancPlugins
                           const gdcm::DataSet& dicom,
                           const std::string& bulkUriRoot)
   {
-    Encoding encoding = DetectEncoding(dicom);
+    Orthanc::Encoding encoding = DetectEncoding(dicom);
     DicomToJsonInternal(target, dictionary, file, dicom, bulkUriRoot, encoding);
   }
 
