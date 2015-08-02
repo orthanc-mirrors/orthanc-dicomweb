@@ -104,6 +104,11 @@ if (APPLE)
 endif()
 
 
+add_definitions(
+  -DORTHANC_ENABLE_MD5=0
+  -DORTHANC_ENABLE_BASE64=0
+  )
+
 set(CORE_SOURCES
   ${BOOST_SOURCES}
   ${JSONCPP_SOURCES}
@@ -119,8 +124,6 @@ set(CORE_SOURCES
   ${ORTHANC_ROOT}/Core/ImageFormats/PngReader.cpp
   ${ORTHANC_ROOT}/Core/OrthancException.cpp
   ${ORTHANC_ROOT}/Core/Toolbox.cpp
-  ${ORTHANC_ROOT}/Resources/ThirdParty/base64/base64.cpp
-  ${ORTHANC_ROOT}/Resources/ThirdParty/md5/md5.c
 
   Plugin/ChunkedBuffer.cpp
   Plugin/Configuration.cpp
