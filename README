@@ -7,13 +7,16 @@ General Information
 
 This repository contains the source code of a plugin for Orthanc, the
 lightweight Vendor Neutral Archive for medical imaging. This plugin
-extends the RESTful API of Orthanc with DICOM Web support.
+extends the RESTful API of Orthanc with WADO and DICOMweb support.
 
 
 DICOM Web Support
 -----------------
 
 Currently, a basic support of the following protocols is provided:
+
+* WADO (Web Access to DICOM Persistent Objects)
+  http://medical.nema.org/Dicom/2011/11_18pu.pdf
 
 * WADO-RS (Web Access to DICOM Objects by RESTful Services)
   http://medical.nema.org/medical/dicom/current/output/html/part18.html#sect_6.5
@@ -28,14 +31,8 @@ The full status about the support of these protocols can be found in
 the "./Status.txt" file.
 
 
-Supported Platforms
--------------------
-
-Currently, the supported platforms are:
-
-* Linux 32bit.
-* Linux 64bit.
-* Windows 32bit with MinGW.
+Install
+-------
 
 Build instructions can be found in "./Resources/BuildInstructions.txt".
 
