@@ -15,8 +15,9 @@ DICOM Web Support
 
 Currently, a basic support of the following protocols is provided:
 
-* WADO (Web Access to DICOM Persistent Objects)
+* WADO-URI (Web Access to DICOM Persistent Objects), previously known as WADO
   http://medical.nema.org/Dicom/2011/11_18pu.pdf
+  http://medical.nema.org/medical/dicom/current/output/html/part18.html#sect_6.2
 
 * WADO-RS (Web Access to DICOM Objects by RESTful Services)
   http://medical.nema.org/medical/dicom/current/output/html/part18.html#sect_6.5
