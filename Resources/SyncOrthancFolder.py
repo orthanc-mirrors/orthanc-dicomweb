@@ -26,6 +26,7 @@ FILES = [
     'Core/ImageFormats/ImageBuffer.h',
     'Core/ImageFormats/PngReader.cpp',
     'Core/ImageFormats/PngReader.h',
+    'Core/Logging.h',
     'Core/OrthancException.cpp',
     'Core/OrthancException.h',
     'Core/PrecompiledHeaders.h',

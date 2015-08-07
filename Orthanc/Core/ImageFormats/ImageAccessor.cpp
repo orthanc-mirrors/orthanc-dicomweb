@@ -33,6 +33,7 @@
 #include "../PrecompiledHeaders.h"
 #include "ImageAccessor.h"
 
+#include "../Logging.h"
 #include "../OrthancException.h"
 #include "../ChunkedBuffer.h"
 
@@ -40,9 +41,6 @@
 #include <cassert>
 #include <boost/lexical_cast.hpp>
 
-#if HAVE_GOOGLE_LOG == 1
-#include <glog/logging.h>
-#endif
 
 
 namespace Orthanc
@@ -108,7 +106,7 @@ namespace Orthanc
   {
     if (readOnly_)
     {
-#if HAVE_GOOGLE_LOG == 1
+#if ORTHANC_ENABLE_LOGGING == 1
       LOG(ERROR) << "Trying to write on a read-only image";
 #endif
 
@@ -136,7 +134,7 @@ namespace Orthanc
   {
     if (readOnly_)
     {
-#if HAVE_GOOGLE_LOG == 1
+#if ORTHANC_ENABLE_LOGGING == 1
       LOG(ERROR) << "Trying to write on a read-only image";
 #endif
 

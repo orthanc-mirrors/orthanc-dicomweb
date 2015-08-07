@@ -34,6 +34,7 @@
 #include "Toolbox.h"
 
 #include "OrthancException.h"
+#include "Logging.h"
 
 #include <string>
 #include <stdint.h>
@@ -53,13 +54,9 @@
 #include <boost/regex.hpp> 
 #endif
 
-#if HAVE_GOOGLE_LOG == 1
-#include <glog/logging.h>
-#endif
-
 #if defined(_WIN32)
 #include <windows.h>
-#include <process.h>   // For "_spawnvp()"
+#include <process.h>   // For "_spawnvp()" and "_getpid()"
 #else
 #include <unistd.h>    // For "execvp()"
 #include <sys/wait.h>  // For "waitpid()"
@@ -1135,7 +1132,7 @@ namespace Orthanc
     if (pid == -1)
     {
       // Error in fork()
-#if HAVE_GOOGLE_LOG == 1
+#if ORTHANC_ENABLE_LOGGING == 1
       LOG(ERROR) << "Cannot fork a child process";
 #endif
 
@@ -1158,7 +1155,7 @@ namespace Orthanc
 
     if (status != 0)
     {
-#if HAVE_GOOGLE_LOG == 1
+#if ORTHANC_ENABLE_LOGGING == 1
       LOG(ERROR) << "System command failed with status code " << status;
 #endif
 
@@ -1274,5 +1271,14 @@ namespace Orthanc
     }
   }
 
+
+  int Toolbox::GetProcessId()
+  {
+#if defined(_WIN32)
+    return static_cast<int>(_getpid());
+#else
+    return static_cast<int>(getpid());
+#endif
+  }
 }
 

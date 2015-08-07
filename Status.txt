@@ -2,6 +2,29 @@ Reference: http://medical.nema.org/medical/dicom/current/output/html/part18.html
 
 
 
+=======================================
+6.2 WADO-URI (previously known as WADO)
+=======================================
+
+Supported
+---------
+
+* Retrieval of JPEG images ("&requestType=WADO&...")
+* Retrieval of DICOM file ("&requestType=WADO&contentType=application/dicom&...")
+* Retrieval of PNG images ("&requestType=WADO&contentType=image/png&...")
+
+
+Not supported
+-------------
+
+* Retrieval of DICOM SR (structured reports)
+* Retrieval of a region of a DICOM image
+* Manipulation of the image (annotations, windowing, thresholding...)
+* DICOM Response with a change in the transfer syntax
+* Specification of a quality for JPEG images
+
+
+
 ================================
 6.5.1 WADO-RS / RetrieveStudy
 6.5.2 WADO-RS / RetrieveSeries

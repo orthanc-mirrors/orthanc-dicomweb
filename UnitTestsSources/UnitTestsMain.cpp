@@ -35,17 +35,17 @@ TEST(ContentType, Parse)
 
   ParseContentType(c, a, "Multipart/Related; TYPE=Application/Dicom; Boundary=heLLO");
   ASSERT_EQ(c, "multipart/related");
-  ASSERT_EQ(2, a.size());
+  ASSERT_EQ(2u, a.size());
   ASSERT_EQ(a["type"], "Application/Dicom");
   ASSERT_EQ(a["boundary"], "heLLO");
 
   ParseContentType(c, a, "");
   ASSERT_TRUE(c.empty());
-  ASSERT_EQ(0, a.size());  
+  ASSERT_EQ(0u, a.size());  
 
   ParseContentType(c, a, "multipart/related");
   ASSERT_EQ(c, "multipart/related");
-  ASSERT_EQ(0, a.size());
+  ASSERT_EQ(0u, a.size());
 }
 
 

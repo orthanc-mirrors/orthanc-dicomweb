@@ -32,30 +32,62 @@
 
 #pragma once
 
-#if defined(_WIN32) && !defined(NOMINMAX)
-#define NOMINMAX
+#if ORTHANC_ENABLE_LOGGING == 1
+
+#if ORTHANC_ENABLE_GOOGLE_LOG == 1
+#  include <stdlib.h>  // This fixes a problem in glog for recent releases of MinGW
+#  include <glog/logging.h>
+#else
+#  include <iostream>
+#  include <boost/thread/mutex.hpp>
+#  define LOG(level)  ::Orthanc::Logging::InternalLogger(#level, __FILE__, __LINE__)
+#  define VLOG(level) ::Orthanc::Logging::InternalLogger("TRACE", __FILE__, __LINE__)
 #endif
 
-#if ORTHANC_USE_PRECOMPILED_HEADERS == 1
 
-#include <boost/date_time/posix_time/posix_time.hpp>
-#include <boost/filesystem.hpp>
-#include <boost/lexical_cast.hpp>
-#include <boost/locale.hpp>
-#include <boost/regex.hpp>
-#include <boost/thread.hpp>
-#include <boost/thread/shared_mutex.hpp>
+namespace Orthanc
+{
+  namespace Logging
+  {
+    void Initialize();
 
-#include <json/value.h>
+    void Finalize();
 
-#if ORTHANC_PUGIXML_ENABLED == 1
-#include <pugixml.hpp>
+    void EnableInfoLevel(bool enabled);
+
+    void EnableTraceLevel(bool enabled);
+
+    void SetTargetFolder(const std::string& path);
+
+
+#if ORTHANC_ENABLE_GOOGLE_LOG != 1
+    class InternalLogger
+    {
+    private:
+      boost::mutex::scoped_lock  lock_;
+      std::ostream*              stream_;
+
+    public:
+      InternalLogger(const char* level,
+                     const char* file,
+                     int line);
+
+      ~InternalLogger()
+      {
+#if defined(_WIN32)
+        *stream_ << "\r\n";
+#else
+        *stream_ << "\n";
 #endif
+      }
 
-#include "Enumerations.h"
-#include "Logging.h"
-#include "OrthancException.h"
-#include "Toolbox.h"
-#include "Uuid.h"
-
+      std::ostream& operator<< (const std::string& message)
+      {
+        return (*stream_) << message;
+      }
+    };
 #endif
+  }
+}
+
+#endif  // ORTHANC_ENABLE_LOGGING
