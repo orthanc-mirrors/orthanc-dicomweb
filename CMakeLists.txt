@@ -35,7 +35,8 @@ set(USE_SYSTEM_JSONCPP ON CACHE BOOL "Use the system version of JsonCpp")
 set(USE_SYSTEM_LIBJPEG ON CACHE BOOL "Use the system version of libjpeg")
 set(USE_SYSTEM_LIBPNG ON CACHE BOOL "Use the system version of libpng")
 set(USE_SYSTEM_ZLIB ON CACHE BOOL "Use the system version of zlib")
-SET(USE_SYSTEM_PUGIXML ON CACHE BOOL "Use the system version of Pugixml")
+set(USE_SYSTEM_PUGIXML ON CACHE BOOL "Use the system version of Pugixml")
+set(USE_SYSTEM_ORTHANC_SDK ON CACHE BOOL "Use the system version of the Orthanc plugin SDK")
 
 # Distribution-specific settings
 set(USE_GTEST_DEBIAN_SOURCE_PACKAGE OFF CACHE BOOL "Use the sources of Google Test shipped with libgtest-dev (Debian only)")
@@ -61,7 +62,7 @@ include(${CMAKE_SOURCE_DIR}/Resources/CMake/GdcmConfiguration.cmake)
 include(${CMAKE_SOURCE_DIR}/Resources/CMake/LibJpegConfiguration.cmake)
 
 
-if (STATIC_BUILD)
+if (STATIC_BUILD OR NOT USE_SYSTEM_ORTHANC_SDK)
   include_directories(${ORTHANC_ROOT}/Sdk-0.9.1)
 else ()
   CHECK_INCLUDE_FILE_CXX(orthanc/OrthancCPlugin.h HAVE_ORTHANC_H)
