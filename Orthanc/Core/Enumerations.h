@@ -76,6 +76,14 @@ namespace Orthanc
     ErrorCode_Plugin
   };
 
+  enum LogLevel
+  {
+    LogLevel_Error,
+    LogLevel_Warning,
+    LogLevel_Info,
+    LogLevel_Trace
+  };
+
 
   /**
    * {summary}{The memory layout of the pixels (resp. voxels) of a 2D (resp. 3D) image.}
@@ -231,6 +239,15 @@ namespace Orthanc
   };
 
 
+  // https://en.wikipedia.org/wiki/HTTP_compression
+  enum HttpCompression
+  {
+    HttpCompression_None,
+    HttpCompression_Deflate,
+    HttpCompression_Gzip
+  };
+
+
   // http://www.dabsoft.ch/dicom/3/C.12.1.1.2/
   enum Encoding
   {
@@ -292,8 +309,23 @@ namespace Orthanc
 
   enum CompressionType
   {
+    /**
+     * Buffer/file that is stored as-is, in a raw fashion, without
+     * compression.
+     **/
     CompressionType_None = 1,
-    CompressionType_Zlib = 2
+
+    /**
+     * Buffer that is compressed using the "deflate" algorithm (RFC
+     * 1951), wrapped inside the zlib data format (RFC 1950), prefixed
+     * with a "uint64_t" (8 bytes) that encodes the size of the
+     * uncompressed buffer. If the compressed buffer is empty, its
+     * represents an empty uncompressed buffer. This format is
+     * internal to Orthanc. If the 8 first bytes are skipped AND the
+     * buffer is non-empty, the buffer is compatible with the
+     * "deflate" HTTP compression.
+     **/
+    CompressionType_ZlibWithSize = 2
   };
 
   enum FileContentType
@@ -330,11 +362,15 @@ namespace Orthanc
 
   const char* EnumerationToString(PhotometricInterpretation photometric);
 
+  const char* EnumerationToString(LogLevel level);
+
   Encoding StringToEncoding(const char* encoding);
 
   ResourceType StringToResourceType(const char* type);
 
   ImageFormat StringToImageFormat(const char* format);
+
+  LogLevel StringToLogLevel(const char* format);
 
   unsigned int GetBytesPerPixel(PixelFormat format);
 
