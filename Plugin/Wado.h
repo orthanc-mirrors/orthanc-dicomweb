@@ -20,8 +20,8 @@
 
 #pragma once
 
-#include <orthanc/OrthancCPlugin.h>
+#include "Configuration.h"
 
-int32_t WadoCallback(OrthancPluginRestOutput* output,
-                     const char* url,
-                     const OrthancPluginHttpRequest* request);
+REST_RETURN_TYPE WadoCallback(OrthancPluginRestOutput* output,
+                              const char* url,
+                              const OrthancPluginHttpRequest* request);

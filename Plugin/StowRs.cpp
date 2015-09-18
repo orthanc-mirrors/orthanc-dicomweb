@@ -84,9 +84,9 @@ bool IsXmlExpected(const OrthancPluginHttpRequest* request)
 
 
 
-int32_t StowCallback(OrthancPluginRestOutput* output,
-                     const char* url,
-                     const OrthancPluginHttpRequest* request)
+REST_RETURN_TYPE StowCallback(OrthancPluginRestOutput* output,
+                              const char* url,
+                              const OrthancPluginHttpRequest* request)
 {
   try
   {
@@ -96,7 +96,7 @@ int32_t StowCallback(OrthancPluginRestOutput* output,
     if (request->method != OrthancPluginHttpMethod_Post)
     {
       OrthancPluginSendMethodNotAllowed(context_, output, "POST");
-      return 0;
+      return REST_RETURN_SUCCESS;
     }
 
     std::string expectedStudy;
@@ -122,7 +122,7 @@ int32_t StowCallback(OrthancPluginRestOutput* output,
     {
       OrthancPluginLogError(context_, "No content type in the HTTP header of a STOW-RS request");
       OrthancPluginSendHttpStatusCode(context_, output, 400 /* Bad request */);
-      return 0;    
+      return REST_RETURN_SUCCESS;    
     }
 
     std::string application;
@@ -136,7 +136,7 @@ int32_t StowCallback(OrthancPluginRestOutput* output,
       std::string s = "Unable to parse the content type of a STOW-RS request (" + application + ")";
       OrthancPluginLogError(context_, s.c_str());
       OrthancPluginSendHttpStatusCode(context_, output, 400 /* Bad request */);
-      return 0;
+      return REST_RETURN_SUCCESS;
     }
 
 
@@ -146,7 +146,7 @@ int32_t StowCallback(OrthancPluginRestOutput* output,
     {
       OrthancPluginLogError(context_, "The STOW-RS plugin currently only supports application/dicom");
       OrthancPluginSendHttpStatusCode(context_, output, 415 /* Unsupported media type */);
-      return 0;
+      return REST_RETURN_SUCCESS;
     }
 
 
@@ -166,7 +166,7 @@ int32_t StowCallback(OrthancPluginRestOutput* output,
         std::string s = "The STOW-RS request contains a part that is not application/dicom (it is: \"" + items[i].contentType_ + "\")";
           OrthancPluginLogError(context_, s.c_str());
         OrthancPluginSendHttpStatusCode(context_, output, 415 /* Unsupported media type */);
-        return 0;
+        return REST_RETURN_SUCCESS;
       }
 
       OrthancPlugins::ParsedDicomFile dicom(items[i]);
@@ -229,16 +229,16 @@ int32_t StowCallback(OrthancPluginRestOutput* output,
 
     OrthancPlugins::AnswerDicom(context_, output, wadoBase, *dictionary_, result, isXml, false);
 
-    return 0;
+    return REST_RETURN_SUCCESS;
   }
   catch (Orthanc::OrthancException& e)
   {
     OrthancPluginLogError(context_, e.What());
-    return -1;
+    return REST_RETURN_FAILURE;
   }
   catch (std::runtime_error& e)
   {
     OrthancPluginLogError(context_, e.what());
-    return -1;
+    return REST_RETURN_FAILURE;
   }
 }

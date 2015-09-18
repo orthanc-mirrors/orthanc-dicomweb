@@ -39,9 +39,9 @@ Json::Value configuration_;
 const gdcm::Dict* dictionary_ = NULL;
 
 
-static int32_t SwitchStudies(OrthancPluginRestOutput* output,
-                             const char* url,
-                             const OrthancPluginHttpRequest* request)
+static REST_RETURN_TYPE SwitchStudies(OrthancPluginRestOutput* output,
+                                      const char* url,
+                                      const OrthancPluginHttpRequest* request)
 {
   switch (request->method)
   {
@@ -55,14 +55,14 @@ static int32_t SwitchStudies(OrthancPluginRestOutput* output,
 
     default:
       OrthancPluginSendMethodNotAllowed(context_, output, "GET,POST");
-      return 0;
+      return REST_RETURN_SUCCESS;
   }
 }
 
 
-static int32_t SwitchStudy(OrthancPluginRestOutput* output,
-                           const char* url,
-                           const OrthancPluginHttpRequest* request)
+static REST_RETURN_TYPE SwitchStudy(OrthancPluginRestOutput* output,
+                                    const char* url,
+                                    const OrthancPluginHttpRequest* request)
 {
   switch (request->method)
   {
@@ -76,7 +76,7 @@ static int32_t SwitchStudy(OrthancPluginRestOutput* output,
 
     default:
       OrthancPluginSendMethodNotAllowed(context_, output, "GET,POST");
-      return 0;
+      return REST_RETURN_SUCCESS;
   }
 }
 

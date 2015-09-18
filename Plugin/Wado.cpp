@@ -153,8 +153,8 @@ static bool LocateInstance(std::string& instance,
 }
 
 
-static int32_t AnswerDicom(OrthancPluginRestOutput* output,
-                           const std::string& instance)
+static REST_RETURN_TYPE AnswerDicom(OrthancPluginRestOutput* output,
+                                    const std::string& instance)
 {
   std::string uri = "/instances/" + instance + "/file";
 
@@ -162,13 +162,13 @@ static int32_t AnswerDicom(OrthancPluginRestOutput* output,
   if (OrthancPlugins::RestApiGetString(dicom, context_, uri))
   {
     OrthancPluginAnswerBuffer(context_, output, dicom.c_str(), dicom.size(), "application/dicom");
-    return 0;
+    return REST_RETURN_SUCCESS;
   }
   else
   {
     std::string msg = "WADO: Unable to retrieve DICOM file from " + uri;
     OrthancPluginLogError(context_, msg.c_str());
-    return -1;
+    return REST_RETURN_FAILURE;
   }
 }
 
@@ -191,28 +191,28 @@ static bool RetrievePngPreview(std::string& png,
 }
 
 
-static int32_t AnswerPngPreview(OrthancPluginRestOutput* output,
-                                const std::string& instance)
+static REST_RETURN_TYPE AnswerPngPreview(OrthancPluginRestOutput* output,
+                                         const std::string& instance)
 {
   std::string png;
   if (!RetrievePngPreview(png, instance))
   {
-    return -1;
+    return REST_RETURN_FAILURE;
   }
 
   OrthancPluginAnswerBuffer(context_, output, png.c_str(), png.size(), "image/png");
-  return 0;
+  return REST_RETURN_SUCCESS;
 }
 
 
-static int32_t AnswerJpegPreview(OrthancPluginRestOutput* output,
-                                 const std::string& instance)
+static REST_RETURN_TYPE AnswerJpegPreview(OrthancPluginRestOutput* output,
+                                          const std::string& instance)
 {
   // Retrieve the preview in the PNG format
   std::string png;
   if (!RetrievePngPreview(png, instance))
   {
-    return -1;
+    return REST_RETURN_FAILURE;
   }
 
   // Decode the PNG file
@@ -225,27 +225,27 @@ static int32_t AnswerJpegPreview(OrthancPluginRestOutput* output,
   writer.WriteToMemory(jpeg, reader);
 
   OrthancPluginAnswerBuffer(context_, output, jpeg.c_str(), jpeg.size(), "image/jpeg");
-  return 0;
+  return REST_RETURN_SUCCESS;
 }
 
 
-int32_t WadoCallback(OrthancPluginRestOutput* output,
-                     const char* url,
-                     const OrthancPluginHttpRequest* request)
+REST_RETURN_TYPE WadoCallback(OrthancPluginRestOutput* output,
+                              const char* url,
+                              const OrthancPluginHttpRequest* request)
 {
   try
   {
     if (request->method != OrthancPluginHttpMethod_Get)
     {
       OrthancPluginSendMethodNotAllowed(context_, output, "GET");
-      return -1;
+      return REST_RETURN_FAILURE;
     }
 
     std::string instance;
     std::string contentType = "image/jpg";  // By default, JPEG image will be returned
     if (!LocateInstance(instance, contentType, request))
     {
-      return -1;
+      return REST_RETURN_FAILURE;
     }
 
     if (contentType == "application/dicom")
@@ -265,19 +265,19 @@ int32_t WadoCallback(OrthancPluginRestOutput* output,
     {
       std::string msg = "WADO: Unsupported content type: \"" + contentType + "\"";
       OrthancPluginLogError(context_, msg.c_str());
-      return -1;
+      return REST_RETURN_FAILURE;
     }
 
-    return 0;
+    return REST_RETURN_SUCCESS;
   }
   catch (Orthanc::OrthancException& e)
   {
     OrthancPluginLogError(context_, e.What());
-    return -1;
+    return REST_RETURN_FAILURE;
   }
   catch (std::runtime_error& e)
   {
     OrthancPluginLogError(context_, e.what());
-    return -1;
+    return REST_RETURN_FAILURE;
   }
 }

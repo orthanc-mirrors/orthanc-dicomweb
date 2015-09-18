@@ -20,33 +20,33 @@
 
 #pragma once
 
-#include <orthanc/OrthancCPlugin.h>
+#include "Configuration.h"
 
 
-int32_t RetrieveDicomStudy(OrthancPluginRestOutput* output,
-                           const char* url,
-                           const OrthancPluginHttpRequest* request);
+REST_RETURN_TYPE RetrieveDicomStudy(OrthancPluginRestOutput* output,
+                                    const char* url,
+                                    const OrthancPluginHttpRequest* request);
 
-int32_t RetrieveDicomSeries(OrthancPluginRestOutput* output,
-                            const char* url,
-                            const OrthancPluginHttpRequest* request);
+REST_RETURN_TYPE RetrieveDicomSeries(OrthancPluginRestOutput* output,
+                                     const char* url,
+                                     const OrthancPluginHttpRequest* request);
 
-int32_t RetrieveDicomInstance(OrthancPluginRestOutput* output,
-                              const char* url,
-                              const OrthancPluginHttpRequest* request);
+REST_RETURN_TYPE RetrieveDicomInstance(OrthancPluginRestOutput* output,
+                                       const char* url,
+                                       const OrthancPluginHttpRequest* request);
 
-int32_t RetrieveStudyMetadata(OrthancPluginRestOutput* output,
-                              const char* url,
-                              const OrthancPluginHttpRequest* request);
+REST_RETURN_TYPE RetrieveStudyMetadata(OrthancPluginRestOutput* output,
+                                       const char* url,
+                                       const OrthancPluginHttpRequest* request);
 
-int32_t RetrieveSeriesMetadata(OrthancPluginRestOutput* output,
-                               const char* url,
-                               const OrthancPluginHttpRequest* request);
+REST_RETURN_TYPE RetrieveSeriesMetadata(OrthancPluginRestOutput* output,
+                                        const char* url,
+                                        const OrthancPluginHttpRequest* request);
 
-int32_t RetrieveInstanceMetadata(OrthancPluginRestOutput* output,
-                                 const char* url,
-                                 const OrthancPluginHttpRequest* request);
+REST_RETURN_TYPE RetrieveInstanceMetadata(OrthancPluginRestOutput* output,
+                                          const char* url,
+                                          const OrthancPluginHttpRequest* request);
 
-int32_t RetrieveBulkData(OrthancPluginRestOutput* output,
-                         const char* url,
-                         const OrthancPluginHttpRequest* request);
+REST_RETURN_TYPE RetrieveBulkData(OrthancPluginRestOutput* output,
+                                  const char* url,
+                                  const OrthancPluginHttpRequest* request);

@@ -20,16 +20,17 @@
 
 #pragma once
 
-#include <orthanc/OrthancCPlugin.h>
+#include "Configuration.h"
 
-int32_t SearchForStudies(OrthancPluginRestOutput* output,
-                         const char* url,
-                         const OrthancPluginHttpRequest* request);
 
-int32_t SearchForSeries(OrthancPluginRestOutput* output,
-                        const char* url,
-                        const OrthancPluginHttpRequest* request);
+REST_RETURN_TYPE SearchForStudies(OrthancPluginRestOutput* output,
+                                  const char* url,
+                                  const OrthancPluginHttpRequest* request);
 
-int32_t SearchForInstances(OrthancPluginRestOutput* output,
-                           const char* url,
-                           const OrthancPluginHttpRequest* request);
+REST_RETURN_TYPE SearchForSeries(OrthancPluginRestOutput* output,
+                                 const char* url,
+                                 const OrthancPluginHttpRequest* request);
+
+REST_RETURN_TYPE SearchForInstances(OrthancPluginRestOutput* output,
+                                    const char* url,
+                                    const OrthancPluginHttpRequest* request);

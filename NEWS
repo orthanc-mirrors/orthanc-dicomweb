@@ -5,6 +5,8 @@ Pending changes in the mainline
 Version 0.1 (2015/08/03)
 ========================
 
+=> Minimum SDK version: 0.9.1 <=
+
 * Support of WADO-RS - RetrieveMetadata
 * Support of WADO, in addition to DICOMweb
 * All the APIs are now under the same root

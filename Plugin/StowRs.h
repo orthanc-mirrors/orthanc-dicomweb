@@ -20,10 +20,10 @@
 
 #pragma once
 
-#include <orthanc/OrthancCPlugin.h>
+#include "Configuration.h"
 
 bool IsXmlExpected(const OrthancPluginHttpRequest* request);
 
-int32_t StowCallback(OrthancPluginRestOutput* output,
-                     const char* url,
-                     const OrthancPluginHttpRequest* request);
+REST_RETURN_TYPE StowCallback(OrthancPluginRestOutput* output,
+                              const char* url,
+                              const OrthancPluginHttpRequest* request);
