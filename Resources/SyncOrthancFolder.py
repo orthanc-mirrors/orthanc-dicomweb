@@ -9,7 +9,7 @@ import os
 import shutil
 import urllib2
 
-PLUGIN_SDK_VERSION = '0.9.1'
+PLUGIN_SDK_VERSION = '0.9.4'
 
 SOURCE = '/home/jodogne/Subversion/Orthanc'
 TARGET = os.path.join(os.path.dirname(__file__), '..', 'Orthanc')
@@ -20,25 +20,22 @@ FILES = [
     'Core/ChunkedBuffer.h',
     'Core/Enumerations.cpp',
     'Core/Enumerations.h',
-    'Core/ImageFormats/ImageAccessor.cpp',
-    'Core/ImageFormats/ImageAccessor.h',
-    'Core/ImageFormats/ImageBuffer.cpp',
-    'Core/ImageFormats/ImageBuffer.h',
-    'Core/ImageFormats/PngReader.cpp',
-    'Core/ImageFormats/PngReader.h',
+    'Core/Images/ImageAccessor.cpp',
+    'Core/Images/ImageAccessor.h',
+    'Core/Images/ImageBuffer.cpp',
+    'Core/Images/ImageBuffer.h',
     'Core/Logging.h',
-    'Core/OrthancException.cpp',
     'Core/OrthancException.h',
     'Core/PrecompiledHeaders.h',
     'Core/Toolbox.cpp',
     'Core/Toolbox.h',
+    'Plugins/Samples/Common/ExportedSymbols.list',
     'Plugins/Samples/Common/VersionScript.map',
     'Resources/CMake/BoostConfiguration.cmake',
     'Resources/CMake/Compiler.cmake',
     'Resources/CMake/DownloadPackage.cmake',
     'Resources/CMake/GoogleTestConfiguration.cmake',
     'Resources/CMake/JsonCppConfiguration.cmake',
-    'Resources/CMake/LibPngConfiguration.cmake',
     'Resources/CMake/PugixmlConfiguration.cmake',
     'Resources/CMake/ZlibConfiguration.cmake',
     'Resources/MinGW-W64-Toolchain32.cmake',

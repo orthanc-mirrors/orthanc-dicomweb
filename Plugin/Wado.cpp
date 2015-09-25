@@ -22,8 +22,6 @@
 #include "Plugin.h"
 
 #include "../Orthanc/Core/OrthancException.h"
-#include "../Orthanc/Core/ImageFormats/PngReader.h"
-#include "JpegWriter.h"
 #include "Configuration.h"
 
 #include <string>
@@ -216,15 +214,21 @@ static REST_RETURN_TYPE AnswerJpegPreview(OrthancPluginRestOutput* output,
   }
 
   // Decode the PNG file
-  Orthanc::PngReader reader;
-  reader.ReadFromMemory(png);
+  OrthancPluginImage* image = OrthancPluginUncompressImage(
+    context_, png.c_str(), png.size(), OrthancPluginImageFormat_Png);
 
   // Convert to JPEG
-  OrthancPlugins::JpegWriter writer;
-  std::string jpeg;
-  writer.WriteToMemory(jpeg, reader);
+  OrthancPluginCompressAndAnswerJpegImage(
+    context_, output, 
+    OrthancPluginGetImagePixelFormat(context_, image),
+    OrthancPluginGetImageWidth(context_, image),
+    OrthancPluginGetImageHeight(context_, image),
+    OrthancPluginGetImagePitch(context_, image),
+    OrthancPluginGetImageBuffer(context_, image), 
+    90 /*quality*/);
 
-  OrthancPluginAnswerBuffer(context_, output, jpeg.c_str(), jpeg.size(), "image/jpeg");
+  OrthancPluginFreeImage(context_, image);
+
   return REST_RETURN_SUCCESS;
 }
 

@@ -111,11 +111,15 @@ namespace
         {
           if (key.find('.') != std::string::npos)
           {
-            throw Orthanc::OrthancException("This QIDO-RS implementation does not support search over sequences: " + key);
+            std::string s = "This QIDO-RS implementation does not support search over sequences: " + key;
+            OrthancPluginLogError(context_, s.c_str());
+            throw Orthanc::OrthancException(Orthanc::ErrorCode_NotImplemented);
           }
           else
           {
-            throw Orthanc::OrthancException("Illegal tag name in QIDO-RS: " + key);
+            std::string s = "Illegal tag name in QIDO-RS: " + key;
+            OrthancPluginLogError(context_, s.c_str());
+            throw Orthanc::OrthancException(Orthanc::ErrorCode_UnknownDicomTag);
           }
         }
 
@@ -304,7 +308,7 @@ namespace
           break;
 
         default:
-          throw Orthanc::OrthancException("Internal error");
+          throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
       }
     }
 
@@ -343,7 +347,9 @@ namespace
           }
           else
           {
-            throw Orthanc::OrthancException("Not a proper value for fuzzy matching (true or false): " + value);
+            std::string s = "Not a proper value for fuzzy matching (true or false): " + value;
+            OrthancPluginLogError(context_, s.c_str());
+            throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest);
           }
         }
         else if (key == "includefield")
@@ -606,7 +612,7 @@ namespace
           break;
 
         default:
-          throw Orthanc::OrthancException("Internal error");
+          throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
       }
 
 
@@ -645,7 +651,7 @@ namespace
           break;
 
         default:
-          throw Orthanc::OrthancException("Internal error");
+          throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
       }
     }
 
@@ -672,7 +678,7 @@ namespace
           break;
 
         default:
-          throw Orthanc::OrthancException("Internal error");
+          throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
       }
     }
 
@@ -701,7 +707,7 @@ namespace
             break;
 
           default:
-            throw Orthanc::OrthancException("Internal error");
+            throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
         }
 
         Json::Value tmp;

@@ -66,8 +66,9 @@ namespace OrthancPlugins
     reader_.SetStream(stream);
     if (!reader_.Read())
     {
-      throw Orthanc::OrthancException("GDCM cannot read this DICOM instance of length " + 
-                                      boost::lexical_cast<std::string>(dicom.size()));
+      /* "GDCM cannot read this DICOM instance of length " +
+         boost::lexical_cast<std::string>(dicom.size()) */
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
     }
   }
 

@@ -42,7 +42,8 @@ namespace OrthancPlugins
     if (isXml_ &&
         OrthancPluginStartMultipartAnswer(context_, output_, "related", "application/dicom+xml") != 0)
     {
-      throw Orthanc::OrthancException("Unable to create a multipart stream of DICOM+XML answers");
+      OrthancPluginLogError(context_, "Unable to create a multipart stream of DICOM+XML answers");
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);
     }
 
     jsonWriter_.AddChunk("[\n");
@@ -59,7 +60,8 @@ namespace OrthancPlugins
 
       if (OrthancPluginSendMultipartItem(context_, output_, answer.c_str(), answer.size()) != 0)
       {
-        throw Orthanc::OrthancException("Unable to write an item to a multipart stream of DICOM+XML answers");
+        OrthancPluginLogError(context_, "Unable to create a multipart stream of DICOM+XML answers");
+        throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);
       }
     }
     else
