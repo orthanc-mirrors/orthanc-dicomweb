@@ -86,6 +86,7 @@ if (STATIC_BUILD OR NOT USE_SYSTEM_GDCM)
   ExternalProject_Get_Property(GDCM source_dir)
   include_directories(
     ${source_dir}/Source/Common
+    ${source_dir}/Source/DataDictionary
     ${source_dir}/Source/MediaStorageAndFileFormat
     ${source_dir}/Source/DataStructureAndEncodingDefinition
     )

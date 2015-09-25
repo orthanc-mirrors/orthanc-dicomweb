@@ -112,8 +112,6 @@ set(CORE_SOURCES
 
   ${ORTHANC_ROOT}/Core/ChunkedBuffer.cpp
   ${ORTHANC_ROOT}/Core/Enumerations.cpp
-  ${ORTHANC_ROOT}/Core/Images/ImageAccessor.cpp
-  ${ORTHANC_ROOT}/Core/Images/ImageBuffer.cpp
   ${ORTHANC_ROOT}/Core/Toolbox.cpp
 
   Plugin/ChunkedBuffer.cpp
