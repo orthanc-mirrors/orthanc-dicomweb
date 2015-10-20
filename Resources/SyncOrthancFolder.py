@@ -11,7 +11,7 @@ import urllib2
 
 PLUGIN_SDK_VERSION = '0.9.4'
 
-SOURCE = '/home/jodogne/Subversion/Orthanc'
+SOURCE = '/home/jodogne/Subversion/orthanc'
 TARGET = os.path.join(os.path.dirname(__file__), '..', 'Orthanc')
 REPOSITORY = 'https://bitbucket.org/sjodogne/orthanc/raw/Orthanc-%s/Plugins/Include' % PLUGIN_SDK_VERSION
 

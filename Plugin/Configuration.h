@@ -23,14 +23,14 @@
 #include <orthanc/OrthancCPlugin.h>
 #include <json/value.h>
 
-#if (ORTHANC_PLUGINS_MINIMAL_MINOR_NUMBER >= 9 && ORTHANC_PLUGINS_MINIMAL_REVISION_NUMBER >= 5)
-#  define REST_RETURN_TYPE     OrthancPluginErrorCode
-#  define REST_RETURN_SUCCESS  OrthancPluginErrorCode_Success
-#  define REST_RETURN_FAILURE  OrthancPluginErrorCode_Plugin
-#else
+#if (ORTHANC_PLUGINS_MINIMAL_MAJOR_NUMBER <= 0 && ORTHANC_PLUGINS_MINIMAL_MINOR_NUMBER <= 9 && ORTHANC_PLUGINS_MINIMAL_REVISION_NUMBER <= 4)
 #  define REST_RETURN_TYPE     int32_t
 #  define REST_RETURN_SUCCESS  0
 #  define REST_RETURN_FAILURE  -1
+#else
+#  define REST_RETURN_TYPE     OrthancPluginErrorCode
+#  define REST_RETURN_SUCCESS  OrthancPluginErrorCode_Success
+#  define REST_RETURN_FAILURE  OrthancPluginErrorCode_Plugin
 #endif
 
 
