@@ -5,15 +5,14 @@
 # to match the latest version of the Orthanc source code.
 #
 
+import multiprocessing
 import os
-import shutil
+import stat
 import urllib2
 
-PLUGIN_SDK_VERSION = '0.9.4'
-
-SOURCE = '/home/jodogne/Subversion/orthanc'
 TARGET = os.path.join(os.path.dirname(__file__), '..', 'Orthanc')
-REPOSITORY = 'https://bitbucket.org/sjodogne/orthanc/raw/Orthanc-%s/Plugins/Include' % PLUGIN_SDK_VERSION
+PLUGIN_SDK_VERSION = '0.9.4'
+REPOSITORY = 'https://bitbucket.org/sjodogne/orthanc/raw'
 
 FILES = [
     'Core/ChunkedBuffer.cpp',
@@ -46,24 +45,46 @@ SDK = [
     'orthanc/OrthancCPlugin.h',
 ]   
 
+EXE = [ 
+    'Resources/WindowsResources.py',
+]
+
+
+
+
+def Download(x):
+    branch = x[0]
+    source = x[1]
+    target = os.path.join(TARGET, x[2])
+    print target
+
+    try:
+        os.makedirs(os.path.dirname(target))
+    except:
+        pass
+
+    url = '%s/%s/%s' % (REPOSITORY, branch, source)
+
+    with open(target, 'w') as f:
+        f.write(urllib2.urlopen(url).read())
+
+
+commands = []
 
 for f in FILES:
-    source = os.path.join(SOURCE, f)
-    target = os.path.join(TARGET, f)
-    try:
-        os.makedirs(os.path.dirname(target))
-    except:
-        pass
-
-    shutil.copy(source, target)
+    commands.append([ 'default', f, f ])
 
 for f in SDK:
-    source = '%s/%s' % (REPOSITORY, f)
-    target = os.path.join(TARGET, 'Sdk-%s' % PLUGIN_SDK_VERSION, f)
-    try:
-        os.makedirs(os.path.dirname(target))
-    except:
-        pass
+    commands.append([ 'Orthanc-%s' % PLUGIN_SDK_VERSION, 
+                      'Plugins/Include/%s' % f,
+                      'Sdk-%s/%s' % (PLUGIN_SDK_VERSION, f) ])
 
-    with open(target, 'w') as g:
-        g.write(urllib2.urlopen(source).read())
+
+pool = multiprocessing.Pool(10)  # simultaneous downloads
+pool.map(Download, commands)
+
+
+for exe in EXE:
+    path = os.path.join(TARGET, exe)
+    st = os.stat(path)
+    os.chmod(path, st.st_mode | stat.S_IEXEC)
