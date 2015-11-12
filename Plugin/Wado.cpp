@@ -249,7 +249,11 @@ REST_RETURN_TYPE WadoCallback(OrthancPluginRestOutput* output,
     std::string contentType = "image/jpg";  // By default, JPEG image will be returned
     if (!LocateInstance(instance, contentType, request))
     {
+#if HAS_ERROR_CODE == 1
+      return OrthancPluginErrorCode_UnknownResource;
+#else
       return REST_RETURN_FAILURE;
+#endif
     }
 
     if (contentType == "application/dicom")

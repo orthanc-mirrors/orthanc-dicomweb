@@ -27,10 +27,12 @@
 #  define REST_RETURN_TYPE     int32_t
 #  define REST_RETURN_SUCCESS  0
 #  define REST_RETURN_FAILURE  -1
+#  define HAS_ERROR_CODE       0
 #else
 #  define REST_RETURN_TYPE     OrthancPluginErrorCode
 #  define REST_RETURN_SUCCESS  OrthancPluginErrorCode_Success
 #  define REST_RETURN_FAILURE  OrthancPluginErrorCode_Plugin
+#  define HAS_ERROR_CODE       1
 #endif
 
 
