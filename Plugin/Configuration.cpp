@@ -133,6 +133,7 @@ namespace OrthancPlugins
   {
     OrthancPluginMemoryBuffer buffer;
     int code;
+
     if (applyPlugins)
     {
       code = OrthancPluginRestApiGetAfterPlugins(context, &buffer, uri.c_str());
@@ -174,10 +175,62 @@ namespace OrthancPlugins
 
   bool RestApiGetJson(Json::Value& result,
                       OrthancPluginContext* context,
-                      const std::string& uri)
+                      const std::string& uri,
+                      bool applyPlugins)
   {
     std::string content;
-    RestApiGetString(content, context, uri);
+    RestApiGetString(content, context, uri, applyPlugins);
+    
+    Json::Reader reader;
+    return reader.parse(content, result);
+  }
+
+
+  bool RestApiPostString(std::string& result,
+                         OrthancPluginContext* context,
+                         const std::string& uri,
+                         const std::string& body)
+  {
+    OrthancPluginMemoryBuffer buffer;
+    int code = OrthancPluginRestApiPost(context, &buffer, uri.c_str(), body.c_str(), body.size());
+
+    if (code)
+    {
+      // Error
+      return false;
+    }
+
+    bool ok = true;
+
+    try
+    {
+      if (buffer.size)
+      {
+        result.assign(reinterpret_cast<const char*>(buffer.data), buffer.size);
+      }
+      else
+      {
+        result.clear();
+      }
+    }
+    catch (std::bad_alloc&)
+    {
+      ok = false;
+    }
+
+    OrthancPluginFreeMemoryBuffer(context, &buffer);
+
+    return ok;
+  }
+
+
+  bool RestApiPostJson(Json::Value& result,
+                      OrthancPluginContext* context,
+                      const std::string& uri,
+                      const std::string& body)
+  {
+    std::string content;
+    RestApiPostString(content, context, uri, body);
     
     Json::Reader reader;
     return reader.parse(content, result);

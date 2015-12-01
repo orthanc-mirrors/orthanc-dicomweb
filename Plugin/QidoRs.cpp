@@ -87,9 +87,24 @@ namespace
     }
 
 
+    static std::string Format(const gdcm::Tag& tag)
+    {
+      char b[16];
+      sprintf(b, "%04x,%04x", tag.GetGroup(), tag.GetElement());
+      return std::string(b);
+    }
+
+
     gdcm::Tag  ParseTag(const std::string& key) const
     {
-      if (key.size() == 8 &&
+      if (key.find('.') != std::string::npos)
+      {
+        std::string s = "This DICOMweb plugin does not support hierarchical queries: " + key;
+        OrthancPluginLogError(context_, s.c_str());
+        throw Orthanc::OrthancException(Orthanc::ErrorCode_NotImplemented);
+      }
+
+     if (key.size() == 8 &&
           isxdigit(key[0]) &&
           isxdigit(key[1]) &&
           isxdigit(key[2]) &&
@@ -126,129 +141,6 @@ namespace
         return tag;
       }
     }
-
-
-    static bool IsWildcard(const std::string& constraint)
-    {
-      return (constraint.find('-') != std::string::npos ||
-              constraint.find('*') != std::string::npos ||
-              constraint.find('\\') != std::string::npos ||
-              constraint.find('?') != std::string::npos);
-    }
-
-    static bool ApplyRangeConstraint(const std::string& value,
-                                     const std::string& constraint)
-    {
-      size_t separator = constraint.find('-');
-      std::string lower(constraint.substr(0, separator));
-      std::string upper(constraint.substr(separator + 1));
-      std::string v(value);
-
-      Orthanc::Toolbox::ToLowerCase(lower);
-      Orthanc::Toolbox::ToLowerCase(upper);
-      Orthanc::Toolbox::ToLowerCase(v);
-
-      if (lower.size() == 0 && upper.size() == 0)
-      {
-        return false;
-      }
-
-      if (lower.size() == 0)
-      {
-        return v <= upper;
-      }
-
-      if (upper.size() == 0)
-      {
-        return v >= lower;
-      }
-    
-      return (v >= lower && v <= upper);
-    }
-
-
-    static bool ApplyListConstraint(const std::string& value,
-                                    const std::string& constraint)
-    {
-      std::string v1(value);
-      Orthanc::Toolbox::ToLowerCase(v1);
-
-      std::vector<std::string> items;
-      Orthanc::Toolbox::TokenizeString(items, constraint, '\\');
-
-      for (size_t i = 0; i < items.size(); i++)
-      {
-        std::string lower(items[i]);
-        Orthanc::Toolbox::ToLowerCase(lower);
-        if (lower == v1)
-        {
-          return true;
-        }
-      }
-
-      return false;
-    }
-
-
-    static std::string WildcardToRegularExpression(const std::string& source)
-    {
-      std::string result = source;
-
-      // Escape all special characters
-      boost::replace_all(result, "\\", "\\\\");
-      boost::replace_all(result, "^", "\\^");
-      boost::replace_all(result, ".", "\\.");
-      boost::replace_all(result, "$", "\\$");
-      boost::replace_all(result, "|", "\\|");
-      boost::replace_all(result, "(", "\\(");
-      boost::replace_all(result, ")", "\\)");
-      boost::replace_all(result, "[", "\\[");
-      boost::replace_all(result, "]", "\\]");
-      boost::replace_all(result, "+", "\\+");
-      boost::replace_all(result, "/", "\\/");
-      boost::replace_all(result, "{", "\\{");
-      boost::replace_all(result, "}", "\\}");
-
-      // Convert wildcards '*' and '?' to their regex equivalents
-      boost::replace_all(result, "?", ".");
-      boost::replace_all(result, "*", ".*");
-
-      return result;
-    }
-
-
-    static bool Matches(const std::string& value,
-                        const std::string& constraint)
-    {
-      // http://www.itk.org/Wiki/DICOM_QueryRetrieve_Explained
-      // http://dicomiseasy.blogspot.be/2012/01/dicom-queryretrieve-part-i.html  
-
-      if (constraint.find('-') != std::string::npos)
-      {
-        return ApplyRangeConstraint(value, constraint);
-      }
-    
-      if (constraint.find('\\') != std::string::npos)
-      {
-        return ApplyListConstraint(value, constraint);
-      }
-
-      if (constraint.find('*') != std::string::npos ||
-          constraint.find('?') != std::string::npos)
-      {
-        boost::regex pattern(WildcardToRegularExpression(constraint),
-                             boost::regex::icase /* case insensitive search */);
-        return boost::regex_match(value, pattern);
-      }
-      else
-      {
-        std::string v(value), c(constraint);
-        Orthanc::Toolbox::ToLowerCase(v);
-        Orthanc::Toolbox::ToLowerCase(c);
-        return v == c;
-      }
-    }
-
 
 
     static void AddResultAttributesForLevel(std::list<gdcm::Tag>& result,
@@ -392,43 +284,50 @@ namespace
       filters_[tag] = constraint;
     }
 
-    bool LookupExactFilter(std::string& constraint,
-                           const gdcm::Tag& tag) const
+    void Print(std::ostream& out) const 
     {
-      Filters::const_iterator it = filters_.find(tag);
-      if (it != filters_.end() &&
-          !IsWildcard(it->second))
-      {
-        constraint = it->second;
-        return true;
-      }
-      else
-      {
-        return false;
-      }
-    }
-
-    bool Matches(const OrthancPlugins::ParsedDicomFile& dicom) const
-    {
-      for (Filters::const_iterator it = filters_.begin();
+      for (Filters::const_iterator it = filters_.begin(); 
            it != filters_.end(); ++it)
       {
-        std::string value;
-        if (!dicom.GetTag(value, it->first, true))
-        {
-          return false;
-        }
-
-        if (!Matches(value, it->second))
-        {
-          return false;
-        }
+        printf("Filter [%04x,%04x] = [%s]\n", it->first.GetGroup(), it->first.GetElement(), it->second.c_str());
       }
-
-      return true;
     }
 
+    void ConvertToOrthanc(Json::Value& result,
+                          QueryLevel level) const
+    {
+      result = Json::objectValue;
 
+      switch (level)
+      {
+        case QueryLevel_Study:
+          result["Level"] = "Study";
+          break;
+
+        case QueryLevel_Series:
+          result["Level"] = "Series";
+          break;
+
+        case QueryLevel_Instance:
+          result["Level"] = "Instance";
+          break;
+
+        default:
+          throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
+      }
+
+      result["Expand"] = false;
+      result["CaseSensitive"] = true;
+      result["Query"] = Json::objectValue;
+
+      for (Filters::const_iterator it = filters_.begin(); 
+           it != filters_.end(); ++it)
+      {
+        result["Query"][Format(it->first)] = it->second;
+      }
+    }
+
+#if 0
     void ExtractFields(gdcm::DataSet& result,
                        const OrthancPlugins::ParsedDicomFile& dicom,
                        const std::string& wadoBase,
@@ -493,248 +392,7 @@ namespace
       element.SetByteValue(url.c_str(), url.size());
       result.Replace(element);
     }
-  };
-
-
-
-
-  class CandidateResources
-  {
-  private:
-    typedef std::set<std::string>  Resources;
-
-    bool        all_;
-    QueryLevel  level_;
-    Resources   resources_;
-
-    static bool CallLookup(std::string& orthancId,
-                           const std::string& dicomId,
-                           char* (lookup) (OrthancPluginContext*, const char*))
-    {
-      bool result = false;
-
-      char* tmp = lookup(context_, dicomId.c_str());
-      if (tmp != NULL)
-      {
-        orthancId = tmp;
-        result = true;
-      }
-
-      OrthancPluginFreeString(context_, tmp);
-
-      return result;
-    }
-
-
-    void FilterByIdentifierInternal(const ModuleMatcher& matcher,
-                                    const gdcm::Tag& tag,
-                                    char* (lookup) (OrthancPluginContext*, const char*))
-    {
-      std::string orthancId, dicomId;
-
-      if (!matcher.LookupExactFilter(dicomId, tag))
-      {
-        // There is no restriction at this level
-        return;
-      }
-
-      if (CallLookup(orthancId, dicomId, lookup) &&
-          (all_ || resources_.find(orthancId) != resources_.end()))
-      {
-        // There remains a single candidate resource
-        resources_.clear();
-        resources_.insert(orthancId);
-      }
-      else
-      {
-        // No matching resource remains
-        resources_.clear();            
-      }
-
-      all_ = false;
-    }
-
-
-    bool PickOneInstance(std::string& instance,
-                         const std::string& resource) const
-    {
-      if (level_ == QueryLevel_Instance)
-      {
-        instance = resource;
-        return true;
-      }
-
-      std::string uri;
-      if (level_ == QueryLevel_Study)
-      {
-        uri = "/studies/" + resource + "/instances";
-      }
-      else
-      {
-        assert(level_ == QueryLevel_Series);
-        uri = "/series/" + resource + "/instances";
-      }
-
-      Json::Value instances;
-      if (!OrthancPlugins::RestApiGetJson(instances, context_, uri) ||
-          instances.type() != Json::arrayValue ||
-          instances.size() == 0)
-      {
-        return false;
-      }
-      else
-      {
-        instance = instances[0]["ID"].asString();
-        return true;
-      }
-    }
-
-
-  public:
-    CandidateResources() : all_(true), level_(QueryLevel_Study)
-    {
-    }
-
-    void GoDown()
-    {
-      std::string baseUri;
-      std::string nextLevel;
-      switch (level_)
-      {
-        case QueryLevel_Study:
-          baseUri = "/studies/";
-          nextLevel = "Series";
-          break;
-
-        case QueryLevel_Series:
-          baseUri = "/series/";
-          nextLevel = "Instances";
-          break;
-
-        default:
-          throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
-      }
-
-
-      if (!all_)
-      {
-        Resources  children;
-      
-        for (Resources::const_iterator it = resources_.begin();
-             it != resources_.end(); it++)
-        {
-          Json::Value tmp;
-          if (OrthancPlugins::RestApiGetJson(tmp, context_, baseUri + *it) &&
-              tmp.type() == Json::objectValue &&
-              tmp.isMember(nextLevel) &&
-              tmp[nextLevel].type() == Json::arrayValue)
-          {
-            for (Json::Value::ArrayIndex i = 0; i < tmp[nextLevel].size(); i++)
-            {
-              children.insert(tmp[nextLevel][i].asString());
-            }
-          }
-        }
-
-        resources_ = children;
-      }
-
-
-      switch (level_)
-      {
-        case QueryLevel_Study:
-          level_ = QueryLevel_Series;
-          break;
-
-        case QueryLevel_Series:
-          level_ = QueryLevel_Instance;
-          break;
-
-        default:
-          throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
-      }
-    }
-
-
-    void FilterByIdentifier(const ModuleMatcher& matcher)
-    {
-      switch (level_)
-      {
-        case QueryLevel_Study:
-          FilterByIdentifierInternal(matcher, OrthancPlugins::DICOM_TAG_STUDY_INSTANCE_UID,
-                                     OrthancPluginLookupStudy);
-          FilterByIdentifierInternal(matcher, OrthancPlugins::DICOM_TAG_ACCESSION_NUMBER,
-                                     OrthancPluginLookupStudyWithAccessionNumber);
-          break;
-
-        case QueryLevel_Series:
-          FilterByIdentifierInternal(matcher, OrthancPlugins::DICOM_TAG_SERIES_INSTANCE_UID,
-                                     OrthancPluginLookupSeries);
-          break;
-
-        case QueryLevel_Instance:
-          FilterByIdentifierInternal(matcher, OrthancPlugins::DICOM_TAG_SOP_INSTANCE_UID,
-                                     OrthancPluginLookupInstance);
-          break;
-
-        default:
-          throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
-      }
-    }
-
-
-    void Flatten(std::list<std::string>& result) const
-    {
-      std::string instance;
-
-      result.clear();
-
-      if (all_)
-      {
-        std::string uri;
-        switch (level_)
-        {
-          case QueryLevel_Study:
-            uri = "/studies/";
-            break;
-
-          case QueryLevel_Series:
-            uri = "/series/";
-            break;
-
-          case QueryLevel_Instance:
-            uri = "/instances/";
-            break;
-
-          default:
-            throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
-        }
-
-        Json::Value tmp;
-        if (OrthancPlugins::RestApiGetJson(tmp, context_, uri) &&
-            tmp.type() == Json::arrayValue)
-        {
-          for (Json::Value::ArrayIndex i = 0; i < tmp.size(); i++)
-          {
-            if (PickOneInstance(instance, tmp[i].asString()))
-            {
-              result.push_back(instance);
-            }
-          }
-        }
-      }
-      else
-      {
-        for (Resources::const_iterator 
-               it = resources_.begin(); it != resources_.end(); it++)
-        {
-          if (PickOneInstance(instance, *it))
-          {
-            result.push_back(instance);
-          }
-        }
-      }
-    }
+#endif
   };
 }
 
@@ -744,9 +402,29 @@ namespace
 static void ApplyMatcher(OrthancPluginRestOutput* output,
                          const OrthancPluginHttpRequest* request,
                          const ModuleMatcher& matcher,
-                         const CandidateResources& candidates,
                          QueryLevel level)
 {
+  matcher.Print(std::cout);
+
+  Json::Value find;
+  matcher.ConvertToOrthanc(find, level);
+  std::cout << find.toStyledString();
+
+  Json::FastWriter writer;
+  std::string body = writer.write(find);
+  
+  Json::Value tmp;
+  if (OrthancPlugins::RestApiPostJson(tmp, context_, "/tools/find", body))
+  {
+    std::cout << tmp.toStyledString();
+  }
+  else
+  {
+    printf("Nope\n");
+  }
+
+
+#if 0
   std::list<std::string> resources;
   candidates.Flatten(resources);
 
@@ -771,6 +449,7 @@ static void ApplyMatcher(OrthancPluginRestOutput* output,
   }
 
   results.Answer();
+#endif
 }
 
 
@@ -788,11 +467,7 @@ REST_RETURN_TYPE SearchForStudies(OrthancPluginRestOutput* output,
     }
 
     ModuleMatcher matcher(request);
-
-    CandidateResources candidates;
-    candidates.FilterByIdentifier(matcher);
-
-    ApplyMatcher(output, request, matcher, candidates, QueryLevel_Study);
+    ApplyMatcher(output, request, matcher, QueryLevel_Study);
 
     return REST_RETURN_SUCCESS;
   }
@@ -834,12 +509,7 @@ REST_RETURN_TYPE SearchForSeries(OrthancPluginRestOutput* output,
       matcher.AddFilter(OrthancPlugins::DICOM_TAG_STUDY_INSTANCE_UID, request->groups[0]);
     }
 
-    CandidateResources candidates;
-    candidates.FilterByIdentifier(matcher);
-    candidates.GoDown();
-    candidates.FilterByIdentifier(matcher);
-
-    ApplyMatcher(output, request, matcher, candidates, QueryLevel_Series);
+    ApplyMatcher(output, request, matcher, QueryLevel_Series);
 
     return REST_RETURN_SUCCESS;
   }
@@ -887,14 +557,7 @@ REST_RETURN_TYPE SearchForInstances(OrthancPluginRestOutput* output,
       matcher.AddFilter(OrthancPlugins::DICOM_TAG_SERIES_INSTANCE_UID, request->groups[1]);
     }
 
-    CandidateResources candidates;
-    candidates.FilterByIdentifier(matcher);
-    candidates.GoDown();
-    candidates.FilterByIdentifier(matcher);
-    candidates.GoDown();
-    candidates.FilterByIdentifier(matcher);
-
-    ApplyMatcher(output, request, matcher, candidates, QueryLevel_Instance);
+    ApplyMatcher(output, request, matcher, QueryLevel_Instance);
 
     return REST_RETURN_SUCCESS;
   }
