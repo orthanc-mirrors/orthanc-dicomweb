@@ -327,7 +327,7 @@ namespace
       }
     }
 
-#if 0
+
     void ExtractFields(gdcm::DataSet& result,
                        const OrthancPlugins::ParsedDicomFile& dicom,
                        const std::string& wadoBase,
@@ -392,10 +392,8 @@ namespace
       element.SetByteValue(url.c_str(), url.size());
       result.Replace(element);
     }
-#endif
   };
 }
-
 
 
 
@@ -404,52 +402,61 @@ static void ApplyMatcher(OrthancPluginRestOutput* output,
                          const ModuleMatcher& matcher,
                          QueryLevel level)
 {
-  matcher.Print(std::cout);
-
   Json::Value find;
   matcher.ConvertToOrthanc(find, level);
-  std::cout << find.toStyledString();
 
   Json::FastWriter writer;
   std::string body = writer.write(find);
   
-  Json::Value tmp;
-  if (OrthancPlugins::RestApiPostJson(tmp, context_, "/tools/find", body))
+  Json::Value resources;
+  if (!OrthancPlugins::RestApiPostJson(resources, context_, "/tools/find", body) ||
+      resources.type() != Json::arrayValue)
   {
-    std::cout << tmp.toStyledString();
-  }
-  else
-  {
-    printf("Nope\n");
+    throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
   }
 
-
-#if 0
-  std::list<std::string> resources;
-  candidates.Flatten(resources);
-
+  std::list<std::string> instances;
+  std::string root = (level == QueryLevel_Study ? "/studies/" : "/series/");
+    
+  for (Json::Value::ArrayIndex i = 0; i < resources.size(); i++)
+  {
+    if (level == QueryLevel_Study ||
+        level == QueryLevel_Series)
+    {
+      // Find one child instance of this resource
+      Json::Value tmp;
+      if (OrthancPlugins::RestApiGetJson(tmp, context_, root + resources[i].asString() + "/instances") &&
+          tmp.type() == Json::arrayValue &&
+          tmp.size() > 0)
+      {
+        instances.push_back(tmp[0]["ID"].asString());
+      }
+    }
+    else
+    {
+      instances.push_back(resources[i].asString());
+    }
+  }
+  
   std::string wadoBase = OrthancPlugins::Configuration::GetBaseUrl(configuration_, request);
 
   OrthancPlugins::DicomResults results(context_, output, wadoBase, *dictionary_, IsXmlExpected(request), true);
 
   for (std::list<std::string>::const_iterator
-         it = resources.begin(); it != resources.end(); it++)
+         it = instances.begin(); it != instances.end(); it++)
   {
     std::string file;
     if (OrthancPlugins::RestApiGetString(file, context_, "/instances/" + *it + "/file"))
     {
       OrthancPlugins::ParsedDicomFile dicom(file);
-      if (matcher.Matches(dicom))
-      {
-        std::auto_ptr<gdcm::DataSet> result(new gdcm::DataSet);
-        matcher.ExtractFields(*result, dicom, wadoBase, level);
-        results.Add(dicom.GetFile(), *result);
-      }
+
+      std::auto_ptr<gdcm::DataSet> result(new gdcm::DataSet);
+      matcher.ExtractFields(*result, dicom, wadoBase, level);
+      results.Add(dicom.GetFile(), *result);
     }
   }
 
   results.Answer();
-#endif
 }
 
 
