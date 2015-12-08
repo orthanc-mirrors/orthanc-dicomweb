@@ -24,6 +24,6 @@
 
 bool IsXmlExpected(const OrthancPluginHttpRequest* request);
 
-REST_RETURN_TYPE StowCallback(OrthancPluginRestOutput* output,
-                              const char* url,
-                              const OrthancPluginHttpRequest* request);
+OrthancPluginErrorCode StowCallback(OrthancPluginRestOutput* output,
+                                    const char* url,
+                                    const OrthancPluginHttpRequest* request);

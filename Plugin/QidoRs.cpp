@@ -104,7 +104,7 @@ namespace
         throw Orthanc::OrthancException(Orthanc::ErrorCode_NotImplemented);
       }
 
-     if (key.size() == 8 &&
+      if (key.size() == 8 &&
           isxdigit(key[0]) &&
           isxdigit(key[1]) &&
           isxdigit(key[2]) &&
@@ -208,11 +208,11 @@ namespace
 
   public:
     ModuleMatcher(const OrthancPluginHttpRequest* request) :
-      dictionary_(gdcm::Global::GetInstance().GetDicts().GetPublicDict()),
-      fuzzy_(false),
-      offset_(0),
-      limit_(0),
-      includeAllFields_(false)
+    dictionary_(gdcm::Global::GetInstance().GetDicts().GetPublicDict()),
+    fuzzy_(false),
+    offset_(0),
+    limit_(0),
+    includeAllFields_(false)
     {
       for (uint32_t i = 0; i < request->getCount; i++)
       {
@@ -461,51 +461,51 @@ static void ApplyMatcher(OrthancPluginRestOutput* output,
 
 
 
-REST_RETURN_TYPE SearchForStudies(OrthancPluginRestOutput* output,
-                                  const char* url,
-                                  const OrthancPluginHttpRequest* request)
+OrthancPluginErrorCode SearchForStudies(OrthancPluginRestOutput* output,
+                                        const char* url,
+                                        const OrthancPluginHttpRequest* request)
 {
   try
   {
     if (request->method != OrthancPluginHttpMethod_Get)
     {
       OrthancPluginSendMethodNotAllowed(context_, output, "GET");
-      return REST_RETURN_SUCCESS;
+      return OrthancPluginErrorCode_Success;
     }
 
     ModuleMatcher matcher(request);
     ApplyMatcher(output, request, matcher, QueryLevel_Study);
 
-    return REST_RETURN_SUCCESS;
+    return OrthancPluginErrorCode_Success;
   }
   catch (Orthanc::OrthancException& e)
   {
     OrthancPluginLogError(context_, e.What());
-    return REST_RETURN_FAILURE;
+    return OrthancPluginErrorCode_Plugin;
   }
   catch (boost::bad_lexical_cast& e)
   {
     OrthancPluginLogError(context_, e.what());
-    return REST_RETURN_FAILURE;
+    return OrthancPluginErrorCode_Plugin;
   }
   catch (std::runtime_error& e)
   {
     OrthancPluginLogError(context_, e.what());
-    return REST_RETURN_FAILURE;
+    return OrthancPluginErrorCode_Plugin;
   }
 }
 
 
-REST_RETURN_TYPE SearchForSeries(OrthancPluginRestOutput* output,
-                                 const char* url,
-                                 const OrthancPluginHttpRequest* request)
+OrthancPluginErrorCode SearchForSeries(OrthancPluginRestOutput* output,
+                                       const char* url,
+                                       const OrthancPluginHttpRequest* request)
 {
   try
   {
     if (request->method != OrthancPluginHttpMethod_Get)
     {
       OrthancPluginSendMethodNotAllowed(context_, output, "GET");
-      return REST_RETURN_SUCCESS;
+      return OrthancPluginErrorCode_Success;
     }
 
     ModuleMatcher matcher(request);
@@ -518,36 +518,36 @@ REST_RETURN_TYPE SearchForSeries(OrthancPluginRestOutput* output,
 
     ApplyMatcher(output, request, matcher, QueryLevel_Series);
 
-    return REST_RETURN_SUCCESS;
+    return OrthancPluginErrorCode_Success;
   }
   catch (Orthanc::OrthancException& e)
   {
     OrthancPluginLogError(context_, e.What());
-    return REST_RETURN_FAILURE;
+    return OrthancPluginErrorCode_Plugin;
   }
   catch (boost::bad_lexical_cast& e)
   {
     OrthancPluginLogError(context_, e.what());
-    return REST_RETURN_FAILURE;
+    return OrthancPluginErrorCode_Plugin;
   }
   catch (std::runtime_error& e)
   {
     OrthancPluginLogError(context_, e.what());
-    return REST_RETURN_FAILURE;
+    return OrthancPluginErrorCode_Plugin;
   }
 }
 
 
-REST_RETURN_TYPE SearchForInstances(OrthancPluginRestOutput* output,
-                                    const char* url,
-                                    const OrthancPluginHttpRequest* request)
+OrthancPluginErrorCode SearchForInstances(OrthancPluginRestOutput* output,
+                                          const char* url,
+                                          const OrthancPluginHttpRequest* request)
 {
   try
   {
     if (request->method != OrthancPluginHttpMethod_Get)
     {
       OrthancPluginSendMethodNotAllowed(context_, output, "GET");
-      return REST_RETURN_SUCCESS;
+      return OrthancPluginErrorCode_Success;
     }
 
     ModuleMatcher matcher(request);
@@ -566,21 +566,21 @@ REST_RETURN_TYPE SearchForInstances(OrthancPluginRestOutput* output,
 
     ApplyMatcher(output, request, matcher, QueryLevel_Instance);
 
-    return REST_RETURN_SUCCESS;
+    return OrthancPluginErrorCode_Success;
   }
   catch (Orthanc::OrthancException& e)
   {
     OrthancPluginLogError(context_, e.What());
-    return REST_RETURN_FAILURE;
+    return OrthancPluginErrorCode_Plugin;
   }
   catch (boost::bad_lexical_cast& e)
   {
     OrthancPluginLogError(context_, e.what());
-    return REST_RETURN_FAILURE;
+    return OrthancPluginErrorCode_Plugin;
   }
   catch (std::runtime_error& e)
   {
     OrthancPluginLogError(context_, e.what());
-    return REST_RETURN_FAILURE;
+    return OrthancPluginErrorCode_Plugin;
   }
 }

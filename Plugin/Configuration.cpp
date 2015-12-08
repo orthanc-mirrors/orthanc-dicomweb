@@ -225,9 +225,9 @@ namespace OrthancPlugins
 
 
   bool RestApiPostJson(Json::Value& result,
-                      OrthancPluginContext* context,
-                      const std::string& uri,
-                      const std::string& body)
+                       OrthancPluginContext* context,
+                       const std::string& uri,
+                       const std::string& body)
   {
     std::string content;
     RestApiPostString(content, context, uri, body);
