@@ -74,9 +74,9 @@ if (STATIC_BUILD OR NOT USE_SYSTEM_GDCM)
     ${Prefix}socketxx${Suffix}
     ${Prefix}gdcmCommon${Suffix}
     ${Prefix}gdcmexpat${Suffix}
+    ${Prefix}gdcmuuid${Suffix}
 
     #${Prefix}gdcmgetopt${Suffix}
-    #${Prefix}gdcmuuid${Suffix}
     )
 
   ExternalProject_Get_Property(GDCM binary_dir)
