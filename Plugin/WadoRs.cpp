@@ -737,13 +737,6 @@ OrthancPluginErrorCode RetrieveFrames(OrthancPluginRestOutput* output,
     if (LocateInstance(output, uri, request) &&
         OrthancPlugins::RestApiGetString(content, context_, uri + "/file"))
     {
-      //OrthancPlugins::ParsedDicomFile dicom(content);
-      {
-        FILE* fp = fopen("/tmp/toto.dcm", "wb");
-        fwrite(content.c_str(), content.size(), 1, fp);
-        fclose(fp);
-      }
-
       printf("RetrieveFrames: [%s] [%s]\n", uri.c_str(), request->groups[3]);
 
       gdcm::ImageChangeTransferSyntax change;
@@ -758,9 +751,10 @@ OrthancPluginErrorCode RetrieveFrames(OrthancPluginRestOutput* output,
       //codec.SetLossless(true);
       change.SetUserCodec(&codec);
 
+      std::stringstream stream(content);
+
       gdcm::ImageReader reader;
-      //reader.SetFile(dicom.GetFile());
-      reader.SetFileName("/tmp/toto.dcm");
+      reader.SetStream(stream);
       printf("Read: %d\n", reader.Read());
 
       change.SetInput(reader.GetImage());
