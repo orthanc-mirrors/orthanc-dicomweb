@@ -50,3 +50,7 @@ OrthancPluginErrorCode RetrieveInstanceMetadata(OrthancPluginRestOutput* output,
 OrthancPluginErrorCode RetrieveBulkData(OrthancPluginRestOutput* output,
                                         const char* url,
                                         const OrthancPluginHttpRequest* request);
+
+OrthancPluginErrorCode RetrieveFrames(OrthancPluginRestOutput* output,
+                                      const char* url,
+                                      const OrthancPluginHttpRequest* request);

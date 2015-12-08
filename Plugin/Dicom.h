@@ -60,6 +60,11 @@ namespace OrthancPlugins
       Setup(dicom);
     }
 
+    gdcm::File& GetFile()
+    {
+      return reader_.GetFile();
+    }
+
     const gdcm::File& GetFile() const
     {
       return reader_.GetFile();

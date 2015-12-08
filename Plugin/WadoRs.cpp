@@ -712,3 +712,78 @@ OrthancPluginErrorCode RetrieveBulkData(OrthancPluginRestOutput* output,
     return OrthancPluginErrorCode_Plugin;
   }
 }
+
+
+
+
+
+#include <gdcmImageReader.h>
+#include <gdcmImageWriter.h>
+#include <gdcmImageChangeTransferSyntax.h>
+#include <gdcmJPEG2000Codec.h>
+
+
+OrthancPluginErrorCode RetrieveFrames(OrthancPluginRestOutput* output,
+                                      const char* url,
+                                      const OrthancPluginHttpRequest* request)
+{
+  // curl http://localhost:8042/dicom-web/studies/1.3.51.0.1.1.192.168.29.133.1681753.1681732/series/1.3.12.2.1107.5.2.33.37097.2012041612474981424569674.0.0.0/instances/1.3.12.2.1107.5.2.33.37097.2012041612485517294169680/frames/0
+
+  // http://gdcm.sourceforge.net/html/CompressLossyJPEG_8cs-example.html
+
+  try
+  {
+    std::string uri, content;
+    if (LocateInstance(output, uri, request) &&
+        OrthancPlugins::RestApiGetString(content, context_, uri + "/file"))
+    {
+      //OrthancPlugins::ParsedDicomFile dicom(content);
+      {
+        FILE* fp = fopen("/tmp/toto.dcm", "wb");
+        fwrite(content.c_str(), content.size(), 1, fp);
+        fclose(fp);
+      }
+
+      printf("RetrieveFrames: [%s] [%s]\n", uri.c_str(), request->groups[3]);
+
+      gdcm::ImageChangeTransferSyntax change;
+      change.SetTransferSyntax(gdcm::TransferSyntax::JPEG2000Lossless);
+
+      gdcm::JPEG2000Codec codec;
+      if (!codec.CanCode(change.GetTransferSyntax()))
+      {
+        return OrthancPluginErrorCode_Plugin;
+      }
+
+      //codec.SetLossless(true);
+      change.SetUserCodec(&codec);
+
+      gdcm::ImageReader reader;
+      //reader.SetFile(dicom.GetFile());
+      reader.SetFileName("/tmp/toto.dcm");
+      printf("Read: %d\n", reader.Read());
+
+      change.SetInput(reader.GetImage());
+      printf("Change: %d\n", change.Change());
+
+      gdcm::ImageWriter writer;
+      writer.SetImage(change.GetOutput());
+      writer.SetFile(reader.GetFile());
+      
+      writer.SetFileName("/tmp/tutu.dcm");
+      printf("Write: %d\n", writer.Write());
+    }    
+
+    return OrthancPluginErrorCode_Success;
+  }
+  catch (Orthanc::OrthancException& e)
+  {
+    OrthancPluginLogError(context_, e.What());
+    return OrthancPluginErrorCode_Plugin;
+  }
+  catch (std::runtime_error& e)
+  {
+    OrthancPluginLogError(context_, e.what());
+    return OrthancPluginErrorCode_Plugin;
+  }
+}

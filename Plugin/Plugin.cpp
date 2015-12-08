@@ -165,6 +165,7 @@ extern "C"
       Register(root, "studies/([^/]*)/series/([^/]*)/instances/([^/]*)/bulk/(.*)", RetrieveBulkData);
       Register(root, "studies/([^/]*)/series/([^/]*)/instances/([^/]*)/metadata", RetrieveInstanceMetadata);
       Register(root, "studies/([^/]*)/series/([^/]*)/metadata", RetrieveSeriesMetadata);
+      Register(root, "studies/([^/]*)/series/([^/]*)/instances/([^/]*)/frames/([^/]*)", RetrieveFrames);
     }
     else
     {
