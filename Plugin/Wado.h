@@ -22,6 +22,6 @@
 
 #include "Configuration.h"
 
-REST_RETURN_TYPE WadoCallback(OrthancPluginRestOutput* output,
-                              const char* url,
-                              const OrthancPluginHttpRequest* request);
+OrthancPluginErrorCode WadoCallback(OrthancPluginRestOutput* output,
+                                    const char* url,
+                                    const OrthancPluginHttpRequest* request);

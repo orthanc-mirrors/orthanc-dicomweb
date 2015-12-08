@@ -151,8 +151,8 @@ static bool LocateInstance(std::string& instance,
 }
 
 
-static REST_RETURN_TYPE AnswerDicom(OrthancPluginRestOutput* output,
-                                    const std::string& instance)
+static OrthancPluginErrorCode AnswerDicom(OrthancPluginRestOutput* output,
+                                          const std::string& instance)
 {
   std::string uri = "/instances/" + instance + "/file";
 
@@ -160,13 +160,13 @@ static REST_RETURN_TYPE AnswerDicom(OrthancPluginRestOutput* output,
   if (OrthancPlugins::RestApiGetString(dicom, context_, uri))
   {
     OrthancPluginAnswerBuffer(context_, output, dicom.c_str(), dicom.size(), "application/dicom");
-    return REST_RETURN_SUCCESS;
+    return OrthancPluginErrorCode_Success;
   }
   else
   {
     std::string msg = "WADO: Unable to retrieve DICOM file from " + uri;
     OrthancPluginLogError(context_, msg.c_str());
-    return REST_RETURN_FAILURE;
+    return OrthancPluginErrorCode_Plugin;
   }
 }
 
@@ -189,28 +189,28 @@ static bool RetrievePngPreview(std::string& png,
 }
 
 
-static REST_RETURN_TYPE AnswerPngPreview(OrthancPluginRestOutput* output,
-                                         const std::string& instance)
+static OrthancPluginErrorCode AnswerPngPreview(OrthancPluginRestOutput* output,
+                                               const std::string& instance)
 {
   std::string png;
   if (!RetrievePngPreview(png, instance))
   {
-    return REST_RETURN_FAILURE;
+    return OrthancPluginErrorCode_Plugin;
   }
 
   OrthancPluginAnswerBuffer(context_, output, png.c_str(), png.size(), "image/png");
-  return REST_RETURN_SUCCESS;
+  return OrthancPluginErrorCode_Success;
 }
 
 
-static REST_RETURN_TYPE AnswerJpegPreview(OrthancPluginRestOutput* output,
-                                          const std::string& instance)
+static OrthancPluginErrorCode AnswerJpegPreview(OrthancPluginRestOutput* output,
+                                                const std::string& instance)
 {
   // Retrieve the preview in the PNG format
   std::string png;
   if (!RetrievePngPreview(png, instance))
   {
-    return REST_RETURN_FAILURE;
+    return OrthancPluginErrorCode_Plugin;
   }
 
   // Decode the PNG file
@@ -229,20 +229,20 @@ static REST_RETURN_TYPE AnswerJpegPreview(OrthancPluginRestOutput* output,
 
   OrthancPluginFreeImage(context_, image);
 
-  return REST_RETURN_SUCCESS;
+  return OrthancPluginErrorCode_Success;
 }
 
 
-REST_RETURN_TYPE WadoCallback(OrthancPluginRestOutput* output,
-                              const char* url,
-                              const OrthancPluginHttpRequest* request)
+OrthancPluginErrorCode WadoCallback(OrthancPluginRestOutput* output,
+                                    const char* url,
+                                    const OrthancPluginHttpRequest* request)
 {
   try
   {
     if (request->method != OrthancPluginHttpMethod_Get)
     {
       OrthancPluginSendMethodNotAllowed(context_, output, "GET");
-      return REST_RETURN_FAILURE;
+      return OrthancPluginErrorCode_Plugin;
     }
 
     std::string instance;
@@ -252,7 +252,7 @@ REST_RETURN_TYPE WadoCallback(OrthancPluginRestOutput* output,
 #if HAS_ERROR_CODE == 1
       return OrthancPluginErrorCode_UnknownResource;
 #else
-      return REST_RETURN_FAILURE;
+      return OrthancPluginErrorCode_Plugin;
 #endif
     }
 
@@ -273,19 +273,19 @@ REST_RETURN_TYPE WadoCallback(OrthancPluginRestOutput* output,
     {
       std::string msg = "WADO: Unsupported content type: \"" + contentType + "\"";
       OrthancPluginLogError(context_, msg.c_str());
-      return REST_RETURN_FAILURE;
+      return OrthancPluginErrorCode_Plugin;
     }
 
-    return REST_RETURN_SUCCESS;
+    return OrthancPluginErrorCode_Success;
   }
   catch (Orthanc::OrthancException& e)
   {
     OrthancPluginLogError(context_, e.What());
-    return REST_RETURN_FAILURE;
+    return OrthancPluginErrorCode_Plugin;
   }
   catch (std::runtime_error& e)
   {
     OrthancPluginLogError(context_, e.what());
-    return REST_RETURN_FAILURE;
+    return OrthancPluginErrorCode_Plugin;
   }
 }

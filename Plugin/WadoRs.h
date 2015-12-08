@@ -23,30 +23,30 @@
 #include "Configuration.h"
 
 
-REST_RETURN_TYPE RetrieveDicomStudy(OrthancPluginRestOutput* output,
-                                    const char* url,
-                                    const OrthancPluginHttpRequest* request);
-
-REST_RETURN_TYPE RetrieveDicomSeries(OrthancPluginRestOutput* output,
-                                     const char* url,
-                                     const OrthancPluginHttpRequest* request);
-
-REST_RETURN_TYPE RetrieveDicomInstance(OrthancPluginRestOutput* output,
-                                       const char* url,
-                                       const OrthancPluginHttpRequest* request);
-
-REST_RETURN_TYPE RetrieveStudyMetadata(OrthancPluginRestOutput* output,
-                                       const char* url,
-                                       const OrthancPluginHttpRequest* request);
-
-REST_RETURN_TYPE RetrieveSeriesMetadata(OrthancPluginRestOutput* output,
-                                        const char* url,
-                                        const OrthancPluginHttpRequest* request);
-
-REST_RETURN_TYPE RetrieveInstanceMetadata(OrthancPluginRestOutput* output,
+OrthancPluginErrorCode RetrieveDicomStudy(OrthancPluginRestOutput* output,
                                           const char* url,
                                           const OrthancPluginHttpRequest* request);
 
-REST_RETURN_TYPE RetrieveBulkData(OrthancPluginRestOutput* output,
-                                  const char* url,
-                                  const OrthancPluginHttpRequest* request);
+OrthancPluginErrorCode RetrieveDicomSeries(OrthancPluginRestOutput* output,
+                                           const char* url,
+                                           const OrthancPluginHttpRequest* request);
+
+OrthancPluginErrorCode RetrieveDicomInstance(OrthancPluginRestOutput* output,
+                                             const char* url,
+                                             const OrthancPluginHttpRequest* request);
+
+OrthancPluginErrorCode RetrieveStudyMetadata(OrthancPluginRestOutput* output,
+                                             const char* url,
+                                             const OrthancPluginHttpRequest* request);
+
+OrthancPluginErrorCode RetrieveSeriesMetadata(OrthancPluginRestOutput* output,
+                                              const char* url,
+                                              const OrthancPluginHttpRequest* request);
+
+OrthancPluginErrorCode RetrieveInstanceMetadata(OrthancPluginRestOutput* output,
+                                                const char* url,
+                                                const OrthancPluginHttpRequest* request);
+
+OrthancPluginErrorCode RetrieveBulkData(OrthancPluginRestOutput* output,
+                                        const char* url,
+                                        const OrthancPluginHttpRequest* request);

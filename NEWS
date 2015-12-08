@@ -2,8 +2,9 @@ Pending changes in the mainline
 ===============================
 
 
-=> Minimum SDK version: 0.9.4 <=
+=> Minimum SDK version: 0.9.5 <=
 
+* QIDO-RS now takes advantage of "/tools/find"
 * Upgrade to GDCM 2.6.0 for static and Windows builds
 
 

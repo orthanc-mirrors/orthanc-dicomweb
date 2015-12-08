@@ -23,14 +23,14 @@
 #include "Configuration.h"
 
 
-REST_RETURN_TYPE SearchForStudies(OrthancPluginRestOutput* output,
-                                  const char* url,
-                                  const OrthancPluginHttpRequest* request);
+OrthancPluginErrorCode SearchForStudies(OrthancPluginRestOutput* output,
+                                        const char* url,
+                                        const OrthancPluginHttpRequest* request);
 
-REST_RETURN_TYPE SearchForSeries(OrthancPluginRestOutput* output,
-                                 const char* url,
-                                 const OrthancPluginHttpRequest* request);
+OrthancPluginErrorCode SearchForSeries(OrthancPluginRestOutput* output,
+                                       const char* url,
+                                       const OrthancPluginHttpRequest* request);
 
-REST_RETURN_TYPE SearchForInstances(OrthancPluginRestOutput* output,
-                                    const char* url,
-                                    const OrthancPluginHttpRequest* request);
+OrthancPluginErrorCode SearchForInstances(OrthancPluginRestOutput* output,
+                                          const char* url,
+                                          const OrthancPluginHttpRequest* request);

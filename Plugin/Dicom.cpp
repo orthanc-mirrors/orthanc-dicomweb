@@ -219,18 +219,18 @@ namespace OrthancPlugins
     return (//vr == "FL" ||
             //vr == "FD" ||
             //vr == "IS" ||
-            vr == "LT" ||
-            vr == "OB" ||
-            vr == "OD" ||
-            vr == "OF" ||
-            vr == "OW" ||
-            //vr == "SL" ||
-            //vr == "SS" ||
-            //vr == "ST" ||
-            //vr == "UL" ||
-            vr == "UN" ||
-            //vr == "US" ||
-            vr == "UT");
+      vr == "LT" ||
+      vr == "OB" ||
+      vr == "OD" ||
+      vr == "OF" ||
+      vr == "OW" ||
+      //vr == "SL" ||
+      //vr == "SS" ||
+      //vr == "ST" ||
+      //vr == "UL" ||
+      vr == "UN" ||
+      //vr == "US" ||
+      vr == "UT");
   }
 
 
