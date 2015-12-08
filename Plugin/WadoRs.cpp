@@ -770,6 +770,7 @@ OrthancPluginErrorCode RetrieveFrames(OrthancPluginRestOutput* output,
       writer.SetImage(change.GetOutput());
       writer.SetFile(reader.GetFile());
       
+      //gdcm::File output;
       writer.SetFileName("/tmp/tutu.dcm");
       printf("Write: %d\n", writer.Write());
     }    
