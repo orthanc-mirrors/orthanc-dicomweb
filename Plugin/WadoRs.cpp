@@ -630,38 +630,7 @@ OrthancPluginErrorCode RetrieveBulkData(OrthancPluginRestOutput* output,
 #include <gdcmImageWriter.h>
 #include <gdcmImageChangeTransferSyntax.h>
 #include <gdcmJPEG2000Codec.h>
-
-
-
-
-
-static bool Test(const gdcm::DataSet& dicom)
-{
-  if (!dicom.FindDataElement(OrthancPlugins::DICOM_TAG_PIXEL_DATA))
-  {
-    return OrthancPluginErrorCode_IncompatibleImageFormat;
-  }
-
-  const gdcm::DataElement& pixelData = dicom.GetDataElement(OrthancPlugins::DICOM_TAG_PIXEL_DATA);
-  const gdcm::SequenceOfFragments* fragments = pixelData.GetSequenceOfFragments();
-
-  if (fragments == NULL)
-  {
-    printf("Single-frame image\n");
-    printf("%d\n", pixelData.GetByteValue()->GetLength());
-  }
-  else
-  {
-    printf("Multi-frame image (%d fragments)\n", fragments->GetNumberOfFragments());
-
-    for (gdcm::SequenceOfFragments::SizeType i = 0; i < fragments->GetNumberOfFragments(); i++)
-    {
-      printf("%d: %d\n", i, fragments->GetFragment(i).GetByteValue()->GetLength());
-    }
-  }
-
-  return true;
-}
+#include <boost/algorithm/string/replace.hpp>
 
 
 static void TokenizeAndNormalize(std::vector<std::string>& tokens,
@@ -679,7 +648,7 @@ static void TokenizeAndNormalize(std::vector<std::string>& tokens,
 
 
 
-static gdcm::TransferSyntax GetTransferSyntax(const OrthancPluginHttpRequest* request)
+static gdcm::TransferSyntax ParseTransferSyntax(const OrthancPluginHttpRequest* request)
 {
   for (uint32_t i = 0; i < request->headersCount; i++)
   {
@@ -691,8 +660,13 @@ static gdcm::TransferSyntax GetTransferSyntax(const OrthancPluginHttpRequest* re
       std::vector<std::string> tokens;
       TokenizeAndNormalize(tokens, request->headersValues[i], ';');
 
-      if (tokens.size() < 0 ||
-          tokens[0] != "multipart/related")
+      if (tokens.size() == 0 ||
+          tokens[0] == "*/*")
+      {
+        return gdcm::TransferSyntax::ImplicitVRLittleEndian;
+      }
+
+      if (tokens[0] != "multipart/related")
       {
         throw Orthanc::OrthancException(Orthanc::ErrorCode_ParameterOutOfRange);
       }
@@ -803,6 +777,63 @@ static gdcm::TransferSyntax GetTransferSyntax(const OrthancPluginHttpRequest* re
 }
 
 
+static void ParseFrameList(std::list<unsigned int>& frames,
+                           const OrthancPluginHttpRequest* request)
+{
+  frames.clear();
+
+  if (request->groupsCount < 3)
+  {
+    frames.push_back(0);
+    return;
+  }
+
+  std::string source(request->groups[3]);
+  Orthanc::Toolbox::ToLowerCase(source);
+  boost::replace_all(source, "%2c", ",");
+
+  std::vector<std::string> tokens;
+  Orthanc::Toolbox::TokenizeString(tokens, source, ',');
+
+  for (size_t i = 0; i < tokens.size(); i++)
+  {
+    frames.push_back(boost::lexical_cast<unsigned int>(tokens[i]));
+  }
+}                           
+
+
+
+static bool AnswerFrames(OrthancPluginRestOutput* output,
+                         const gdcm::DataSet& dicom,
+                         const std::list<unsigned int>& frames)
+{
+  if (!dicom.FindDataElement(OrthancPlugins::DICOM_TAG_PIXEL_DATA))
+  {
+    return OrthancPluginErrorCode_IncompatibleImageFormat;
+  }
+
+  const gdcm::DataElement& pixelData = dicom.GetDataElement(OrthancPlugins::DICOM_TAG_PIXEL_DATA);
+  const gdcm::SequenceOfFragments* fragments = pixelData.GetSequenceOfFragments();
+
+  if (fragments == NULL)
+  {
+    printf("Single-frame image\n");
+    printf("%d\n", pixelData.GetByteValue()->GetLength());
+  }
+  else
+  {
+    printf("Multi-frame image (%d fragments)\n", fragments->GetNumberOfFragments());
+
+    for (gdcm::SequenceOfFragments::SizeType i = 0; i < fragments->GetNumberOfFragments(); i++)
+    {
+      printf("%d: %d\n", i, fragments->GetFragment(i).GetByteValue()->GetLength());
+    }
+  }
+
+  return true;
+}
+
+
 OrthancPluginErrorCode RetrieveFrames(OrthancPluginRestOutput* output,
                                       const char* url,
                                       const OrthancPluginHttpRequest* request)
@@ -815,56 +846,99 @@ OrthancPluginErrorCode RetrieveFrames(OrthancPluginRestOutput* output,
 
   // http://gdcm.sourceforge.net/html/CompressLossyJPEG_8cs-example.html
 
-  printf("T: %s\n", GetTransferSyntax(request).GetString());
+  gdcm::TransferSyntax targetSyntax(ParseTransferSyntax(request));
 
+  std::list<unsigned int> frames;
+  ParseFrameList(frames, request);
 
+  Json::Value header;
   std::string uri, content;
   if (LocateInstance(output, uri, request) &&
-      OrthancPlugins::RestApiGetString(content, context_, uri + "/file"))
+      OrthancPlugins::RestApiGetString(content, context_, uri + "/file") &&
+      OrthancPlugins::RestApiGetJson(header, context_, uri + "/header?simplify"))
   {
     {
-      OrthancPlugins::ParsedDicomFile dicom(content);
-      Test(dicom.GetDataSet());
-      //return OrthancPluginErrorCode_Success;
+      std::string s = "DICOMweb RetrieveFrames on " + uri + ", frames: ";
+      for (std::list<unsigned int>::const_iterator it = frames.begin(); it != frames.end(); ++it)
+      {
+        s += boost::lexical_cast<std::string>(*it) + " ";
+      }
+      OrthancPluginLogInfo(context_, s.c_str());
     }
 
+    std::auto_ptr<OrthancPlugins::ParsedDicomFile> source;
 
-    printf("RetrieveFrames: [%s] [%s]\n", uri.c_str(), request->groups[3]);
+    gdcm::TransferSyntax sourceSyntax;
 
-    gdcm::ImageChangeTransferSyntax change;
-    change.SetTransferSyntax(gdcm::TransferSyntax::JPEG2000Lossless);
-
-    gdcm::JPEG2000Codec codec;
-    if (!codec.CanCode(change.GetTransferSyntax()))
+    if (header.type() == Json::objectValue &&
+        header.isMember("TransferSyntaxUID"))
     {
-      return OrthancPluginErrorCode_Plugin;
+      sourceSyntax = gdcm::TransferSyntax::GetTSType(header["TransferSyntaxUID"].asCString());
+    }
+    else
+    {
+      source.reset(new OrthancPlugins::ParsedDicomFile(content));
+      sourceSyntax = source->GetFile().GetHeader().GetDataSetTransferSyntax();
     }
 
-    //codec.SetLossless(true);
-    change.SetUserCodec(&codec);
+    if (sourceSyntax == targetSyntax ||
+        (targetSyntax == gdcm::TransferSyntax::ImplicitVRLittleEndian &&
+         sourceSyntax == gdcm::TransferSyntax::ExplicitVRLittleEndian))
+    {
+      // No need to change the transfer syntax
 
-    std::stringstream stream(content);
+      if (source.get() == NULL)
+      {
+        source.reset(new OrthancPlugins::ParsedDicomFile(content));
+      }
 
-    gdcm::ImageReader reader;
-    reader.SetStream(stream);
-    printf("Read: %d\n", reader.Read());
+      AnswerFrames(output, source->GetFile().GetDataSet(), frames);
+    }
+    else
+    {
+      // Need to convert the transfer syntax
 
-    change.SetInput(reader.GetImage());
-    printf("Change: %d\n", change.Change());
+      {
+        std::string s = ("DICOMweb RetrieveFrames: Transcoding " + uri + " from transfer syntax " + 
+                         std::string(sourceSyntax.GetString()) + " to " + std::string(targetSyntax.GetString()));
+        OrthancPluginLogInfo(context_, s.c_str());
+      }
 
-    gdcm::ImageWriter writer;
-    writer.SetImage(change.GetOutput());
-    writer.SetFile(reader.GetFile());
+      gdcm::ImageChangeTransferSyntax change;
+      change.SetTransferSyntax(gdcm::TransferSyntax::JPEG2000Lossless);
+
+      gdcm::JPEG2000Codec codec;
+      if (!codec.CanCode(change.GetTransferSyntax()))
+      {
+        return OrthancPluginErrorCode_Plugin;
+      }
+
+      //codec.SetLossless(true);
+      change.SetUserCodec(&codec);
+
+      std::stringstream stream(content);
+
+      gdcm::ImageReader reader;
+      reader.SetStream(stream);
+      printf("Read: %d\n", reader.Read());
+
+      change.SetInput(reader.GetImage());
+      printf("Change: %d\n", change.Change());
+
+      gdcm::ImageWriter writer;
+      writer.SetImage(change.GetOutput());
+      writer.SetFile(reader.GetFile());
       
-    std::stringstream ss;
-    writer.SetStream(ss);
-    printf("Write: %d\n", writer.Write());
+      std::stringstream ss;
+      writer.SetStream(ss);
+      printf("Write: %d\n", writer.Write());
 
-    gdcm::Reader reader2;
-    reader2.SetStream(ss);
-    printf("Read: %d\n", reader2.Read());
+      gdcm::Reader reader2;
+      reader2.SetStream(ss);
+      printf("Read: %d\n", reader2.Read());
 
-    Test(reader2.GetFile().GetDataSet());
+      AnswerFrames(output, reader2.GetFile().GetDataSet(), frames);
+    }
   }    
 
   return OrthancPluginErrorCode_Success;
