@@ -20,13 +20,14 @@
 
 #include "Plugin.h"
 
-#include <boost/lexical_cast.hpp>
-
 #include "Configuration.h"
 #include "Dicom.h"
 #include "DicomResults.h"
 #include "../Orthanc/Core/Toolbox.h"
 #include "../Orthanc/Core/OrthancException.h"
+
+#include <boost/lexical_cast.hpp>
+#include <memory>
 
 static bool AcceptMultipartDicom(const OrthancPluginHttpRequest* request)
 {
