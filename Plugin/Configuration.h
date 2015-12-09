@@ -23,6 +23,13 @@
 #include <orthanc/OrthancCPlugin.h>
 #include <json/value.h>
 
+#if (ORTHANC_PLUGINS_MINIMAL_MAJOR_NUMBER <= 0 && \
+     ORTHANC_PLUGINS_MINIMAL_MINOR_NUMBER <= 9 && \
+     ORTHANC_PLUGINS_MINIMAL_REVISION_NUMBER <= 6)
+#  define HAS_SEND_MULTIPART_ITEM_2   0
+#else
+#  define HAS_SEND_MULTIPART_ITEM_2   1
+#endif
 
 namespace OrthancPlugins
 {

@@ -382,32 +382,19 @@ OrthancPluginErrorCode RetrieveDicomStudy(OrthancPluginRestOutput* output,
                                           const char* url,
                                           const OrthancPluginHttpRequest* request)
 {
-  try
+  if (!AcceptMultipartDicom(request))
   {
-    if (!AcceptMultipartDicom(request))
-    {
-      OrthancPluginSendHttpStatusCode(context_, output, 400 /* Bad request */);
-      return OrthancPluginErrorCode_Success;
-    }
-
-    std::string uri;
-    if (LocateStudy(output, uri, request))
-    {
-      AnswerListOfDicomInstances(output, uri);
-    }
-
+    OrthancPluginSendHttpStatusCode(context_, output, 400 /* Bad request */);
     return OrthancPluginErrorCode_Success;
   }
-  catch (Orthanc::OrthancException& e)
+
+  std::string uri;
+  if (LocateStudy(output, uri, request))
   {
-    OrthancPluginLogError(context_, e.What());
-    return OrthancPluginErrorCode_Plugin;
+    AnswerListOfDicomInstances(output, uri);
   }
-  catch (std::runtime_error& e)
-  {
-    OrthancPluginLogError(context_, e.what());
-    return OrthancPluginErrorCode_Plugin;
-  }
+
+  return OrthancPluginErrorCode_Success;
 }
 
 
@@ -415,32 +402,19 @@ OrthancPluginErrorCode RetrieveDicomSeries(OrthancPluginRestOutput* output,
                                            const char* url,
                                            const OrthancPluginHttpRequest* request)
 {
-  try
+  if (!AcceptMultipartDicom(request))
   {
-    if (!AcceptMultipartDicom(request))
-    {
-      OrthancPluginSendHttpStatusCode(context_, output, 400 /* Bad request */);
-      return OrthancPluginErrorCode_Success;
-    }
-
-    std::string uri;
-    if (LocateSeries(output, uri, request))
-    {
-      AnswerListOfDicomInstances(output, uri);
-    }
-
+    OrthancPluginSendHttpStatusCode(context_, output, 400 /* Bad request */);
     return OrthancPluginErrorCode_Success;
   }
-  catch (Orthanc::OrthancException& e)
+
+  std::string uri;
+  if (LocateSeries(output, uri, request))
   {
-    OrthancPluginLogError(context_, e.What());
-    return OrthancPluginErrorCode_Plugin;
+    AnswerListOfDicomInstances(output, uri);
   }
-  catch (std::runtime_error& e)
-  {
-    OrthancPluginLogError(context_, e.what());
-    return OrthancPluginErrorCode_Plugin;
-  }
+
+  return OrthancPluginErrorCode_Success;
 }
 
 
@@ -449,42 +423,29 @@ OrthancPluginErrorCode RetrieveDicomInstance(OrthancPluginRestOutput* output,
                                              const char* url,
                                              const OrthancPluginHttpRequest* request)
 {
-  try
+  if (!AcceptMultipartDicom(request))
   {
-    if (!AcceptMultipartDicom(request))
-    {
-      OrthancPluginSendHttpStatusCode(context_, output, 400 /* Bad request */);
-      return OrthancPluginErrorCode_Success;
-    }
-
-    std::string uri;
-    if (LocateInstance(output, uri, request))
-    {
-      if (OrthancPluginStartMultipartAnswer(context_, output, "related", "application/dicom"))
-      {
-        return OrthancPluginErrorCode_Plugin;
-      }
-  
-      std::string dicom;
-      if (OrthancPlugins::RestApiGetString(dicom, context_, uri + "/file") &&
-          OrthancPluginSendMultipartItem(context_, output, dicom.c_str(), dicom.size()) != 0)
-      {
-        return OrthancPluginErrorCode_Plugin;
-      }
-    }
-
+    OrthancPluginSendHttpStatusCode(context_, output, 400 /* Bad request */);
     return OrthancPluginErrorCode_Success;
   }
-  catch (Orthanc::OrthancException& e)
+
+  std::string uri;
+  if (LocateInstance(output, uri, request))
   {
-    OrthancPluginLogError(context_, e.What());
-    return OrthancPluginErrorCode_Plugin;
+    if (OrthancPluginStartMultipartAnswer(context_, output, "related", "application/dicom"))
+    {
+      return OrthancPluginErrorCode_Plugin;
+    }
+  
+    std::string dicom;
+    if (OrthancPlugins::RestApiGetString(dicom, context_, uri + "/file") &&
+        OrthancPluginSendMultipartItem(context_, output, dicom.c_str(), dicom.size()) != 0)
+    {
+      return OrthancPluginErrorCode_Plugin;
+    }
   }
-  catch (std::runtime_error& e)
-  {
-    OrthancPluginLogError(context_, e.what());
-    return OrthancPluginErrorCode_Plugin;
-  }
+
+  return OrthancPluginErrorCode_Success;
 }
 
 
@@ -493,33 +454,20 @@ OrthancPluginErrorCode RetrieveStudyMetadata(OrthancPluginRestOutput* output,
                                              const char* url,
                                              const OrthancPluginHttpRequest* request)
 {
-  try
+  bool isXml;
+  if (!AcceptMetadata(request, isXml))
   {
-    bool isXml;
-    if (!AcceptMetadata(request, isXml))
-    {
-      OrthancPluginSendHttpStatusCode(context_, output, 400 /* Bad request */);
-      return OrthancPluginErrorCode_Success;
-    }
-
-    std::string uri;
-    if (LocateStudy(output, uri, request))
-    {
-      AnswerMetadata(output, request, uri, false, isXml);
-    }
-
+    OrthancPluginSendHttpStatusCode(context_, output, 400 /* Bad request */);
     return OrthancPluginErrorCode_Success;
   }
-  catch (Orthanc::OrthancException& e)
+
+  std::string uri;
+  if (LocateStudy(output, uri, request))
   {
-    OrthancPluginLogError(context_, e.What());
-    return OrthancPluginErrorCode_Plugin;
+    AnswerMetadata(output, request, uri, false, isXml);
   }
-  catch (std::runtime_error& e)
-  {
-    OrthancPluginLogError(context_, e.what());
-    return OrthancPluginErrorCode_Plugin;
-  }
+
+  return OrthancPluginErrorCode_Success;
 }
 
 
@@ -527,33 +475,20 @@ OrthancPluginErrorCode RetrieveSeriesMetadata(OrthancPluginRestOutput* output,
                                               const char* url,
                                               const OrthancPluginHttpRequest* request)
 {
-  try
+  bool isXml;
+  if (!AcceptMetadata(request, isXml))
   {
-    bool isXml;
-    if (!AcceptMetadata(request, isXml))
-    {
-      OrthancPluginSendHttpStatusCode(context_, output, 400 /* Bad request */);
-      return OrthancPluginErrorCode_Success;
-    }
-
-    std::string uri;
-    if (LocateSeries(output, uri, request))
-    {
-      AnswerMetadata(output, request, uri, false, isXml);
-    }
-
+    OrthancPluginSendHttpStatusCode(context_, output, 400 /* Bad request */);
     return OrthancPluginErrorCode_Success;
   }
-  catch (Orthanc::OrthancException& e)
+
+  std::string uri;
+  if (LocateSeries(output, uri, request))
   {
-    OrthancPluginLogError(context_, e.What());
-    return OrthancPluginErrorCode_Plugin;
+    AnswerMetadata(output, request, uri, false, isXml);
   }
-  catch (std::runtime_error& e)
-  {
-    OrthancPluginLogError(context_, e.what());
-    return OrthancPluginErrorCode_Plugin;
-  }
+
+  return OrthancPluginErrorCode_Success;
 }
 
 
@@ -561,33 +496,20 @@ OrthancPluginErrorCode RetrieveInstanceMetadata(OrthancPluginRestOutput* output,
                                                 const char* url,
                                                 const OrthancPluginHttpRequest* request)
 {
-  try
+  bool isXml;
+  if (!AcceptMetadata(request, isXml))
   {
-    bool isXml;
-    if (!AcceptMetadata(request, isXml))
-    {
-      OrthancPluginSendHttpStatusCode(context_, output, 400 /* Bad request */);
-      return OrthancPluginErrorCode_Success;
-    }
-
-    std::string uri;
-    if (LocateInstance(output, uri, request))
-    {
-      AnswerMetadata(output, request, uri, true, isXml);
-    }
-
+    OrthancPluginSendHttpStatusCode(context_, output, 400 /* Bad request */);
     return OrthancPluginErrorCode_Success;
   }
-  catch (Orthanc::OrthancException& e)
+
+  std::string uri;
+  if (LocateInstance(output, uri, request))
   {
-    OrthancPluginLogError(context_, e.What());
-    return OrthancPluginErrorCode_Plugin;
+    AnswerMetadata(output, request, uri, true, isXml);
   }
-  catch (std::runtime_error& e)
-  {
-    OrthancPluginLogError(context_, e.what());
-    return OrthancPluginErrorCode_Plugin;
-  }
+
+  return OrthancPluginErrorCode_Success;
 }
 
 
@@ -666,51 +588,38 @@ OrthancPluginErrorCode RetrieveBulkData(OrthancPluginRestOutput* output,
                                         const char* url,
                                         const OrthancPluginHttpRequest* request)
 {
-  try
+  if (!AcceptBulkData(request))
   {
-    if (!AcceptBulkData(request))
-    {
-      OrthancPluginSendHttpStatusCode(context_, output, 400 /* Bad request */);
-      return OrthancPluginErrorCode_Success;
-    }
-
-    std::string uri, content;
-    if (LocateInstance(output, uri, request) &&
-        OrthancPlugins::RestApiGetString(content, context_, uri + "/file"))
-    {
-      OrthancPlugins::ParsedDicomFile dicom(content);
-
-      std::vector<std::string> path;
-      Orthanc::Toolbox::TokenizeString(path, request->groups[3], '/');
-      
-      std::string result;
-      if (path.size() % 2 == 1 &&
-          ExploreBulkData(result, path, 0, dicom.GetDataSet()))
-      {
-        if (OrthancPluginStartMultipartAnswer(context_, output, "related", "application/octet-stream") != 0 ||
-            OrthancPluginSendMultipartItem(context_, output, result.c_str(), result.size()) != 0)
-        {
-          return OrthancPluginErrorCode_Plugin;
-        }
-      }
-      else
-      {
-        OrthancPluginSendHttpStatusCode(context_, output, 400 /* Bad request */);
-      }      
-    }
-
+    OrthancPluginSendHttpStatusCode(context_, output, 400 /* Bad request */);
     return OrthancPluginErrorCode_Success;
   }
-  catch (Orthanc::OrthancException& e)
+
+  std::string uri, content;
+  if (LocateInstance(output, uri, request) &&
+      OrthancPlugins::RestApiGetString(content, context_, uri + "/file"))
   {
-    OrthancPluginLogError(context_, e.What());
-    return OrthancPluginErrorCode_Plugin;
+    OrthancPlugins::ParsedDicomFile dicom(content);
+
+    std::vector<std::string> path;
+    Orthanc::Toolbox::TokenizeString(path, request->groups[3], '/');
+      
+    std::string result;
+    if (path.size() % 2 == 1 &&
+        ExploreBulkData(result, path, 0, dicom.GetDataSet()))
+    {
+      if (OrthancPluginStartMultipartAnswer(context_, output, "related", "application/octet-stream") != 0 ||
+          OrthancPluginSendMultipartItem(context_, output, result.c_str(), result.size()) != 0)
+      {
+        return OrthancPluginErrorCode_Plugin;
+      }
+    }
+    else
+    {
+      OrthancPluginSendHttpStatusCode(context_, output, 400 /* Bad request */);
+    }      
   }
-  catch (std::runtime_error& e)
-  {
-    OrthancPluginLogError(context_, e.what());
-    return OrthancPluginErrorCode_Plugin;
-  }
+
+  return OrthancPluginErrorCode_Success;
 }
 
 
@@ -723,6 +632,10 @@ OrthancPluginErrorCode RetrieveBulkData(OrthancPluginRestOutput* output,
 #include <gdcmJPEG2000Codec.h>
 
 
+
+
+
+
 OrthancPluginErrorCode RetrieveFrames(OrthancPluginRestOutput* output,
                                       const char* url,
                                       const OrthancPluginHttpRequest* request)
@@ -731,54 +644,45 @@ OrthancPluginErrorCode RetrieveFrames(OrthancPluginRestOutput* output,
 
   // http://gdcm.sourceforge.net/html/CompressLossyJPEG_8cs-example.html
 
-  try
+  std::string uri, content;
+  if (LocateInstance(output, uri, request) &&
+      OrthancPlugins::RestApiGetString(content, context_, uri + "/file"))
   {
-    std::string uri, content;
-    if (LocateInstance(output, uri, request) &&
-        OrthancPlugins::RestApiGetString(content, context_, uri + "/file"))
+    printf("RetrieveFrames: [%s] [%s]\n", uri.c_str(), request->groups[3]);
+
+    gdcm::ImageChangeTransferSyntax change;
+    change.SetTransferSyntax(gdcm::TransferSyntax::JPEG2000Lossless);
+
+    gdcm::JPEG2000Codec codec;
+    if (!codec.CanCode(change.GetTransferSyntax()))
     {
-      printf("RetrieveFrames: [%s] [%s]\n", uri.c_str(), request->groups[3]);
+      return OrthancPluginErrorCode_Plugin;
+    }
 
-      gdcm::ImageChangeTransferSyntax change;
-      change.SetTransferSyntax(gdcm::TransferSyntax::JPEG2000Lossless);
+    //codec.SetLossless(true);
+    change.SetUserCodec(&codec);
 
-      gdcm::JPEG2000Codec codec;
-      if (!codec.CanCode(change.GetTransferSyntax()))
-      {
-        return OrthancPluginErrorCode_Plugin;
-      }
+    std::stringstream stream(content);
 
-      //codec.SetLossless(true);
-      change.SetUserCodec(&codec);
+    gdcm::ImageReader reader;
+    reader.SetStream(stream);
+    printf("Read: %d\n", reader.Read());
 
-      std::stringstream stream(content);
+    change.SetInput(reader.GetImage());
+    printf("Change: %d\n", change.Change());
 
-      gdcm::ImageReader reader;
-      reader.SetStream(stream);
-      printf("Read: %d\n", reader.Read());
-
-      change.SetInput(reader.GetImage());
-      printf("Change: %d\n", change.Change());
-
-      gdcm::ImageWriter writer;
-      writer.SetImage(change.GetOutput());
-      writer.SetFile(reader.GetFile());
+    gdcm::ImageWriter writer;
+    writer.SetImage(change.GetOutput());
+    writer.SetFile(reader.GetFile());
       
-      //gdcm::File output;
-      writer.SetFileName("/tmp/tutu.dcm");
-      printf("Write: %d\n", writer.Write());
-    }    
+    std::stringstream ss;
+    writer.SetStream(ss);
+    printf("Write: %d\n", writer.Write());
 
-    return OrthancPluginErrorCode_Success;
-  }
-  catch (Orthanc::OrthancException& e)
-  {
-    OrthancPluginLogError(context_, e.What());
-    return OrthancPluginErrorCode_Plugin;
-  }
-  catch (std::runtime_error& e)
-  {
-    OrthancPluginLogError(context_, e.what());
-    return OrthancPluginErrorCode_Plugin;
-  }
+    gdcm::ImageReader reader2;
+    reader2.SetStream(ss);
+    printf("Read: %d\n", reader2.Read());
+  }    
+
+  return OrthancPluginErrorCode_Success;
 }

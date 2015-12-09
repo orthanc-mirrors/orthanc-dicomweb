@@ -38,10 +38,41 @@ OrthancPluginContext* context_ = NULL;
 Json::Value configuration_;
 const gdcm::Dict* dictionary_ = NULL;
 
+#include "../Orthanc/Core/OrthancException.h"
+#include <boost/lexical_cast.hpp>
 
-static OrthancPluginErrorCode SwitchStudies(OrthancPluginRestOutput* output,
-                                            const char* url,
-                                            const OrthancPluginHttpRequest* request)
+
+template <OrthancPluginRestCallback Callback>
+OrthancPluginErrorCode Protect(OrthancPluginRestOutput* output,
+                               const char* url,
+                               const OrthancPluginHttpRequest* request)
+{
+  try
+  {
+    return Callback(output, url, request);
+  }
+  catch (Orthanc::OrthancException& e)
+  {
+    OrthancPluginLogError(context_, e.What());
+    return OrthancPluginErrorCode_Plugin;
+  }
+  catch (boost::bad_lexical_cast& e)
+  {
+    OrthancPluginLogError(context_, e.what());
+    return OrthancPluginErrorCode_Plugin;
+  }
+  catch (std::runtime_error& e)
+  {
+    OrthancPluginLogError(context_, e.what());
+    return OrthancPluginErrorCode_Plugin;
+  }
+}
+
+
+
+OrthancPluginErrorCode SwitchStudies(OrthancPluginRestOutput* output,
+                                     const char* url,
+                                     const OrthancPluginHttpRequest* request)
 {
   switch (request->method)
   {
@@ -60,9 +91,9 @@ static OrthancPluginErrorCode SwitchStudies(OrthancPluginRestOutput* output,
 }
 
 
-static OrthancPluginErrorCode SwitchStudy(OrthancPluginRestOutput* output,
-                                          const char* url,
-                                          const OrthancPluginHttpRequest* request)
+OrthancPluginErrorCode SwitchStudy(OrthancPluginRestOutput* output,
+                                   const char* url,
+                                   const OrthancPluginHttpRequest* request)
 {
   switch (request->method)
   {
@@ -152,20 +183,20 @@ extern "C"
       std::string message = "URI to the DICOMweb REST API: " + root;
       OrthancPluginLogWarning(context_, message.c_str());
 
-      Register(root, "instances", SearchForInstances);    
-      Register(root, "series", SearchForSeries);    
-      Register(root, "studies", SwitchStudies);
-      Register(root, "studies/([^/]*)", SwitchStudy);
-      Register(root, "studies/([^/]*)/instances", SearchForInstances);    
-      Register(root, "studies/([^/]*)/metadata", RetrieveStudyMetadata);
-      Register(root, "studies/([^/]*)/series", SearchForSeries);    
-      Register(root, "studies/([^/]*)/series/([^/]*)", RetrieveDicomSeries);
-      Register(root, "studies/([^/]*)/series/([^/]*)/instances", SearchForInstances);    
-      Register(root, "studies/([^/]*)/series/([^/]*)/instances/([^/]*)", RetrieveDicomInstance);
-      Register(root, "studies/([^/]*)/series/([^/]*)/instances/([^/]*)/bulk/(.*)", RetrieveBulkData);
-      Register(root, "studies/([^/]*)/series/([^/]*)/instances/([^/]*)/metadata", RetrieveInstanceMetadata);
-      Register(root, "studies/([^/]*)/series/([^/]*)/metadata", RetrieveSeriesMetadata);
-      Register(root, "studies/([^/]*)/series/([^/]*)/instances/([^/]*)/frames/([^/]*)", RetrieveFrames);
+      Register(root, "instances", Protect<SearchForInstances>);
+      Register(root, "series", Protect<SearchForSeries>);    
+      Register(root, "studies", Protect<SwitchStudies>);
+      Register(root, "studies/([^/]*)", Protect<SwitchStudy>);
+      Register(root, "studies/([^/]*)/instances", Protect<SearchForInstances>);    
+      Register(root, "studies/([^/]*)/metadata", Protect<RetrieveStudyMetadata>);
+      Register(root, "studies/([^/]*)/series", Protect<SearchForSeries>);    
+      Register(root, "studies/([^/]*)/series/([^/]*)", Protect<RetrieveDicomSeries>);
+      Register(root, "studies/([^/]*)/series/([^/]*)/instances", Protect<SearchForInstances>);    
+      Register(root, "studies/([^/]*)/series/([^/]*)/instances/([^/]*)", Protect<RetrieveDicomInstance>);
+      Register(root, "studies/([^/]*)/series/([^/]*)/instances/([^/]*)/bulk/(.*)", Protect<RetrieveBulkData>);
+      Register(root, "studies/([^/]*)/series/([^/]*)/instances/([^/]*)/metadata", Protect<RetrieveInstanceMetadata>);
+      Register(root, "studies/([^/]*)/series/([^/]*)/metadata", Protect<RetrieveSeriesMetadata>);
+      Register(root, "studies/([^/]*)/series/([^/]*)/instances/([^/]*)/frames/([^/]*)", Protect<RetrieveFrames>);
     }
     else
     {

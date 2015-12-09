@@ -237,55 +237,38 @@ OrthancPluginErrorCode WadoCallback(OrthancPluginRestOutput* output,
                                     const char* url,
                                     const OrthancPluginHttpRequest* request)
 {
-  try
+  if (request->method != OrthancPluginHttpMethod_Get)
   {
-    if (request->method != OrthancPluginHttpMethod_Get)
-    {
-      OrthancPluginSendMethodNotAllowed(context_, output, "GET");
-      return OrthancPluginErrorCode_Plugin;
-    }
-
-    std::string instance;
-    std::string contentType = "image/jpg";  // By default, JPEG image will be returned
-    if (!LocateInstance(instance, contentType, request))
-    {
-#if HAS_ERROR_CODE == 1
-      return OrthancPluginErrorCode_UnknownResource;
-#else
-      return OrthancPluginErrorCode_Plugin;
-#endif
-    }
-
-    if (contentType == "application/dicom")
-    {
-      return AnswerDicom(output, instance);
-    }
-    else if (contentType == "image/png")
-    {
-      return AnswerPngPreview(output, instance);
-    }
-    else if (contentType == "image/jpeg" ||
-             contentType == "image/jpg")
-    {
-      return AnswerJpegPreview(output, instance);
-    }
-    else
-    {
-      std::string msg = "WADO: Unsupported content type: \"" + contentType + "\"";
-      OrthancPluginLogError(context_, msg.c_str());
-      return OrthancPluginErrorCode_Plugin;
-    }
-
-    return OrthancPluginErrorCode_Success;
-  }
-  catch (Orthanc::OrthancException& e)
-  {
-    OrthancPluginLogError(context_, e.What());
+    OrthancPluginSendMethodNotAllowed(context_, output, "GET");
     return OrthancPluginErrorCode_Plugin;
   }
-  catch (std::runtime_error& e)
+
+  std::string instance;
+  std::string contentType = "image/jpg";  // By default, JPEG image will be returned
+  if (!LocateInstance(instance, contentType, request))
   {
-    OrthancPluginLogError(context_, e.what());
+    return OrthancPluginErrorCode_UnknownResource;
+  }
+
+  if (contentType == "application/dicom")
+  {
+    return AnswerDicom(output, instance);
+  }
+  else if (contentType == "image/png")
+  {
+    return AnswerPngPreview(output, instance);
+  }
+  else if (contentType == "image/jpeg" ||
+           contentType == "image/jpg")
+  {
+    return AnswerJpegPreview(output, instance);
+  }
+  else
+  {
+    std::string msg = "WADO: Unsupported content type: \"" + contentType + "\"";
+    OrthancPluginLogError(context_, msg.c_str());
     return OrthancPluginErrorCode_Plugin;
   }
+
+  return OrthancPluginErrorCode_Success;
 }

@@ -88,157 +88,144 @@ OrthancPluginErrorCode StowCallback(OrthancPluginRestOutput* output,
                                     const char* url,
                                     const OrthancPluginHttpRequest* request)
 {
-  try
+  const std::string wadoBase = OrthancPlugins::Configuration::GetBaseUrl(configuration_, request);
+
+
+  if (request->method != OrthancPluginHttpMethod_Post)
   {
-    const std::string wadoBase = OrthancPlugins::Configuration::GetBaseUrl(configuration_, request);
+    OrthancPluginSendMethodNotAllowed(context_, output, "POST");
+    return OrthancPluginErrorCode_Success;
+  }
+
+  std::string expectedStudy;
+  if (request->groupsCount == 1)
+  {
+    expectedStudy = request->groups[0];
+  }
+
+  if (expectedStudy.empty())
+  {
+    OrthancPluginLogInfo(context_, "STOW-RS request without study");
+  }
+  else
+  {
+    std::string s = "STOW-RS request restricted to study UID " + expectedStudy;
+    OrthancPluginLogInfo(context_, s.c_str());
+  }
+
+  bool isXml = IsXmlExpected(request);
+
+  std::string header;
+  if (!OrthancPlugins::LookupHttpHeader(header, request, "content-type"))
+  {
+    OrthancPluginLogError(context_, "No content type in the HTTP header of a STOW-RS request");
+    OrthancPluginSendHttpStatusCode(context_, output, 400 /* Bad request */);
+    return OrthancPluginErrorCode_Success;    
+  }
+
+  std::string application;
+  std::map<std::string, std::string> attributes;
+  OrthancPlugins::ParseContentType(application, attributes, header);
+
+  if (application != "multipart/related" ||
+      attributes.find("type") == attributes.end() ||
+      attributes.find("boundary") == attributes.end())
+  {
+    std::string s = "Unable to parse the content type of a STOW-RS request (" + application + ")";
+    OrthancPluginLogError(context_, s.c_str());
+    OrthancPluginSendHttpStatusCode(context_, output, 400 /* Bad request */);
+    return OrthancPluginErrorCode_Success;
+  }
 
 
-    if (request->method != OrthancPluginHttpMethod_Post)
+  std::string boundary = attributes["boundary"]; 
+
+  if (attributes["type"] != "application/dicom")
+  {
+    OrthancPluginLogError(context_, "The STOW-RS plugin currently only supports application/dicom");
+    OrthancPluginSendHttpStatusCode(context_, output, 415 /* Unsupported media type */);
+    return OrthancPluginErrorCode_Success;
+  }
+
+
+
+  bool isFirst = true;
+  gdcm::DataSet result;
+  gdcm::SmartPointer<gdcm::SequenceOfItems> success = new gdcm::SequenceOfItems();
+  gdcm::SmartPointer<gdcm::SequenceOfItems> failed = new gdcm::SequenceOfItems();
+  
+  std::vector<OrthancPlugins::MultipartItem> items;
+  OrthancPlugins::ParseMultipartBody(items, request->body, request->bodySize, boundary);
+  for (size_t i = 0; i < items.size(); i++)
+  {
+    if (!items[i].contentType_.empty() &&
+        items[i].contentType_ != "application/dicom")
     {
-      OrthancPluginSendMethodNotAllowed(context_, output, "POST");
-      return OrthancPluginErrorCode_Success;
-    }
-
-    std::string expectedStudy;
-    if (request->groupsCount == 1)
-    {
-      expectedStudy = request->groups[0];
-    }
-
-    if (expectedStudy.empty())
-    {
-      OrthancPluginLogInfo(context_, "STOW-RS request without study");
-    }
-    else
-    {
-      std::string s = "STOW-RS request restricted to study UID " + expectedStudy;
-      OrthancPluginLogInfo(context_, s.c_str());
-    }
-
-    bool isXml = IsXmlExpected(request);
-
-    std::string header;
-    if (!OrthancPlugins::LookupHttpHeader(header, request, "content-type"))
-    {
-      OrthancPluginLogError(context_, "No content type in the HTTP header of a STOW-RS request");
-      OrthancPluginSendHttpStatusCode(context_, output, 400 /* Bad request */);
-      return OrthancPluginErrorCode_Success;    
-    }
-
-    std::string application;
-    std::map<std::string, std::string> attributes;
-    OrthancPlugins::ParseContentType(application, attributes, header);
-
-    if (application != "multipart/related" ||
-        attributes.find("type") == attributes.end() ||
-        attributes.find("boundary") == attributes.end())
-    {
-      std::string s = "Unable to parse the content type of a STOW-RS request (" + application + ")";
+      std::string s = "The STOW-RS request contains a part that is not application/dicom (it is: \"" + items[i].contentType_ + "\")";
       OrthancPluginLogError(context_, s.c_str());
-      OrthancPluginSendHttpStatusCode(context_, output, 400 /* Bad request */);
-      return OrthancPluginErrorCode_Success;
-    }
-
-
-    std::string boundary = attributes["boundary"]; 
-
-    if (attributes["type"] != "application/dicom")
-    {
-      OrthancPluginLogError(context_, "The STOW-RS plugin currently only supports application/dicom");
       OrthancPluginSendHttpStatusCode(context_, output, 415 /* Unsupported media type */);
       return OrthancPluginErrorCode_Success;
     }
 
+    OrthancPlugins::ParsedDicomFile dicom(items[i]);
 
+    std::string studyInstanceUid = dicom.GetTagWithDefault(OrthancPlugins::DICOM_TAG_STUDY_INSTANCE_UID, "", true);
+    std::string sopClassUid = dicom.GetTagWithDefault(OrthancPlugins::DICOM_TAG_SOP_CLASS_UID, "", true);
+    std::string sopInstanceUid = dicom.GetTagWithDefault(OrthancPlugins::DICOM_TAG_SOP_INSTANCE_UID, "", true);
 
-    bool isFirst = true;
-    gdcm::DataSet result;
-    gdcm::SmartPointer<gdcm::SequenceOfItems> success = new gdcm::SequenceOfItems();
-    gdcm::SmartPointer<gdcm::SequenceOfItems> failed = new gdcm::SequenceOfItems();
-  
-    std::vector<OrthancPlugins::MultipartItem> items;
-    OrthancPlugins::ParseMultipartBody(items, request->body, request->bodySize, boundary);
-    for (size_t i = 0; i < items.size(); i++)
+    gdcm::Item item;
+    item.SetVLToUndefined();
+    gdcm::DataSet &status = item.GetNestedDataSet();
+
+    SetTag(status, OrthancPlugins::DICOM_TAG_REFERENCED_SOP_CLASS_UID, gdcm::VR::UI, sopClassUid);
+    SetTag(status, OrthancPlugins::DICOM_TAG_REFERENCED_SOP_INSTANCE_UID, gdcm::VR::UI, sopInstanceUid);
+
+    if (!expectedStudy.empty() &&
+        studyInstanceUid != expectedStudy)
     {
-      if (!items[i].contentType_.empty() &&
-          items[i].contentType_ != "application/dicom")
+      std::string s = ("STOW-RS request restricted to study [" + expectedStudy + 
+                       "]: Ignoring instance from study [" + studyInstanceUid + "]");
+      OrthancPluginLogInfo(context_, s.c_str());
+
+      SetTag(status, OrthancPlugins::DICOM_TAG_WARNING_REASON, gdcm::VR::US, "B006");  // Elements discarded
+      success->AddItem(item);      
+    }
+    else
+    {
+      if (isFirst)
       {
-        std::string s = "The STOW-RS request contains a part that is not application/dicom (it is: \"" + items[i].contentType_ + "\")";
-        OrthancPluginLogError(context_, s.c_str());
-        OrthancPluginSendHttpStatusCode(context_, output, 415 /* Unsupported media type */);
-        return OrthancPluginErrorCode_Success;
+        std::string url = wadoBase + "studies/" + studyInstanceUid;
+        SetTag(result, OrthancPlugins::DICOM_TAG_RETRIEVE_URL, gdcm::VR::UT, url);
+        isFirst = false;
       }
 
-      OrthancPlugins::ParsedDicomFile dicom(items[i]);
+      OrthancPluginMemoryBuffer result;
+      bool ok = OrthancPluginRestApiPost(context_, &result, "/instances", items[i].data_, items[i].size_) == 0;
+      OrthancPluginFreeMemoryBuffer(context_, &result);
 
-      std::string studyInstanceUid = dicom.GetTagWithDefault(OrthancPlugins::DICOM_TAG_STUDY_INSTANCE_UID, "", true);
-      std::string sopClassUid = dicom.GetTagWithDefault(OrthancPlugins::DICOM_TAG_SOP_CLASS_UID, "", true);
-      std::string sopInstanceUid = dicom.GetTagWithDefault(OrthancPlugins::DICOM_TAG_SOP_INSTANCE_UID, "", true);
-
-      gdcm::Item item;
-      item.SetVLToUndefined();
-      gdcm::DataSet &status = item.GetNestedDataSet();
-
-      SetTag(status, OrthancPlugins::DICOM_TAG_REFERENCED_SOP_CLASS_UID, gdcm::VR::UI, sopClassUid);
-      SetTag(status, OrthancPlugins::DICOM_TAG_REFERENCED_SOP_INSTANCE_UID, gdcm::VR::UI, sopInstanceUid);
-
-      if (!expectedStudy.empty() &&
-          studyInstanceUid != expectedStudy)
+      if (ok)
       {
-        std::string s = ("STOW-RS request restricted to study [" + expectedStudy + 
-                         "]: Ignoring instance from study [" + studyInstanceUid + "]");
-        OrthancPluginLogInfo(context_, s.c_str());
+        std::string url = (wadoBase + 
+                           "studies/" + studyInstanceUid +
+                           "/series/" + dicom.GetTagWithDefault(OrthancPlugins::DICOM_TAG_SERIES_INSTANCE_UID, "", true) +
+                           "/instances/" + sopInstanceUid);
 
-        SetTag(status, OrthancPlugins::DICOM_TAG_WARNING_REASON, gdcm::VR::US, "B006");  // Elements discarded
-        success->AddItem(item);      
+        SetTag(status, OrthancPlugins::DICOM_TAG_RETRIEVE_URL, gdcm::VR::UT, url);
+        success->AddItem(item);
       }
       else
       {
-        if (isFirst)
-        {
-          std::string url = wadoBase + "studies/" + studyInstanceUid;
-          SetTag(result, OrthancPlugins::DICOM_TAG_RETRIEVE_URL, gdcm::VR::UT, url);
-          isFirst = false;
-        }
-
-        OrthancPluginMemoryBuffer result;
-        bool ok = OrthancPluginRestApiPost(context_, &result, "/instances", items[i].data_, items[i].size_) == 0;
-        OrthancPluginFreeMemoryBuffer(context_, &result);
-
-        if (ok)
-        {
-          std::string url = (wadoBase + 
-                             "studies/" + studyInstanceUid +
-                             "/series/" + dicom.GetTagWithDefault(OrthancPlugins::DICOM_TAG_SERIES_INSTANCE_UID, "", true) +
-                             "/instances/" + sopInstanceUid);
-
-          SetTag(status, OrthancPlugins::DICOM_TAG_RETRIEVE_URL, gdcm::VR::UT, url);
-          success->AddItem(item);
-        }
-        else
-        {
-          OrthancPluginLogError(context_, "Orthanc was unable to store instance through STOW-RS request");
-          SetTag(status, OrthancPlugins::DICOM_TAG_FAILURE_REASON, gdcm::VR::US, "0110");  // Processing failure
-          failed->AddItem(item);
-        }
+        OrthancPluginLogError(context_, "Orthanc was unable to store instance through STOW-RS request");
+        SetTag(status, OrthancPlugins::DICOM_TAG_FAILURE_REASON, gdcm::VR::US, "0110");  // Processing failure
+        failed->AddItem(item);
       }
     }
-
-    SetSequenceTag(result, OrthancPlugins::DICOM_TAG_FAILED_SOP_SEQUENCE, failed);
-    SetSequenceTag(result, OrthancPlugins::DICOM_TAG_REFERENCED_SOP_SEQUENCE, success);
-
-    OrthancPlugins::AnswerDicom(context_, output, wadoBase, *dictionary_, result, isXml, false);
-
-    return OrthancPluginErrorCode_Success;
   }
-  catch (Orthanc::OrthancException& e)
-  {
-    OrthancPluginLogError(context_, e.What());
-    return OrthancPluginErrorCode_Plugin;
-  }
-  catch (std::runtime_error& e)
-  {
-    OrthancPluginLogError(context_, e.what());
-    return OrthancPluginErrorCode_Plugin;
-  }
+
+  SetSequenceTag(result, OrthancPlugins::DICOM_TAG_FAILED_SOP_SEQUENCE, failed);
+  SetSequenceTag(result, OrthancPlugins::DICOM_TAG_REFERENCED_SOP_SEQUENCE, success);
+
+  OrthancPlugins::AnswerDicom(context_, output, wadoBase, *dictionary_, result, isXml, false);
+
+  return OrthancPluginErrorCode_Success;
 }

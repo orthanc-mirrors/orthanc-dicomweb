@@ -465,34 +465,16 @@ OrthancPluginErrorCode SearchForStudies(OrthancPluginRestOutput* output,
                                         const char* url,
                                         const OrthancPluginHttpRequest* request)
 {
-  try
+  if (request->method != OrthancPluginHttpMethod_Get)
   {
-    if (request->method != OrthancPluginHttpMethod_Get)
-    {
-      OrthancPluginSendMethodNotAllowed(context_, output, "GET");
-      return OrthancPluginErrorCode_Success;
-    }
-
-    ModuleMatcher matcher(request);
-    ApplyMatcher(output, request, matcher, QueryLevel_Study);
-
+    OrthancPluginSendMethodNotAllowed(context_, output, "GET");
     return OrthancPluginErrorCode_Success;
   }
-  catch (Orthanc::OrthancException& e)
-  {
-    OrthancPluginLogError(context_, e.What());
-    return OrthancPluginErrorCode_Plugin;
-  }
-  catch (boost::bad_lexical_cast& e)
-  {
-    OrthancPluginLogError(context_, e.what());
-    return OrthancPluginErrorCode_Plugin;
-  }
-  catch (std::runtime_error& e)
-  {
-    OrthancPluginLogError(context_, e.what());
-    return OrthancPluginErrorCode_Plugin;
-  }
+
+  ModuleMatcher matcher(request);
+  ApplyMatcher(output, request, matcher, QueryLevel_Study);
+
+  return OrthancPluginErrorCode_Success;
 }
 
 
@@ -500,41 +482,23 @@ OrthancPluginErrorCode SearchForSeries(OrthancPluginRestOutput* output,
                                        const char* url,
                                        const OrthancPluginHttpRequest* request)
 {
-  try
+  if (request->method != OrthancPluginHttpMethod_Get)
   {
-    if (request->method != OrthancPluginHttpMethod_Get)
-    {
-      OrthancPluginSendMethodNotAllowed(context_, output, "GET");
-      return OrthancPluginErrorCode_Success;
-    }
-
-    ModuleMatcher matcher(request);
-
-    if (request->groupsCount == 1)
-    {
-      // The "StudyInstanceUID" is provided by the regular expression
-      matcher.AddFilter(OrthancPlugins::DICOM_TAG_STUDY_INSTANCE_UID, request->groups[0]);
-    }
-
-    ApplyMatcher(output, request, matcher, QueryLevel_Series);
-
+    OrthancPluginSendMethodNotAllowed(context_, output, "GET");
     return OrthancPluginErrorCode_Success;
   }
-  catch (Orthanc::OrthancException& e)
+
+  ModuleMatcher matcher(request);
+
+  if (request->groupsCount == 1)
   {
-    OrthancPluginLogError(context_, e.What());
-    return OrthancPluginErrorCode_Plugin;
+    // The "StudyInstanceUID" is provided by the regular expression
+    matcher.AddFilter(OrthancPlugins::DICOM_TAG_STUDY_INSTANCE_UID, request->groups[0]);
   }
-  catch (boost::bad_lexical_cast& e)
-  {
-    OrthancPluginLogError(context_, e.what());
-    return OrthancPluginErrorCode_Plugin;
-  }
-  catch (std::runtime_error& e)
-  {
-    OrthancPluginLogError(context_, e.what());
-    return OrthancPluginErrorCode_Plugin;
-  }
+
+  ApplyMatcher(output, request, matcher, QueryLevel_Series);
+
+  return OrthancPluginErrorCode_Success;
 }
 
 
@@ -542,45 +506,27 @@ OrthancPluginErrorCode SearchForInstances(OrthancPluginRestOutput* output,
                                           const char* url,
                                           const OrthancPluginHttpRequest* request)
 {
-  try
+  if (request->method != OrthancPluginHttpMethod_Get)
   {
-    if (request->method != OrthancPluginHttpMethod_Get)
-    {
-      OrthancPluginSendMethodNotAllowed(context_, output, "GET");
-      return OrthancPluginErrorCode_Success;
-    }
-
-    ModuleMatcher matcher(request);
-
-    if (request->groupsCount == 1 || request->groupsCount == 2)
-    {
-      // The "StudyInstanceUID" is provided by the regular expression
-      matcher.AddFilter(OrthancPlugins::DICOM_TAG_STUDY_INSTANCE_UID, request->groups[0]);
-    }
-
-    if (request->groupsCount == 2)
-    {
-      // The "SeriesInstanceUID" is provided by the regular expression
-      matcher.AddFilter(OrthancPlugins::DICOM_TAG_SERIES_INSTANCE_UID, request->groups[1]);
-    }
-
-    ApplyMatcher(output, request, matcher, QueryLevel_Instance);
-
+    OrthancPluginSendMethodNotAllowed(context_, output, "GET");
     return OrthancPluginErrorCode_Success;
   }
-  catch (Orthanc::OrthancException& e)
+
+  ModuleMatcher matcher(request);
+
+  if (request->groupsCount == 1 || request->groupsCount == 2)
   {
-    OrthancPluginLogError(context_, e.What());
-    return OrthancPluginErrorCode_Plugin;
+    // The "StudyInstanceUID" is provided by the regular expression
+    matcher.AddFilter(OrthancPlugins::DICOM_TAG_STUDY_INSTANCE_UID, request->groups[0]);
   }
-  catch (boost::bad_lexical_cast& e)
+
+  if (request->groupsCount == 2)
   {
-    OrthancPluginLogError(context_, e.what());
-    return OrthancPluginErrorCode_Plugin;
+    // The "SeriesInstanceUID" is provided by the regular expression
+    matcher.AddFilter(OrthancPlugins::DICOM_TAG_SERIES_INSTANCE_UID, request->groups[1]);
   }
-  catch (std::runtime_error& e)
-  {
-    OrthancPluginLogError(context_, e.what());
-    return OrthancPluginErrorCode_Plugin;
-  }
+
+  ApplyMatcher(output, request, matcher, QueryLevel_Instance);
+
+  return OrthancPluginErrorCode_Success;
 }
