@@ -74,10 +74,19 @@ if (STATIC_BUILD OR NOT USE_SYSTEM_GDCM)
     ${Prefix}socketxx${Suffix}
     ${Prefix}gdcmCommon${Suffix}
     ${Prefix}gdcmexpat${Suffix}
-    ${Prefix}gdcmuuid${Suffix}
 
     #${Prefix}gdcmgetopt${Suffix}
     )
+
+  if (${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
+    list(APPEND GDCM_LIBRARIES
+      rpcrt4   # For UUID stuff
+      )
+  else()
+    list(APPEND GDCM_LIBRARIES
+      ${Prefix}gdcmuuid${Suffix}
+      )
+  endif()
 
   ExternalProject_Get_Property(GDCM binary_dir)
   include_directories(${binary_dir}/Source/Common)
