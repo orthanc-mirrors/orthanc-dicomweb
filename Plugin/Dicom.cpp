@@ -57,120 +57,6 @@ namespace OrthancPlugins
 
 
 
-  void ParsedDicomFile::Setup(const std::string& dicom)
-  {
-    // Prepare a memory stream over the DICOM instance
-    std::stringstream stream(dicom);
-
-    // Parse the DICOM instance using GDCM
-    reader_.SetStream(stream);
-    if (!reader_.Read())
-    {
-      /* "GDCM cannot read this DICOM instance of length " +
-         boost::lexical_cast<std::string>(dicom.size()) */
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
-    }
-  }
-
-
-  ParsedDicomFile::ParsedDicomFile(const OrthancPlugins::MultipartItem& item)
-  {
-    std::string dicom(item.data_, item.data_ + item.size_);
-    Setup(dicom);
-  }
-
-
-  static bool GetTag(std::string& result,
-                     const gdcm::DataSet& dataset,
-                     const gdcm::Tag& tag,
-                     bool stripSpaces)
-  {
-    if (dataset.FindDataElement(tag))
-    {
-      const gdcm::ByteValue* value = dataset.GetDataElement(tag).GetByteValue();
-      if (value)
-      {
-        result = std::string(value->GetPointer(), value->GetLength());
-
-        if (stripSpaces)
-        {
-          result = Orthanc::Toolbox::StripSpaces(result);
-        }
-
-        return true;
-      }
-    }
-
-    return false;
-  }
-
-
-  static std::string GetTagWithDefault(const gdcm::DataSet& dataset,
-                                       const gdcm::Tag& tag,
-                                       const std::string& defaultValue,
-                                       bool stripSpaces)
-  {
-    std::string result;
-    if (!GetTag(result, dataset, tag, false))
-    {
-      result = defaultValue;
-    }
-
-    if (stripSpaces)
-    {
-      result = Orthanc::Toolbox::StripSpaces(result);
-    }
-
-    return result;
-  }
-
-
-  bool ParsedDicomFile::GetTag(std::string& result,
-                               const gdcm::Tag& tag,
-                               bool stripSpaces) const
-  {
-    return OrthancPlugins::GetTag(result, GetDataSet(), tag, stripSpaces);
-  }
-
-
-  std::string ParsedDicomFile::GetTagWithDefault(const gdcm::Tag& tag,
-                                                 const std::string& defaultValue,
-                                                 bool stripSpaces) const
-  {
-    return OrthancPlugins::GetTagWithDefault(GetDataSet(), tag, defaultValue, stripSpaces);
-  }
-
-
-  static std::string FormatTag(const gdcm::Tag& tag)
-  {
-    char tmp[16];
-    sprintf(tmp, "%04X%04X", tag.GetGroup(), tag.GetElement());
-    return std::string(tmp);
-  }
-
-
-  static const char* GetKeyword(const gdcm::Dict& dictionary,
-                                const gdcm::Tag& tag)
-  {
-    const gdcm::DictEntry &entry = dictionary.GetDictEntry(tag);
-    const char* keyword = entry.GetKeyword();
-
-    if (strlen(keyword) != 0)
-    {
-      return keyword;
-    }
-
-    if (tag == DICOM_TAG_RETRIEVE_URL)
-    {
-      return "RetrieveURL";
-    }
-
-    //throw Orthanc::OrthancException("Unknown keyword for tag: " + FormatTag(tag));
-    return NULL;
-  }
-
-
-
   static const char* GetVRName(bool& isSequence,
                                const gdcm::Dict& dictionary,
                                const gdcm::DataElement& element)
@@ -209,6 +95,206 @@ namespace OrthancPlugins
   }
 
 
+
+  static bool ConvertDicomStringToUtf8(std::string& result,
+                                       const gdcm::Dict& dictionary,
+                                       const gdcm::File* file,
+                                       const gdcm::DataElement& element,
+                                       const Orthanc::Encoding sourceEncoding)
+  {
+    const gdcm::ByteValue* data = element.GetByteValue();
+    if (!data)
+    {
+      return false;
+    }
+
+    if (file != NULL)
+    {
+      bool isSequence;
+      std::string vr = GetVRName(isSequence, dictionary, element);
+      if (!isSequence && (
+            vr == "FL" ||
+            vr == "FD" ||
+            vr == "SL" ||
+            vr == "SS" ||
+            vr == "UL" ||
+            vr == "US"
+            ))
+      {      
+        gdcm::StringFilter f;
+        f.SetFile(*file);
+        result = f.ToString(element.GetTag());
+        return true;
+      }
+    }
+
+    if (sourceEncoding == Orthanc::Encoding_Utf8)
+    {
+      result.assign(data->GetPointer(), data->GetLength());
+    }
+    else
+    {
+      std::string tmp(data->GetPointer(), data->GetLength());
+      result = Orthanc::Toolbox::ConvertToUtf8(tmp, sourceEncoding);
+    }
+
+    result = Orthanc::Toolbox::StripSpaces(result);
+    return true;
+  }
+
+
+
+  void ParsedDicomFile::Setup(const std::string& dicom)
+  {
+    // Prepare a memory stream over the DICOM instance
+    std::stringstream stream(dicom);
+
+    // Parse the DICOM instance using GDCM
+    reader_.SetStream(stream);
+    if (!reader_.Read())
+    {
+      /* "GDCM cannot read this DICOM instance of length " +
+         boost::lexical_cast<std::string>(dicom.size()) */
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
+    }
+  }
+
+
+  ParsedDicomFile::ParsedDicomFile(const OrthancPlugins::MultipartItem& item)
+  {
+    std::string dicom(item.data_, item.data_ + item.size_);
+    Setup(dicom);
+  }
+
+
+  static bool GetRawTag(std::string& result,
+                        const gdcm::DataSet& dataset,
+                        const gdcm::Tag& tag,
+                        bool stripSpaces)
+  {
+    if (dataset.FindDataElement(tag))
+    {
+      const gdcm::ByteValue* value = dataset.GetDataElement(tag).GetByteValue();
+      if (value)
+      {
+        result.assign(value->GetPointer(), value->GetLength());
+
+        if (stripSpaces)
+        {
+          result = Orthanc::Toolbox::StripSpaces(result);
+        }
+
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+
+  bool ParsedDicomFile::GetRawTag(std::string& result,
+                                  const gdcm::Tag& tag,
+                                  bool stripSpaces) const
+  {
+    return OrthancPlugins::GetRawTag(result, GetDataSet(), tag, stripSpaces);
+  }
+
+
+  std::string ParsedDicomFile::GetRawTagWithDefault(const gdcm::Tag& tag,
+                                                    const std::string& defaultValue,
+                                                    bool stripSpaces) const
+  {
+    std::string result;
+    if (!GetRawTag(result, tag, stripSpaces))
+    {
+      return defaultValue;
+    }
+    else
+    {
+      return result;
+    }
+  }
+
+
+  bool ParsedDicomFile::GetStringTag(std::string& result,
+                                     const gdcm::Dict& dictionary,
+                                     const gdcm::Tag& tag,
+                                     bool stripSpaces) const
+  {
+    if (!GetDataSet().FindDataElement(tag))
+    {
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_InexistentTag);
+    }
+
+    const gdcm::DataElement& element = GetDataSet().GetDataElement(tag);
+
+    if (!ConvertDicomStringToUtf8(result, dictionary, &GetFile(), element, GetEncoding()))
+    {
+      return false;
+    }
+
+    if (stripSpaces)
+    {
+      result = Orthanc::Toolbox::StripSpaces(result);
+    }
+
+    return true;
+  }
+
+
+  bool ParsedDicomFile::GetIntegerTag(int& result,
+                                      const gdcm::Dict& dictionary,
+                                      const gdcm::Tag& tag) const
+  {
+    std::string tmp;
+    if (!GetStringTag(tmp, dictionary, tag, true))
+    {
+      return false;
+    }
+
+    try
+    {
+      result = boost::lexical_cast<int>(tmp);
+      return true;
+    }
+    catch (boost::bad_lexical_cast&)
+    {
+      return false;
+    }
+  }
+
+
+
+  static std::string FormatTag(const gdcm::Tag& tag)
+  {
+    char tmp[16];
+    sprintf(tmp, "%04X%04X", tag.GetGroup(), tag.GetElement());
+    return std::string(tmp);
+  }
+
+
+  static const char* GetKeyword(const gdcm::Dict& dictionary,
+                                const gdcm::Tag& tag)
+  {
+    const gdcm::DictEntry &entry = dictionary.GetDictEntry(tag);
+    const char* keyword = entry.GetKeyword();
+
+    if (strlen(keyword) != 0)
+    {
+      return keyword;
+    }
+
+    if (tag == DICOM_TAG_RETRIEVE_URL)
+    {
+      return "RetrieveURL";
+    }
+
+    //throw Orthanc::OrthancException("Unknown keyword for tag: " + FormatTag(tag));
+    return NULL;
+  }
+
+
+
   static bool IsBulkData(const std::string& vr)
   {
     /**
@@ -239,9 +325,9 @@ namespace OrthancPlugins
   {
     std::string study, series, instance;
 
-    if (!GetTag(study, dicom, DICOM_TAG_STUDY_INSTANCE_UID, true) ||
-        !GetTag(series, dicom, DICOM_TAG_SERIES_INSTANCE_UID, true) ||
-        !GetTag(instance, dicom, DICOM_TAG_SOP_INSTANCE_UID, true))
+    if (!GetRawTag(study, dicom, DICOM_TAG_STUDY_INSTANCE_UID, true) ||
+        !GetRawTag(series, dicom, DICOM_TAG_SERIES_INSTANCE_UID, true) ||
+        !GetRawTag(instance, dicom, DICOM_TAG_SOP_INSTANCE_UID, true))
     {
       return "";
     }
@@ -285,51 +371,11 @@ namespace OrthancPlugins
   }
 
 
-  static bool ConvertDicomStringToUf8(std::string& result,
-                                      const gdcm::Dict& dictionary,
-                                      const gdcm::File* file,
-                                      const gdcm::DataElement& element,
-                                      const Orthanc::Encoding sourceEncoding)
+  Orthanc::Encoding  ParsedDicomFile::GetEncoding() const
   {
-    const gdcm::ByteValue* data = element.GetByteValue();
-    if (!data)
-    {
-      return false;
-    }
-
-    if (file != NULL)
-    {
-      bool isSequence;
-      std::string vr = GetVRName(isSequence, dictionary, element);
-      if (!isSequence && (
-            vr == "FL" ||
-            vr == "FD" ||
-            vr == "SL" ||
-            vr == "SS" ||
-            vr == "UL" ||
-            vr == "US"
-            ))
-      {      
-        gdcm::StringFilter f;
-        f.SetFile(*file);
-        result = f.ToString(element.GetTag());
-        return true;
-      }
-    }
-
-    if (sourceEncoding == Orthanc::Encoding_Utf8)
-    {
-      result.assign(data->GetPointer(), data->GetLength());
-    }
-    else
-    {
-      std::string tmp(data->GetPointer(), data->GetLength());
-      result = Orthanc::Toolbox::ConvertToUtf8(tmp, sourceEncoding);
-    }
-
-    result = Orthanc::Toolbox::StripSpaces(result);
-    return true;
+    return DetectEncoding(GetDataSet());
   }
+  
 
 
   static void DicomToXmlInternal(pugi::xml_node& target,
@@ -406,7 +452,7 @@ namespace OrthancPlugins
         value.append_attribute("number").set_value("1");
 
         std::string tmp;
-        if (ConvertDicomStringToUf8(tmp, dictionary, file, *it, sourceEncoding)) 
+        if (ConvertDicomStringToUtf8(tmp, dictionary, file, *it, sourceEncoding)) 
         {
           value.append_child(pugi::node_pcdata).set_value(tmp.c_str());
         }
@@ -504,7 +550,7 @@ namespace OrthancPlugins
         node["Value"] = Json::arrayValue;
 
         std::string value;
-        if (ConvertDicomStringToUf8(value, dictionary, file, *it, sourceEncoding)) 
+        if (ConvertDicomStringToUtf8(value, dictionary, file, *it, sourceEncoding)) 
         {
           node["Value"].append(value.c_str());
         }

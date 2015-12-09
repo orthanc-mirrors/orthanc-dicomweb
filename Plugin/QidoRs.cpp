@@ -376,16 +376,16 @@ namespace
 
       // Set the retrieve URL for WADO-RS
       std::string url = (wadoBase + "studies/" + 
-                         dicom.GetTagWithDefault(OrthancPlugins::DICOM_TAG_STUDY_INSTANCE_UID, "", true));
+                         dicom.GetRawTagWithDefault(OrthancPlugins::DICOM_TAG_STUDY_INSTANCE_UID, "", true));
 
       if (level == QueryLevel_Series || level == QueryLevel_Instance)
       {
-        url += "/series/" + dicom.GetTagWithDefault(OrthancPlugins::DICOM_TAG_SERIES_INSTANCE_UID, "", true);
+        url += "/series/" + dicom.GetRawTagWithDefault(OrthancPlugins::DICOM_TAG_SERIES_INSTANCE_UID, "", true);
       }
 
       if (level == QueryLevel_Instance)
       {
-        url += "/instances/" + dicom.GetTagWithDefault(OrthancPlugins::DICOM_TAG_SOP_INSTANCE_UID, "", true);
+        url += "/instances/" + dicom.GetRawTagWithDefault(OrthancPlugins::DICOM_TAG_SOP_INSTANCE_UID, "", true);
       }
     
       gdcm::DataElement element(OrthancPlugins::DICOM_TAG_RETRIEVE_URL);

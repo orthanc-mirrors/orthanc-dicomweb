@@ -169,9 +169,9 @@ OrthancPluginErrorCode StowCallback(OrthancPluginRestOutput* output,
 
     OrthancPlugins::ParsedDicomFile dicom(items[i]);
 
-    std::string studyInstanceUid = dicom.GetTagWithDefault(OrthancPlugins::DICOM_TAG_STUDY_INSTANCE_UID, "", true);
-    std::string sopClassUid = dicom.GetTagWithDefault(OrthancPlugins::DICOM_TAG_SOP_CLASS_UID, "", true);
-    std::string sopInstanceUid = dicom.GetTagWithDefault(OrthancPlugins::DICOM_TAG_SOP_INSTANCE_UID, "", true);
+    std::string studyInstanceUid = dicom.GetRawTagWithDefault(OrthancPlugins::DICOM_TAG_STUDY_INSTANCE_UID, "", true);
+    std::string sopClassUid = dicom.GetRawTagWithDefault(OrthancPlugins::DICOM_TAG_SOP_CLASS_UID, "", true);
+    std::string sopInstanceUid = dicom.GetRawTagWithDefault(OrthancPlugins::DICOM_TAG_SOP_INSTANCE_UID, "", true);
 
     gdcm::Item item;
     item.SetVLToUndefined();
@@ -207,7 +207,7 @@ OrthancPluginErrorCode StowCallback(OrthancPluginRestOutput* output,
       {
         std::string url = (wadoBase + 
                            "studies/" + studyInstanceUid +
-                           "/series/" + dicom.GetTagWithDefault(OrthancPlugins::DICOM_TAG_SERIES_INSTANCE_UID, "", true) +
+                           "/series/" + dicom.GetRawTagWithDefault(OrthancPlugins::DICOM_TAG_SERIES_INSTANCE_UID, "", true) +
                            "/instances/" + sopInstanceUid);
 
         SetTag(status, OrthancPlugins::DICOM_TAG_RETRIEVE_URL, gdcm::VR::UT, url);

@@ -22,6 +22,8 @@
 
 #include "Configuration.h"
 
+#include "../Orthanc/Core/Enumerations.h"
+
 #include <gdcmReader.h>
 #include <gdcmDataSet.h>
 #include <pugixml.hpp>
@@ -45,6 +47,9 @@ namespace OrthancPlugins
   static const gdcm::Tag DICOM_TAG_ACCESSION_NUMBER(0x0008, 0x0050);
   static const gdcm::Tag DICOM_TAG_SPECIFIC_CHARACTER_SET(0x0008, 0x0005);
   static const gdcm::Tag DICOM_TAG_PIXEL_DATA(0x7fe0, 0x0010);
+  static const gdcm::Tag DICOM_TAG_COLUMNS(0x0028, 0x0011);
+  static const gdcm::Tag DICOM_TAG_ROWS(0x0028, 0x0010);
+  static const gdcm::Tag DICOM_TAG_BITS_ALLOCATED(0x0028, 0x0100);
 
   class ParsedDicomFile
   {
@@ -71,13 +76,24 @@ namespace OrthancPlugins
       return reader_.GetFile().GetDataSet();
     }
 
-    bool GetTag(std::string& result,
-                const gdcm::Tag& tag,
-                bool stripSpaces) const;
+    bool GetRawTag(std::string& result,
+                   const gdcm::Tag& tag,
+                   bool stripSpaces) const;
 
-    std::string GetTagWithDefault(const gdcm::Tag& tag,
-                                  const std::string& defaultValue,
-                                  bool stripSpaces) const;
+    std::string GetRawTagWithDefault(const gdcm::Tag& tag,
+                                     const std::string& defaultValue,
+                                     bool stripSpaces) const;
+
+    bool GetStringTag(std::string& result,
+                      const gdcm::Dict& dictionary,
+                      const gdcm::Tag& tag,
+                      bool stripSpaces) const;
+
+    bool GetIntegerTag(int& result,
+                       const gdcm::Dict& dictionary,
+                       const gdcm::Tag& tag) const;
+
+    Orthanc::Encoding  GetEncoding() const;
   };
 
 
