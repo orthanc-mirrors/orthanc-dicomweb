@@ -857,7 +857,35 @@ static const char* GetMimeType(const gdcm::TransferSyntax& syntax)
 }
 
 
+
+static void AnswerSingleFrame(OrthancPluginRestOutput* output,
+                              const OrthancPluginHttpRequest* request,
+                              const OrthancPlugins::ParsedDicomFile& dicom,
+                              const char* frame,
+                              size_t size,
+                              unsigned int frameIndex)
+{
+  OrthancPluginErrorCode error;
+
+#if HAS_SEND_MULTIPART_ITEM_2 == 1
+  std::string location = dicom.GetWadoUrl(request) + "frames/" + boost::lexical_cast<std::string>(frameIndex + 1);
+  const char *keys[] = { "Content-Location" };
+  const char *values[] = { location.c_str() };
+  error = OrthancPluginSendMultipartItem2(context_, output, frame, size, 1, keys, values);
+#else
+  error = OrthancPluginSendMultipartItem(context_, output, frame, size);
+#endif
+
+  if (error != OrthancPluginErrorCode_Success)
+  {
+    throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);      
+  }
+}
+
+
+
 static bool AnswerFrames(OrthancPluginRestOutput* output,
+                         const OrthancPluginHttpRequest* request,
                          const OrthancPlugins::ParsedDicomFile& dicom,
                          const gdcm::TransferSyntax& syntax,
                          const std::list<unsigned int>& frames)
@@ -918,12 +946,7 @@ static bool AnswerFrames(OrthancPluginRestOutput* output,
       else
       {
         const char* p = buffer + (*frame) * frameSize;
-
-        // TODO SET Content-Location
-        if (OrthancPluginSendMultipartItem(context_, output, p, frameSize) != OrthancPluginErrorCode_Success)
-        {
-          throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);      
-        }
+        AnswerSingleFrame(output, request, dicom, p, frameSize, *frame);
       }
     }
   }
@@ -943,19 +966,16 @@ static bool AnswerFrames(OrthancPluginRestOutput* output,
       }
       else
       {
-        // TODO SET Content-Location
-        if (OrthancPluginSendMultipartItem(context_, output,
-                                           fragments->GetFragment(*frame).GetByteValue()->GetPointer(),
-                                           fragments->GetFragment(*frame).GetByteValue()->GetLength()) != OrthancPluginErrorCode_Success)
-        {
-          throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);      
-        }
+        AnswerSingleFrame(output, request, dicom,
+                          fragments->GetFragment(*frame).GetByteValue()->GetPointer(),
+                          fragments->GetFragment(*frame).GetByteValue()->GetLength(), *frame);
       }
     }
   }
 
   return true;
 }
+
 
 
 OrthancPluginErrorCode RetrieveFrames(OrthancPluginRestOutput* output,
@@ -1017,7 +1037,7 @@ OrthancPluginErrorCode RetrieveFrames(OrthancPluginRestOutput* output,
         source.reset(new OrthancPlugins::ParsedDicomFile(content));
       }
 
-      AnswerFrames(output, *source, targetSyntax, frames);
+      AnswerFrames(output, request, *source, targetSyntax, frames);
     }
     else
     {
@@ -1061,7 +1081,7 @@ OrthancPluginErrorCode RetrieveFrames(OrthancPluginRestOutput* output,
       }
 
       OrthancPlugins::ParsedDicomFile transcoded(ss.str());
-      AnswerFrames(output, transcoded, targetSyntax, frames);
+      AnswerFrames(output, request, transcoded, targetSyntax, frames);
     }
   }    
 

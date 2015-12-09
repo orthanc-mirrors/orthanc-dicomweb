@@ -20,15 +20,16 @@
 
 #include "Dicom.h"
 
+#include "Plugin.h"
 #include "ChunkedBuffer.h"
+
+#include "../Orthanc/Core/OrthancException.h"
+#include "../Orthanc/Core/Toolbox.h"
 
 #include <gdcmDictEntry.h>
 #include <gdcmStringFilter.h>
 #include <boost/lexical_cast.hpp>
 #include <json/writer.h>
-
-#include "../Orthanc/Core/OrthancException.h"
-#include "../Orthanc/Core/Toolbox.h"
 
 namespace OrthancPlugins
 {
@@ -55,6 +56,35 @@ namespace OrthancPlugins
     };
   }
 
+
+  static std::string MyStripSpaces(const std::string& source)
+  {
+    size_t first = 0;
+
+    while (first < source.length() &&
+           (isspace(source[first]) || 
+            source[first] == '\0'))
+    {
+      first++;
+    }
+
+    if (first == source.length())
+    {
+      // String containing only spaces
+      return "";
+    }
+
+    size_t last = source.length();
+    while (last > first &&
+           (isspace(source[last - 1]) ||
+            source[last - 1] == '\0'))
+    {
+      last--;
+    }          
+    
+    assert(first <= last);
+    return source.substr(first, last - first);
+  }
 
 
   static const char* GetVRName(bool& isSequence,
@@ -138,7 +168,7 @@ namespace OrthancPlugins
       result = Orthanc::Toolbox::ConvertToUtf8(tmp, sourceEncoding);
     }
 
-    result = Orthanc::Toolbox::StripSpaces(result);
+    result = MyStripSpaces(result);
     return true;
   }
 
@@ -181,7 +211,7 @@ namespace OrthancPlugins
 
         if (stripSpaces)
         {
-          result = Orthanc::Toolbox::StripSpaces(result);
+          result = MyStripSpaces(result);
         }
 
         return true;
@@ -235,7 +265,7 @@ namespace OrthancPlugins
 
     if (stripSpaces)
     {
-      result = Orthanc::Toolbox::StripSpaces(result);
+      result = MyStripSpaces(result);
     }
 
     return true;
@@ -320,8 +350,8 @@ namespace OrthancPlugins
   }
 
 
-  static std::string GetBulkUriRoot(const std::string& wadoBase,
-                                    const gdcm::DataSet& dicom)
+  static std::string GetWadoUrl(const std::string& wadoBase,
+                                const gdcm::DataSet& dicom)
   {
     std::string study, series, instance;
 
@@ -333,7 +363,7 @@ namespace OrthancPlugins
     }
     else
     {
-      return wadoBase + "studies/" + study + "/series/" + series + "/instances/" + instance + "/bulk/";
+      return wadoBase + "studies/" + study + "/series/" + series + "/instances/" + instance + "/";
     }
   }
 
@@ -356,7 +386,7 @@ namespace OrthancPlugins
     }
 
     std::string tmp(data->GetPointer(), data->GetLength());
-    tmp = Orthanc::Toolbox::StripSpaces(tmp);
+    tmp = MyStripSpaces(tmp);
 
     Orthanc::Encoding encoding;
     if (Orthanc::GetDicomEncoding(encoding, tmp.c_str()))
@@ -583,7 +613,7 @@ namespace OrthancPlugins
     std::string bulkUriRoot;
     if (isBulkAccessible)
     {
-      bulkUriRoot = GetBulkUriRoot(wadoBase, dicom);
+      bulkUriRoot = GetWadoUrl(wadoBase, dicom) + "bulk/";
     }
 
     if (isXml)
@@ -619,5 +649,12 @@ namespace OrthancPlugins
     GenerateSingleDicomAnswer(answer, wadoBase, dictionary, NULL, dicom, isXml, isBulkAccessible);
     OrthancPluginAnswerBuffer(context, output, answer.c_str(), answer.size(), 
                               isXml ? "application/dicom+xml" : "application/json");
+  }
+
+
+  std::string ParsedDicomFile::GetWadoUrl(const OrthancPluginHttpRequest* request) const
+  {
+    const std::string base = OrthancPlugins::Configuration::GetBaseUrl(configuration_, request);
+    return OrthancPlugins::GetWadoUrl(base, GetDataSet());
   }
 }

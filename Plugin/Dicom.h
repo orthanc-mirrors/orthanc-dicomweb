@@ -94,6 +94,8 @@ namespace OrthancPlugins
                        const gdcm::Tag& tag) const;
 
     Orthanc::Encoding  GetEncoding() const;
+
+    std::string GetWadoUrl(const OrthancPluginHttpRequest* request) const;
   };
 
 

@@ -50,7 +50,9 @@ Not supported
 6.5.4 WADO-RS / RetrieveFrames
 ================================
 
-Not supported.
+Almost entirely supported.
+
+The only missing feature is returning multi-frame media types (cf. Table 6.5-1).
 
 
 

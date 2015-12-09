@@ -26,6 +26,7 @@
 
 using namespace OrthancPlugins;
 
+Json::Value configuration_ = Json::objectValue;
 
 
 TEST(ContentType, Parse)
