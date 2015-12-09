@@ -44,6 +44,7 @@ namespace OrthancPlugins
   static const gdcm::Tag DICOM_TAG_REFERENCED_SOP_SEQUENCE(0x0008, 0x1199);
   static const gdcm::Tag DICOM_TAG_ACCESSION_NUMBER(0x0008, 0x0050);
   static const gdcm::Tag DICOM_TAG_SPECIFIC_CHARACTER_SET(0x0008, 0x0005);
+  static const gdcm::Tag DICOM_TAG_PIXEL_DATA(0x7fe0, 0x0010);
 
   class ParsedDicomFile
   {
