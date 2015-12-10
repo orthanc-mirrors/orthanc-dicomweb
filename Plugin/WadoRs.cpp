@@ -783,9 +783,9 @@ static void ParseFrameList(std::list<unsigned int>& frames,
 {
   frames.clear();
 
-  if (request->groupsCount < 3)
+  if (request->groupsCount <= 3 ||
+      request->groups[3] == NULL)
   {
-    frames.push_back(0);
     return;
   }
 
@@ -889,7 +889,7 @@ static bool AnswerFrames(OrthancPluginRestOutput* output,
                          const OrthancPluginHttpRequest* request,
                          const OrthancPlugins::ParsedDicomFile& dicom,
                          const gdcm::TransferSyntax& syntax,
-                         const std::list<unsigned int>& frames)
+                         std::list<unsigned int>& frames)
 {
   if (!dicom.GetDataSet().FindDataElement(OrthancPlugins::DICOM_TAG_PIXEL_DATA))
   {
@@ -931,6 +931,16 @@ static bool AnswerFrames(OrthancPluginRestOutput* output,
     }
 
     size_t framesCount = pixelData.GetByteValue()->GetLength() / frameSize;
+
+    if (frames.empty())
+    {
+      // If no frame is provided, return all the frames (this is an extension)
+      for (size_t i = 0; i < framesCount; i++)
+      {
+        frames.push_back(i);
+      }
+    }
+
     const char* buffer = pixelData.GetByteValue()->GetPointer();
     assert(sizeof(char) == 1);
 
@@ -954,6 +964,15 @@ static bool AnswerFrames(OrthancPluginRestOutput* output,
   else
   {
     // Multi-fragment image, we assume that each fragment corresponds to one frame
+
+    if (frames.empty())
+    {
+      // If no frame is provided, return all the frames (this is an extension)
+      for (size_t i = 0; i < fragments->GetNumberOfFragments(); i++)
+      {
+        frames.push_back(i);
+      }
+    }
 
     for (std::list<unsigned int>::const_iterator 
            frame = frames.begin(); frame != frames.end(); ++frame)

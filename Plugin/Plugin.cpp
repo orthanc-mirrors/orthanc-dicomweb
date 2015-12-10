@@ -196,6 +196,7 @@ extern "C"
       Register(root, "studies/([^/]*)/series/([^/]*)/instances/([^/]*)/bulk/(.*)", Protect<RetrieveBulkData>);
       Register(root, "studies/([^/]*)/series/([^/]*)/instances/([^/]*)/metadata", Protect<RetrieveInstanceMetadata>);
       Register(root, "studies/([^/]*)/series/([^/]*)/metadata", Protect<RetrieveSeriesMetadata>);
+      Register(root, "studies/([^/]*)/series/([^/]*)/instances/([^/]*)/frames", Protect<RetrieveFrames>);
       Register(root, "studies/([^/]*)/series/([^/]*)/instances/([^/]*)/frames/([^/]*)", Protect<RetrieveFrames>);
     }
     else
