@@ -23,6 +23,10 @@
 #include "Configuration.h"
 
 
+bool LocateInstance(OrthancPluginRestOutput* output,
+                    std::string& uri,
+                    const OrthancPluginHttpRequest* request);
+
 OrthancPluginErrorCode RetrieveDicomStudy(OrthancPluginRestOutput* output,
                                           const char* url,
                                           const OrthancPluginHttpRequest* request);
