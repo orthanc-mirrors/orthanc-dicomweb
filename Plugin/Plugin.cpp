@@ -42,14 +42,20 @@ const gdcm::Dict* dictionary_ = NULL;
 #include <boost/lexical_cast.hpp>
 
 
-template <OrthancPluginRestCallback Callback>
+typedef void (*RestCallback) (OrthancPluginRestOutput* output,
+                              const char* url,
+                              const OrthancPluginHttpRequest* request);
+
+
+template <RestCallback Callback>
 OrthancPluginErrorCode Protect(OrthancPluginRestOutput* output,
                                const char* url,
                                const OrthancPluginHttpRequest* request)
 {
   try
   {
-    return Callback(output, url, request);
+    Callback(output, url, request);
+    return OrthancPluginErrorCode_Success;
   }
   catch (Orthanc::OrthancException& e)
   {
@@ -70,44 +76,48 @@ OrthancPluginErrorCode Protect(OrthancPluginRestOutput* output,
 
 
 
-OrthancPluginErrorCode SwitchStudies(OrthancPluginRestOutput* output,
-                                     const char* url,
-                                     const OrthancPluginHttpRequest* request)
+void SwitchStudies(OrthancPluginRestOutput* output,
+                   const char* url,
+                   const OrthancPluginHttpRequest* request)
 {
   switch (request->method)
   {
     case OrthancPluginHttpMethod_Get:
       // This is QIDO-RS
-      return SearchForStudies(output, url, request);
+      SearchForStudies(output, url, request);
+      break;
 
     case OrthancPluginHttpMethod_Post:
       // This is STOW-RS
-      return StowCallback(output, url, request);
+      StowCallback(output, url, request);
+      break;
 
     default:
       OrthancPluginSendMethodNotAllowed(context_, output, "GET,POST");
-      return OrthancPluginErrorCode_Success;
+      break;
   }
 }
 
 
-OrthancPluginErrorCode SwitchStudy(OrthancPluginRestOutput* output,
-                                   const char* url,
-                                   const OrthancPluginHttpRequest* request)
+void SwitchStudy(OrthancPluginRestOutput* output,
+                 const char* url,
+                 const OrthancPluginHttpRequest* request)
 {
   switch (request->method)
   {
     case OrthancPluginHttpMethod_Get:
       // This is WADO-RS
-      return RetrieveDicomStudy(output, url, request);
+      RetrieveDicomStudy(output, url, request);
+      break;
 
     case OrthancPluginHttpMethod_Post:
       // This is STOW-RS
-      return StowCallback(output, url, request);
+      StowCallback(output, url, request);
+      break;
 
     default:
       OrthancPluginSendMethodNotAllowed(context_, output, "GET,POST");
-      return OrthancPluginErrorCode_Success;
+      break;
   }
 }
 
@@ -212,7 +222,7 @@ extern "C"
       std::string message = "URI to the WADO API: " + wado;
       OrthancPluginLogWarning(context_, message.c_str());
 
-      OrthancPluginRegisterRestCallback(context_, wado.c_str(), WadoCallback);
+      OrthancPluginRegisterRestCallback(context_, wado.c_str(), Protect<WadoCallback>);
     }
     else
     {

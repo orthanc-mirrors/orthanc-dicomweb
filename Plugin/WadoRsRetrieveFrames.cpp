@@ -25,6 +25,7 @@
 #include "Dicom.h"
 #include "Plugin.h"
 
+#include <memory>
 #include <list>
 #include <gdcmImageReader.h>
 #include <gdcmImageWriter.h>
@@ -292,7 +293,7 @@ static bool AnswerFrames(OrthancPluginRestOutput* output,
 {
   if (!dicom.GetDataSet().FindDataElement(OrthancPlugins::DICOM_TAG_PIXEL_DATA))
   {
-    return OrthancPluginErrorCode_IncompatibleImageFormat;
+    throw Orthanc::OrthancException(Orthanc::ErrorCode_IncompatibleImageFormat);
   }
 
   const gdcm::DataElement& pixelData = dicom.GetDataSet().GetDataElement(OrthancPlugins::DICOM_TAG_PIXEL_DATA);
@@ -397,9 +398,9 @@ static bool AnswerFrames(OrthancPluginRestOutput* output,
 
 
 
-OrthancPluginErrorCode RetrieveFrames(OrthancPluginRestOutput* output,
-                                      const char* url,
-                                      const OrthancPluginHttpRequest* request)
+void RetrieveFrames(OrthancPluginRestOutput* output,
+                    const char* url,
+                    const OrthancPluginHttpRequest* request)
 {
   gdcm::TransferSyntax targetSyntax(ParseTransferSyntax(request));
 
@@ -495,6 +496,4 @@ OrthancPluginErrorCode RetrieveFrames(OrthancPluginRestOutput* output,
       AnswerFrames(output, request, transcoded, targetSyntax, frames);
     }
   }    
-
-  return OrthancPluginErrorCode_Success;
 }

@@ -27,34 +27,34 @@ bool LocateInstance(OrthancPluginRestOutput* output,
                     std::string& uri,
                     const OrthancPluginHttpRequest* request);
 
-OrthancPluginErrorCode RetrieveDicomStudy(OrthancPluginRestOutput* output,
-                                          const char* url,
-                                          const OrthancPluginHttpRequest* request);
+void RetrieveDicomStudy(OrthancPluginRestOutput* output,
+                        const char* url,
+                        const OrthancPluginHttpRequest* request);
 
-OrthancPluginErrorCode RetrieveDicomSeries(OrthancPluginRestOutput* output,
-                                           const char* url,
-                                           const OrthancPluginHttpRequest* request);
+void RetrieveDicomSeries(OrthancPluginRestOutput* output,
+                         const char* url,
+                         const OrthancPluginHttpRequest* request);
 
-OrthancPluginErrorCode RetrieveDicomInstance(OrthancPluginRestOutput* output,
-                                             const char* url,
-                                             const OrthancPluginHttpRequest* request);
+void RetrieveDicomInstance(OrthancPluginRestOutput* output,
+                           const char* url,
+                           const OrthancPluginHttpRequest* request);
 
-OrthancPluginErrorCode RetrieveStudyMetadata(OrthancPluginRestOutput* output,
-                                             const char* url,
-                                             const OrthancPluginHttpRequest* request);
+void RetrieveStudyMetadata(OrthancPluginRestOutput* output,
+                           const char* url,
+                           const OrthancPluginHttpRequest* request);
 
-OrthancPluginErrorCode RetrieveSeriesMetadata(OrthancPluginRestOutput* output,
-                                              const char* url,
-                                              const OrthancPluginHttpRequest* request);
+void RetrieveSeriesMetadata(OrthancPluginRestOutput* output,
+                            const char* url,
+                            const OrthancPluginHttpRequest* request);
 
-OrthancPluginErrorCode RetrieveInstanceMetadata(OrthancPluginRestOutput* output,
-                                                const char* url,
-                                                const OrthancPluginHttpRequest* request);
+void RetrieveInstanceMetadata(OrthancPluginRestOutput* output,
+                              const char* url,
+                              const OrthancPluginHttpRequest* request);
 
-OrthancPluginErrorCode RetrieveBulkData(OrthancPluginRestOutput* output,
-                                        const char* url,
-                                        const OrthancPluginHttpRequest* request);
+void RetrieveBulkData(OrthancPluginRestOutput* output,
+                      const char* url,
+                      const OrthancPluginHttpRequest* request);
 
-OrthancPluginErrorCode RetrieveFrames(OrthancPluginRestOutput* output,
-                                      const char* url,
-                                      const OrthancPluginHttpRequest* request);
+void RetrieveFrames(OrthancPluginRestOutput* output,
+                    const char* url,
+                    const OrthancPluginHttpRequest* request);

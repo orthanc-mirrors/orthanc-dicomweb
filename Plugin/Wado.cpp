@@ -151,8 +151,8 @@ static bool LocateInstance(std::string& instance,
 }
 
 
-static OrthancPluginErrorCode AnswerDicom(OrthancPluginRestOutput* output,
-                                          const std::string& instance)
+static void AnswerDicom(OrthancPluginRestOutput* output,
+                        const std::string& instance)
 {
   std::string uri = "/instances/" + instance + "/file";
 
@@ -160,13 +160,12 @@ static OrthancPluginErrorCode AnswerDicom(OrthancPluginRestOutput* output,
   if (OrthancPlugins::RestApiGetString(dicom, context_, uri))
   {
     OrthancPluginAnswerBuffer(context_, output, dicom.c_str(), dicom.size(), "application/dicom");
-    return OrthancPluginErrorCode_Success;
   }
   else
   {
     std::string msg = "WADO: Unable to retrieve DICOM file from " + uri;
     OrthancPluginLogError(context_, msg.c_str());
-    return OrthancPluginErrorCode_Plugin;
+    throw Orthanc::OrthancException(Orthanc::ErrorCode_Plugin);
   }
 }
 
@@ -189,28 +188,29 @@ static bool RetrievePngPreview(std::string& png,
 }
 
 
-static OrthancPluginErrorCode AnswerPngPreview(OrthancPluginRestOutput* output,
-                                               const std::string& instance)
+static void AnswerPngPreview(OrthancPluginRestOutput* output,
+                             const std::string& instance)
 {
   std::string png;
-  if (!RetrievePngPreview(png, instance))
+  if (RetrievePngPreview(png, instance))
   {
-    return OrthancPluginErrorCode_Plugin;
+    OrthancPluginAnswerBuffer(context_, output, png.c_str(), png.size(), "image/png");
   }
-
-  OrthancPluginAnswerBuffer(context_, output, png.c_str(), png.size(), "image/png");
-  return OrthancPluginErrorCode_Success;
+  else
+  {
+    throw Orthanc::OrthancException(Orthanc::ErrorCode_Plugin);
+  }
 }
 
 
-static OrthancPluginErrorCode AnswerJpegPreview(OrthancPluginRestOutput* output,
-                                                const std::string& instance)
+static void AnswerJpegPreview(OrthancPluginRestOutput* output,
+                              const std::string& instance)
 {
   // Retrieve the preview in the PNG format
   std::string png;
   if (!RetrievePngPreview(png, instance))
   {
-    return OrthancPluginErrorCode_Plugin;
+    throw Orthanc::OrthancException(Orthanc::ErrorCode_Plugin);
   }
 
   // Decode the PNG file
@@ -228,47 +228,43 @@ static OrthancPluginErrorCode AnswerJpegPreview(OrthancPluginRestOutput* output,
     90 /*quality*/);
 
   OrthancPluginFreeImage(context_, image);
-
-  return OrthancPluginErrorCode_Success;
 }
 
 
-OrthancPluginErrorCode WadoCallback(OrthancPluginRestOutput* output,
-                                    const char* url,
-                                    const OrthancPluginHttpRequest* request)
+void WadoCallback(OrthancPluginRestOutput* output,
+                  const char* url,
+                  const OrthancPluginHttpRequest* request)
 {
   if (request->method != OrthancPluginHttpMethod_Get)
   {
     OrthancPluginSendMethodNotAllowed(context_, output, "GET");
-    return OrthancPluginErrorCode_Plugin;
+    return;
   }
 
   std::string instance;
   std::string contentType = "image/jpg";  // By default, JPEG image will be returned
   if (!LocateInstance(instance, contentType, request))
   {
-    return OrthancPluginErrorCode_UnknownResource;
+    throw Orthanc::OrthancException(Orthanc::ErrorCode_UnknownResource);
   }
 
   if (contentType == "application/dicom")
   {
-    return AnswerDicom(output, instance);
+    AnswerDicom(output, instance);
   }
   else if (contentType == "image/png")
   {
-    return AnswerPngPreview(output, instance);
+    AnswerPngPreview(output, instance);
   }
   else if (contentType == "image/jpeg" ||
            contentType == "image/jpg")
   {
-    return AnswerJpegPreview(output, instance);
+    AnswerJpegPreview(output, instance);
   }
   else
   {
     std::string msg = "WADO: Unsupported content type: \"" + contentType + "\"";
     OrthancPluginLogError(context_, msg.c_str());
-    return OrthancPluginErrorCode_Plugin;
+    throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest);
   }
-
-  return OrthancPluginErrorCode_Success;
 }
