@@ -100,8 +100,8 @@ namespace Orthanc
     ErrorCode_DirectoryOverFile = 2000    /*!< The directory to be created is already occupied by a regular file */,
     ErrorCode_FileStorageCannotWrite = 2001    /*!< Unable to create a subdirectory or a file in the file storage */,
     ErrorCode_DirectoryExpected = 2002    /*!< The specified path does not point to a directory */,
-    ErrorCode_HttpPortInUse = 2003    /*!< The TCP port of the HTTP server is already in use */,
-    ErrorCode_DicomPortInUse = 2004    /*!< The TCP port of the DICOM server is already in use */,
+    ErrorCode_HttpPortInUse = 2003    /*!< The TCP port of the HTTP server is privileged or already in use */,
+    ErrorCode_DicomPortInUse = 2004    /*!< The TCP port of the DICOM server is privileged or already in use */,
     ErrorCode_BadHttpStatusInRest = 2005    /*!< This HTTP status is not allowed in a REST API */,
     ErrorCode_RegularFileExpected = 2006    /*!< The specified path does not point to a regular file */,
     ErrorCode_PathToExecutable = 2007    /*!< Unable to get the path to the executable */,
@@ -139,6 +139,7 @@ namespace Orthanc
     ErrorCode_SslDisabled = 2039    /*!< Orthanc has been built without SSL support */,
     ErrorCode_CannotOrderSlices = 2040    /*!< Unable to order the slices of the series */,
     ErrorCode_NoWorklistHandler = 2041    /*!< No request handler factory for DICOM C-Find Modality SCP */,
+    ErrorCode_AlreadyExistingTag = 2042    /*!< Cannot override the value of a tag that already exists */,
     ErrorCode_START_PLUGINS = 1000000
   };
 
@@ -443,6 +444,8 @@ namespace Orthanc
   const char* EnumerationToString(LogLevel level);
 
   const char* EnumerationToString(RequestOrigin origin);
+
+  const char* EnumerationToString(PixelFormat format);
 
   Encoding StringToEncoding(const char* encoding);
 

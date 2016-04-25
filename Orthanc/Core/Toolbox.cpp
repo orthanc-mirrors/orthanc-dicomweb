@@ -67,7 +67,7 @@
 #include <limits.h>      /* PATH_MAX */
 #endif
 
-#if defined(__linux) || defined(__FreeBSD_kernel__) || defined(__FreeBSD__)
+#if defined(__linux__) || defined(__FreeBSD_kernel__) || defined(__FreeBSD__)
 #include <limits.h>      /* PATH_MAX */
 #include <signal.h>
 #include <unistd.h>
@@ -132,7 +132,7 @@ namespace Orthanc
   {
 #if defined(_WIN32)
     ::Sleep(static_cast<DWORD>(microSeconds / static_cast<uint64_t>(1000)));
-#elif defined(__linux) || defined(__APPLE__) || defined(__FreeBSD_kernel__) || defined(__FreeBSD__)
+#elif defined(__linux__) || defined(__APPLE__) || defined(__FreeBSD_kernel__) || defined(__FreeBSD__)
     usleep(microSeconds);
 #else
 #error Support your platform here
@@ -206,6 +206,17 @@ namespace Orthanc
   }
 
 
+  static std::streamsize GetStreamSize(std::istream& f)
+  {
+    // http://www.cplusplus.com/reference/iostream/istream/tellg/
+    f.seekg(0, std::ios::end);
+    std::streamsize size = f.tellg();
+    f.seekg(0, std::ios::beg);
+
+    return size;
+  }
+
+
   void Toolbox::ReadFile(std::string& content,
                          const std::string& path) 
   {
@@ -222,11 +233,7 @@ namespace Orthanc
       throw OrthancException(ErrorCode_InexistentFile);
     }
 
-    // http://www.cplusplus.com/reference/iostream/istream/tellg/
-    f.seekg(0, std::ios::end);
-    std::streamsize size = f.tellg();
-    f.seekg(0, std::ios::beg);
-
+    std::streamsize size = GetStreamSize(f);
     content.resize(size);
     if (size != 0)
     {
@@ -234,6 +241,51 @@ namespace Orthanc
     }
 
     f.close();
+  }
+
+
+  bool Toolbox::ReadHeader(std::string& header,
+                           const std::string& path,
+                           size_t headerSize)
+  {
+    if (!IsRegularFile(path))
+    {
+      LOG(ERROR) << std::string("The path does not point to a regular file: ") << path;
+      throw OrthancException(ErrorCode_RegularFileExpected);
+    }
+
+    boost::filesystem::ifstream f;
+    f.open(path, std::ifstream::in | std::ifstream::binary);
+    if (!f.good())
+    {
+      throw OrthancException(ErrorCode_InexistentFile);
+    }
+
+    bool full = true;
+
+    {
+      std::streamsize size = GetStreamSize(f);
+      if (size <= 0)
+      {
+        headerSize = 0;
+        full = false;
+      }
+      else if (static_cast<size_t>(size) < headerSize)
+      {
+        headerSize = size;  // Truncate to the size of the file
+        full = false;
+      }
+    }
+
+    header.resize(headerSize);
+    if (headerSize != 0)
+    {
+      f.read(reinterpret_cast<char*>(&header[0]), headerSize);
+    }
+
+    f.close();
+
+    return full;
   }
 
 
@@ -535,7 +587,7 @@ namespace Orthanc
 
 
 #  if BOOST_HAS_REGEX == 1
-  void Toolbox::DecodeDataUriScheme(std::string& mime,
+  bool Toolbox::DecodeDataUriScheme(std::string& mime,
                                     std::string& content,
                                     const std::string& source)
   {
@@ -547,10 +599,11 @@ namespace Orthanc
     {
       mime = what[1];
       DecodeBase64(content, what[2]);
+      return true;
     }
     else
     {
-      throw OrthancException(ErrorCode_BadFileFormat);
+      return false;
     }
   }
 #  endif
@@ -577,7 +630,7 @@ namespace Orthanc
     return std::string(&buffer[0]);
   }
 
-#elif defined(__linux) || defined(__FreeBSD_kernel__) || defined(__FreeBSD__)
+#elif defined(__linux__) || defined(__FreeBSD_kernel__) || defined(__FreeBSD__)
   static std::string GetPathToExecutableInternal()
   {
     std::vector<char> buffer(PATH_MAX + 1);

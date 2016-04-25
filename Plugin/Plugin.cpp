@@ -23,7 +23,7 @@
 #include "QidoRs.h"
 #include "StowRs.h"
 #include "WadoRs.h"
-#include "Wado.h"
+#include "WadoUri.h"
 #include "Configuration.h"
 
 
@@ -222,7 +222,7 @@ extern "C"
       std::string message = "URI to the WADO API: " + wado;
       OrthancPluginLogWarning(context_, message.c_str());
 
-      OrthancPluginRegisterRestCallback(context_, wado.c_str(), Protect<WadoCallback>);
+      OrthancPluginRegisterRestCallback(context_, wado.c_str(), Protect<WadoUriCallback>);
     }
     else
     {

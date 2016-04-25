@@ -18,7 +18,7 @@
  **/
 
 
-#include "Wado.h"
+#include "WadoUri.h"
 #include "Plugin.h"
 
 #include "../Orthanc/Core/OrthancException.h"
@@ -64,7 +64,7 @@ static bool LocateInstance(std::string& instance,
     {
       seriesUid = value;
     }
-    else if (key == "objectUID")  // In WADO, "objectUID" corresponds to "SOPInstanceUID"
+    else if (key == "objectUID")  // In WADO-URI, "objectUID" corresponds to "SOPInstanceUID"
     {
       objectUid = value;
     }
@@ -80,20 +80,20 @@ static bool LocateInstance(std::string& instance,
 
   if (requestType != "WADO")
   {
-    std::string msg = "WADO: Invalid requestType: \"" + requestType + "\"";
+    std::string msg = "WADO-URI: Invalid requestType: \"" + requestType + "\"";
     OrthancPluginLogError(context_, msg.c_str());
     return false;
   }
 
   if (objectUid.empty())
   {
-    OrthancPluginLogError(context_, "WADO: No SOPInstanceUID provided");
+    OrthancPluginLogError(context_, "WADO-URI: No SOPInstanceUID provided");
     return false;
   }
 
   if (!MapWadoToOrthancIdentifier(instance, OrthancPluginLookupInstance, objectUid))
   {
-    std::string msg = "WADO: No such SOPInstanceUID in Orthanc: \"" + objectUid + "\"";
+    std::string msg = "WADO-URI: No such SOPInstanceUID in Orthanc: \"" + objectUid + "\"";
     OrthancPluginLogError(context_, msg.c_str());
     return false;
   }
@@ -108,7 +108,7 @@ static bool LocateInstance(std::string& instance,
     std::string series;
     if (!MapWadoToOrthancIdentifier(series, OrthancPluginLookupSeries, seriesUid))
     {
-      std::string msg = "WADO: No such SeriesInstanceUID in Orthanc: \"" + seriesUid + "\"";
+      std::string msg = "WADO-URI: No such SeriesInstanceUID in Orthanc: \"" + seriesUid + "\"";
       OrthancPluginLogError(context_, msg.c_str());
       return false;
     }
@@ -118,7 +118,7 @@ static bool LocateInstance(std::string& instance,
       if (!OrthancPlugins::RestApiGetJson(info, context_, "/instances/" + instance + "/series") ||
           info["MainDicomTags"]["SeriesInstanceUID"] != seriesUid)
       {
-        std::string msg = "WADO: Instance " + objectUid + " does not belong to series " + seriesUid;
+        std::string msg = "WADO-URI: Instance " + objectUid + " does not belong to series " + seriesUid;
         OrthancPluginLogError(context_, msg.c_str());
         return false;
       }
@@ -130,7 +130,7 @@ static bool LocateInstance(std::string& instance,
     std::string study;
     if (!MapWadoToOrthancIdentifier(study, OrthancPluginLookupStudy, studyUid))
     {
-      std::string msg = "WADO: No such StudyInstanceUID in Orthanc: \"" + studyUid + "\"";
+      std::string msg = "WADO-URI: No such StudyInstanceUID in Orthanc: \"" + studyUid + "\"";
       OrthancPluginLogError(context_, msg.c_str());
       return false;
     }
@@ -140,7 +140,7 @@ static bool LocateInstance(std::string& instance,
       if (!OrthancPlugins::RestApiGetJson(info, context_, "/instances/" + instance + "/study") ||
           info["MainDicomTags"]["StudyInstanceUID"] != studyUid)
       {
-        std::string msg = "WADO: Instance " + objectUid + " does not belong to study " + studyUid;
+        std::string msg = "WADO-URI: Instance " + objectUid + " does not belong to study " + studyUid;
         OrthancPluginLogError(context_, msg.c_str());
         return false;
       }
@@ -163,7 +163,7 @@ static void AnswerDicom(OrthancPluginRestOutput* output,
   }
   else
   {
-    std::string msg = "WADO: Unable to retrieve DICOM file from " + uri;
+    std::string msg = "WADO-URI: Unable to retrieve DICOM file from " + uri;
     OrthancPluginLogError(context_, msg.c_str());
     throw Orthanc::OrthancException(Orthanc::ErrorCode_Plugin);
   }
@@ -181,7 +181,7 @@ static bool RetrievePngPreview(std::string& png,
   }
   else
   {
-    std::string msg = "WADO: Unable to generate a preview image for " + uri;
+    std::string msg = "WADO-URI: Unable to generate a preview image for " + uri;
     OrthancPluginLogError(context_, msg.c_str());
     return false;
   }
@@ -231,9 +231,9 @@ static void AnswerJpegPreview(OrthancPluginRestOutput* output,
 }
 
 
-void WadoCallback(OrthancPluginRestOutput* output,
-                  const char* url,
-                  const OrthancPluginHttpRequest* request)
+void WadoUriCallback(OrthancPluginRestOutput* output,
+                     const char* url,
+                     const OrthancPluginHttpRequest* request)
 {
   if (request->method != OrthancPluginHttpMethod_Get)
   {
@@ -263,7 +263,7 @@ void WadoCallback(OrthancPluginRestOutput* output,
   }
   else
   {
-    std::string msg = "WADO: Unsupported content type: \"" + contentType + "\"";
+    std::string msg = "WADO-URI: Unsupported content type: \"" + contentType + "\"";
     OrthancPluginLogError(context_, msg.c_str());
     throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest);
   }

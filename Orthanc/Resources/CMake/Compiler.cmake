@@ -10,7 +10,7 @@ if (CMAKE_COMPILER_IS_GNUCXX)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wno-long-long -Wno-implicit-function-declaration")  
   # --std=c99 makes libcurl not to compile
   # -pedantic gives a lot of warnings on OpenSSL 
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -pedantic -Wno-long-long -Wno-variadic-macros")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wno-long-long -Wno-variadic-macros")
 
   if (CMAKE_CROSSCOMPILING)
     # http://stackoverflow.com/a/3543845/881731
@@ -73,6 +73,11 @@ if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux" OR
     link_libraries(dl)
   endif()
 
+  CHECK_INCLUDE_FILES(uuid/uuid.h HAVE_UUID_H)
+  if (NOT HAVE_UUID_H)
+    message(FATAL_ERROR "Please install the uuid-dev package")
+  endif()
+
 elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
   if (MSVC)
     message("MSVC compiler version = " ${MSVC_VERSION} "\n")
@@ -97,6 +102,11 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
   link_libraries(rpcrt4 ws2_32)
 
   if (CMAKE_COMPILER_IS_GNUCXX)
+    # Some additional C/C++ compiler flags for MinGW
+    SET(MINGW_NO_WARNINGS "-Wno-unused-function -Wno-unused-variable")
+    SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${MINGW_NO_WARNINGS} -Wno-pointer-to-int-cast -Wno-int-to-pointer-cast")
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${MINGW_NO_WARNINGS}")
+
     # This is a patch for MinGW64
     SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--allow-multiple-definition -static-libgcc -static-libstdc++")
     SET(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--allow-multiple-definition -static-libgcc -static-libstdc++")
@@ -120,6 +130,11 @@ elseif (${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
     )
   link_libraries(iconv)
 
+  CHECK_INCLUDE_FILES(uuid/uuid.h HAVE_UUID_H)
+  if (NOT HAVE_UUID_H)
+    message(FATAL_ERROR "Please install the uuid-dev package")
+  endif()
+
 endif()
 
 
@@ -136,17 +151,6 @@ if (${CMAKE_SYSTEM_NAME} STREQUAL "FreeBSD")
   SET(CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} -I/usr/local/include")
   SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -L/usr/local/lib")
   SET(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -L/usr/local/lib")
-endif()
-
-
-if (${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
-  CHECK_INCLUDE_FILES(rpc.h HAVE_UUID_H)
-else()
-  CHECK_INCLUDE_FILES(uuid/uuid.h HAVE_UUID_H)
-endif()
-
-if (NOT HAVE_UUID_H)
-  message(FATAL_ERROR "Please install the uuid-dev package")
 endif()
 
 

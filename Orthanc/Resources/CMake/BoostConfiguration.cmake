@@ -8,7 +8,7 @@ else()
   #set(Boost_USE_STATIC_LIBS ON)
 
   find_package(Boost
-    COMPONENTS filesystem thread system date_time regex locale)
+    COMPONENTS filesystem thread system date_time regex locale ${ORTHANC_BOOST_COMPONENTS})
 
   if (NOT Boost_FOUND)
     message(FATAL_ERROR "Unable to locate Boost on this system")
@@ -39,10 +39,10 @@ endif()
 
 
 if (BOOST_STATIC)
-  # Parameters for Boost 1.59.0
-  set(BOOST_NAME boost_1_59_0)
-  set(BOOST_BCP_SUFFIX bcpdigest-0.9.5)
-  set(BOOST_MD5 "08abb7cdbea0b380f9ab0d5cce476f12")
+  # Parameters for Boost 1.60.0
+  set(BOOST_NAME boost_1_60_0)
+  set(BOOST_BCP_SUFFIX bcpdigest-1.0.1)
+  set(BOOST_MD5 "0646971514a1e012fbe382c5662a8605")
   set(BOOST_URL "http://www.montefiore.ulg.ac.be/~jodogne/Orthanc/ThirdPartyDownloads/${BOOST_NAME}_${BOOST_BCP_SUFFIX}.tar.gz")
   set(BOOST_FILESYSTEM_SOURCES_DIR "${BOOST_NAME}/libs/filesystem/src") 
   set(BOOST_SOURCES_DIR ${CMAKE_BINARY_DIR}/${BOOST_NAME})

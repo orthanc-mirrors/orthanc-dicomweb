@@ -22,6 +22,6 @@
 
 #include "Configuration.h"
 
-void WadoCallback(OrthancPluginRestOutput* output,
-                  const char* url,
-                  const OrthancPluginHttpRequest* request);
+void WadoUriCallback(OrthancPluginRestOutput* output,
+                     const char* url,
+                     const OrthancPluginHttpRequest* request);

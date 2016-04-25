@@ -66,6 +66,10 @@ namespace Orthanc
     void ReadFile(std::string& content,
                   const std::string& path);
 
+    bool ReadHeader(std::string& header,
+                    const std::string& path,
+                    size_t headerSize);
+
     void WriteFile(const std::string& content,
                    const std::string& path);
 
@@ -123,7 +127,7 @@ namespace Orthanc
                       const std::string& data);
 
 #  if BOOST_HAS_REGEX == 1
-    void DecodeDataUriScheme(std::string& mime,
+    bool DecodeDataUriScheme(std::string& mime,
                              std::string& content,
                              const std::string& source);
 #  endif
