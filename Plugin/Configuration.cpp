@@ -23,6 +23,7 @@
 #include <fstream>
 #include <json/reader.h>
 #include <boost/regex.hpp>
+#include <boost/lexical_cast.hpp>
 
 #include "../Orthanc/Core/Toolbox.h"
 
@@ -81,47 +82,107 @@ namespace OrthancPlugins
 
 
   void ParseMultipartBody(std::vector<MultipartItem>& result,
+                          OrthancPluginContext* context,
                           const char* body,
                           const uint64_t bodySize,
                           const std::string& boundary)
   {
+    // Reference:
+    // https://www.w3.org/Protocols/rfc1341/7_2_Multipart.html
+
     result.clear();
 
-    boost::regex header("\r?(\n?)--" + boundary + "(--|.*\r?\n\r?\n)");
-    boost::regex pattern(".*^Content-Type\\s*:\\s*([^\\s]*).*",
-                         boost::regex::icase /* case insensitive */);
+    const boost::regex separator("\r\n--" + boundary + "(--|\r\n)");
+    const boost::regex encapsulation("(.*)\r\n\r\n(.*)");
+ 
+    std::vector< std::pair<const char*, const char*> > parts;
     
-    boost::cmatch what;
-    boost::match_flag_type flags = (boost::match_perl | 
-                                    boost::match_not_dot_null);
     const char* start = body;
     const char* end = body + bodySize;
-    std::string currentType;
 
-    while (boost::regex_search(start, end, what, header, flags))   
+    boost::cmatch what;
+    boost::match_flag_type flags = boost::match_perl;
+    while (boost::regex_search(start, end, what, separator, flags))   
     {
-      if (start != body)
+      if (start != body)  // Ignore the first separator
       {
-        MultipartItem item;
-        item.data_ = start;
-        item.size_ = what[0].first - start;
-        item.contentType_ = currentType;
-
-        result.push_back(item);
+        parts.push_back(std::make_pair(start, what[0].first));
       }
 
-      boost::cmatch contentType;
-      if (boost::regex_match(what[0].first, what[0].second, contentType, pattern))
+      if (*what[1].first == '-')
       {
-        currentType = contentType[1];
+        // This is the last separator (there is a trailing "--")
+        break;
       }
-      else
-      {
-        currentType.clear();
-      }
-    
+
       start = what[0].second;
       flags |= boost::match_prev_avail;
+    }
+
+
+    for (size_t i = 0; i < parts.size(); i++)
+    {
+      if (boost::regex_match(parts[i].first, parts[i].second, what, encapsulation, boost::match_perl))
+      {
+        size_t dicomSize = what[2].second - what[2].first;
+
+        std::string contentType = "application/octet-stream";
+        std::vector<std::string> headers;
+
+        {
+          std::string tmp;
+          tmp.assign(what[1].first, what[1].second);
+          Orthanc::Toolbox::TokenizeString(headers, tmp, '\n');
+        }
+
+        bool valid = true;
+
+        for (size_t j = 0; j < headers.size(); j++)
+        {
+          std::vector<std::string> tokens;
+          Orthanc::Toolbox::TokenizeString(tokens, headers[j], ':');
+
+          if (tokens.size() == 2)
+          {
+            std::string key = Orthanc::Toolbox::StripSpaces(tokens[0]);
+            std::string value = Orthanc::Toolbox::StripSpaces(tokens[1]);
+            Orthanc::Toolbox::ToLowerCase(key);
+
+            if (key == "content-type")
+            {
+              contentType = value;
+            }
+            else if (key == "content-length")
+            {
+              try
+              {
+                size_t s = boost::lexical_cast<size_t>(value);
+                if (s != dicomSize)
+                {
+                  valid = false;
+                }
+              }
+              catch (boost::bad_lexical_cast&)
+              {
+                valid = false;
+              }
+            }
+          }
+        }
+
+        if (valid)
+        {
+          MultipartItem item;
+          item.data_ = what[2].first;
+          item.size_ = dicomSize;
+          item.contentType_ = contentType;
+          result.push_back(item);          
+        }
+        else
+        {
+          OrthancPluginLogWarning(context, "Ignoring a badly-formatted item in a multipart body");
+        }
+      }      
     }
   }
 
@@ -132,7 +193,7 @@ namespace OrthancPlugins
                         bool applyPlugins)
   {
     OrthancPluginMemoryBuffer buffer;
-    int code;
+    OrthancPluginErrorCode code;
 
     if (applyPlugins)
     {
@@ -143,7 +204,7 @@ namespace OrthancPlugins
       code = OrthancPluginRestApiGet(context, &buffer, uri.c_str());
     }
 
-    if (code)
+    if (code != OrthancPluginErrorCode_Success)
     {
       // Error
       return false;
@@ -179,10 +240,15 @@ namespace OrthancPlugins
                       bool applyPlugins)
   {
     std::string content;
-    RestApiGetString(content, context, uri, applyPlugins);
-    
-    Json::Reader reader;
-    return reader.parse(content, result);
+    if (!RestApiGetString(content, context, uri, applyPlugins))
+    {
+      return false;
+    }
+    else
+    {
+      Json::Reader reader;
+      return reader.parse(content, result);
+    }
   }
 
 
@@ -192,9 +258,9 @@ namespace OrthancPlugins
                          const std::string& body)
   {
     OrthancPluginMemoryBuffer buffer;
-    int code = OrthancPluginRestApiPost(context, &buffer, uri.c_str(), body.c_str(), body.size());
+    OrthancPluginErrorCode code = OrthancPluginRestApiPost(context, &buffer, uri.c_str(), body.c_str(), body.size());
 
-    if (code)
+    if (code != OrthancPluginErrorCode_Success)
     {
       // Error
       return false;
@@ -230,10 +296,15 @@ namespace OrthancPlugins
                        const std::string& body)
   {
     std::string content;
-    RestApiPostString(content, context, uri, body);
-    
-    Json::Reader reader;
-    return reader.parse(content, result);
+    if (!RestApiPostString(content, context, uri, body))
+    {
+      return false;
+    }
+    else
+    {
+      Json::Reader reader;
+      return reader.parse(content, result);
+    }
   }
 
 

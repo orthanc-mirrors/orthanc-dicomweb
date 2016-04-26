@@ -1,6 +1,11 @@
 Pending changes in the mainline
 ===============================
 
+=> Minimum SDK version: 1.0.1 <=
+
+* STOW-RS client
+* Better robustness in the STOW-RS server
+
 
 Version 0.2 (2015/12/10)
 ========================

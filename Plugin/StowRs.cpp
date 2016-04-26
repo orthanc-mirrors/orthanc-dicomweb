@@ -147,14 +147,13 @@ void StowCallback(OrthancPluginRestOutput* output,
   }
 
 
-
   bool isFirst = true;
   gdcm::DataSet result;
   gdcm::SmartPointer<gdcm::SequenceOfItems> success = new gdcm::SequenceOfItems();
   gdcm::SmartPointer<gdcm::SequenceOfItems> failed = new gdcm::SequenceOfItems();
   
   std::vector<OrthancPlugins::MultipartItem> items;
-  OrthancPlugins::ParseMultipartBody(items, request->body, request->bodySize, boundary);
+  OrthancPlugins::ParseMultipartBody(items, context_, request->body, request->bodySize, boundary);
   for (size_t i = 0; i < items.size(); i++)
   {
     if (!items[i].contentType_.empty() &&
