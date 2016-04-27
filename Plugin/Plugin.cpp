@@ -287,24 +287,9 @@ static void SendStowRequest(const std::string& url,
 }
 
 
-
-void StowClient(OrthancPluginRestOutput* output,
-                const char* url,
-                const OrthancPluginHttpRequest* request)
+static void GetListOfInstances(std::list<std::string>& instances,
+                               const OrthancPluginHttpRequest* request)
 {
-  if (request->groupsCount != 1)
-  {
-    throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest);
-  }
-
-  if (request->method != OrthancPluginHttpMethod_Post)
-  {
-    OrthancPluginSendMethodNotAllowed(context_, output, "POST");
-    return;
-  }
-
-  std::string peer(request->groups[0]);
-
   Json::Value resources;
   Json::Reader reader;
   if (!reader.parse(request->body, request->body + request->bodySize, resources) ||
@@ -316,7 +301,6 @@ void StowClient(OrthancPluginRestOutput* output,
   }
 
   // Extract information about all the child instances
-  std::list<std::string> instances;
   for (Json::Value::ArrayIndex i = 0; i < resources.size(); i++)
   {
     if (resources[i].type() != Json::stringValue)
@@ -354,7 +338,41 @@ void StowClient(OrthancPluginRestOutput* output,
       throw Orthanc::OrthancException(Orthanc::ErrorCode_UnknownResource);
     }   
   }
+}
 
+
+
+void StowClient(OrthancPluginRestOutput* output,
+                const char* /*url*/,
+                const OrthancPluginHttpRequest* request)
+{
+  if (request->groupsCount != 1)
+  {
+    throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest);
+  }
+
+  if (request->method != OrthancPluginHttpMethod_Post)
+  {
+    OrthancPluginSendMethodNotAllowed(context_, output, "POST");
+    return;
+  }
+
+  {
+    std::string peer(request->groups[0]);
+    // TODO
+  }
+
+  std::string url = "http://localhost:8043/dicom-web/studies";
+
+
+  std::list<std::string> instances;
+  GetListOfInstances(instances, request);
+
+  {
+    std::string s = ("Sending " + boost::lexical_cast<std::string>(instances.size()) + 
+                     " instances using STOW-RS to DICOMweb server: " + url);
+    OrthancPluginLogInfo(context_, s.c_str());
+  }
 
   std::string boundary;
 
@@ -376,30 +394,28 @@ void StowClient(OrthancPluginRestOutput* output,
   std::string mime = "multipart/related; type=application/dicom; boundary=" + boundary;
 
   Orthanc::ChunkedBuffer chunks;
-  chunks.AddChunk("\r\n"); // Empty preamble
 
   for (std::list<std::string>::const_iterator it = instances.begin(); it != instances.end(); it++)
   {
     std::string dicom;
     if (OrthancPlugins::RestApiGetString(dicom, context_, "/instances/" + *it + "/file"))
     {
-      chunks.AddChunk("--" + boundary + "\r\n" +
+      chunks.AddChunk("\r\n--" + boundary + "\r\n" +
                       "Content-Type: application/dicom\r\n" +
                       "Content-Length: " + boost::lexical_cast<std::string>(dicom.size()) +
                       "\r\n\r\n");
       chunks.AddChunk(dicom);
-      chunks.AddChunk("\r\n");
     }
   }
 
-  chunks.AddChunk("--" + boundary + "--\r\n");
+  chunks.AddChunk("\r\n--" + boundary + "--\r\n");
 
   std::string body;
   chunks.Flatten(body);
 
   // TODO Split the message
 
-  SendStowRequest("http://localhost:8043/dicom-web/studies", NULL, NULL, body, mime, instances.size());
+  SendStowRequest(url, NULL, NULL, body, mime, instances.size());
 }
 
 
@@ -422,17 +438,7 @@ extern "C"
       return -1;
     }
 
-    {
-      std::string version(context_->orthancVersion);
-      if (version == "0.9.1")
-      {
-        OrthancPluginLogWarning(context_, "If using STOW-RS, the DICOMweb plugin can lead to "
-                                "deadlocks in Orthanc version 0.9.1. Please upgrade Orthanc!");
-      }
-    }
-
-
-    OrthancPluginSetDescription(context_, "Implementation of DICOM Web (QIDO-RS, STOW-RS and WADO-RS) and WADO.");
+    OrthancPluginSetDescription(context_, "Implementation of DICOMweb (QIDO-RS, STOW-RS and WADO-RS) and WADO-URI.");
 
     // Read the configuration
     dictionary_ = &gdcm::Global::GetInstance().GetDicts().GetPublicDict();

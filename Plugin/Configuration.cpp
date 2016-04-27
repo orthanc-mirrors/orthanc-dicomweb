@@ -92,7 +92,7 @@ namespace OrthancPlugins
 
     result.clear();
 
-    const boost::regex separator("\r\n--" + boundary + "(--|\r\n)");
+    const boost::regex separator("(^|\r\n)--" + boundary + "(--|\r\n)");
     const boost::regex encapsulation("(.*)\r\n\r\n(.*)");
  
     std::vector< std::pair<const char*, const char*> > parts;
@@ -101,7 +101,7 @@ namespace OrthancPlugins
     const char* end = body + bodySize;
 
     boost::cmatch what;
-    boost::match_flag_type flags = boost::match_perl;
+    boost::match_flag_type flags = boost::match_perl | boost::match_single_line;
     while (boost::regex_search(start, end, what, separator, flags))   
     {
       if (start != body)  // Ignore the first separator
@@ -109,7 +109,7 @@ namespace OrthancPlugins
         parts.push_back(std::make_pair(start, what[0].first));
       }
 
-      if (*what[1].first == '-')
+      if (*what[2].first == '-')
       {
         // This is the last separator (there is a trailing "--")
         break;
@@ -118,7 +118,6 @@ namespace OrthancPlugins
       start = what[0].second;
       flags |= boost::match_prev_avail;
     }
-
 
     for (size_t i = 0; i < parts.size(); i++)
     {

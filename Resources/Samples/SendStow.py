@@ -18,12 +18,17 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 
-import email
+
+# We do not use Python's "email" package, as it uses LF (\n) for line
+# endings instead of CRLF (\r\n) for binary messages, as required by
+# RFC 1341
+# http://stackoverflow.com/questions/3086860/how-do-i-generate-a-multipart-mime-message-with-correct-crlf-in-python
+# https://www.w3.org/Protocols/rfc1341/7_2_Multipart.html
+
 import requests
 import sys
 import json
-from email.mime.multipart import MIMEMultipart
-from email.mime.application import MIMEApplication
+import uuid
 
 if len(sys.argv) < 2:
     print('Usage: %s <StowUri> <file>...' % sys.argv[0])
@@ -33,27 +38,29 @@ if len(sys.argv) < 2:
 
 URL = sys.argv[1]
 
-related = MIMEMultipart('related')
-related.set_boundary('hello')
+# Create a multipart message whose body contains all the input DICOM files
+boundary = str(uuid.uuid4())  # The boundary is a random UUID
+body = bytearray()
 
 for i in range(2, len(sys.argv)):
     try:
         with open(sys.argv[i], 'rb') as f:
-            dicom = MIMEApplication(f.read(), 'dicom', email.encoders.encode_noop)
-            related.attach(dicom)
+            body += bytearray('--%s\r\n' % boundary, 'ascii')
+            body += bytearray('Content-Type: application/dicom\r\n\r\n', 'ascii')
+            body += f.read()
+            body += bytearray('\r\n', 'ascii')
     except:
         print('Ignoring directory %s' % sys.argv[i])
 
-headers = dict(related.items())
-body = related.as_string()
+# Closing boundary
+body += bytearray('--%s--' % boundary, 'ascii')
 
-# Discard the header
-body = body.split('\n\n', 1)[1]
+# Do the HTTP POST request to the STOW-RS server
+r = requests.post(URL, data=body, headers= {
+    'Content-Type' : 'multipart/related; type=application/dicom; boundary=%s' % boundary,
+    'Accept' : 'application/json',
+})
 
-headers['Content-Type'] = 'multipart/related; type=application/dicom; boundary=%s' % related.get_boundary()
-headers['Accept'] = 'application/json'
-
-r = requests.post(URL, data=body, headers=headers)
 j = json.loads(r.text)
 
 # Loop over the successful instances
@@ -64,4 +71,7 @@ for instance in j['00081199']['Value']:
         print(url)
 
 print('\nWADO-RS URL of the study:')
-print(j['00081190']['Value'][0])
+try:
+    print(j['00081190']['Value'][0])
+except:
+    print('No instance was uploaded!')
