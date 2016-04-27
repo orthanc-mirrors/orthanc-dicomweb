@@ -121,9 +121,11 @@ set(CORE_SOURCES
   )
 
 add_library(OrthancDicomWeb SHARED ${CORE_SOURCES}
+  ${CMAKE_SOURCE_DIR}/Plugin/DicomWebPeers.cpp
   ${CMAKE_SOURCE_DIR}/Plugin/Plugin.cpp
   ${CMAKE_SOURCE_DIR}/Plugin/QidoRs.cpp
   ${CMAKE_SOURCE_DIR}/Plugin/StowRs.cpp
+  ${CMAKE_SOURCE_DIR}/Plugin/StowRsClient.cpp
   ${CMAKE_SOURCE_DIR}/Plugin/WadoRs.cpp
   ${CMAKE_SOURCE_DIR}/Plugin/WadoRsRetrieveFrames.cpp
   ${CMAKE_SOURCE_DIR}/Plugin/WadoUri.cpp

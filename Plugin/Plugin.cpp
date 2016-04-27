@@ -22,21 +22,16 @@
 
 #include "QidoRs.h"
 #include "StowRs.h"
+#include "StowRsClient.h"
 #include "WadoRs.h"
 #include "WadoUri.h"
 #include "Configuration.h"
-
+#include "DicomWebPeers.h"
 
 #include <gdcmDictEntry.h>
 #include <gdcmDict.h>
 #include <gdcmDicts.h>
 #include <gdcmGlobal.h>
-
-
-#include <json/reader.h>
-#include <list>
-#include "../Orthanc/Core/ChunkedBuffer.h"
-#include "../Orthanc/Core/Toolbox.h"
 
 
 // Global state
@@ -66,7 +61,7 @@ OrthancPluginErrorCode Protect(OrthancPluginRestOutput* output,
   catch (Orthanc::OrthancException& e)
   {
     OrthancPluginLogError(context_, e.What());
-    return OrthancPluginErrorCode_Plugin;
+    return static_cast<OrthancPluginErrorCode>(e.GetErrorCode());
   }
   catch (boost::bad_lexical_cast& e)
   {
@@ -139,284 +134,52 @@ static void Register(const std::string& root,
 
 
 
-
-
-
-static void AddInstance(std::list<std::string>& target,
-                        const Json::Value& instance)
+void ListPeers(OrthancPluginRestOutput* output,
+               const char* url,
+               const OrthancPluginHttpRequest* request)
 {
-  if (instance.type() != Json::objectValue ||
-      !instance.isMember("ID") ||
-      instance["ID"].type() != Json::stringValue)
+  if (request->method != OrthancPluginHttpMethod_Get)
   {
-    throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
+    OrthancPluginSendMethodNotAllowed(context_, output, "GET");
   }
   else
   {
-    target.push_back(instance["ID"].asString());
+    std::list<std::string> peers;
+    OrthancPlugins::DicomWebPeers::GetInstance().ListPeers(peers);
+
+    Json::Value json = Json::arrayValue;
+    for (std::list<std::string>::const_iterator it = peers.begin(); it != peers.end(); ++it)
+    {
+      json.append(*it);
+    }
+
+    std::string answer = json.toStyledString(); 
+    OrthancPluginAnswerBuffer(context_, output, answer.c_str(), answer.size(), "application/json");
   }
 }
 
 
-
-
-static bool GetSequenceSize(size_t& result,
-                            const Json::Value& answer,
-                            const std::string& tag,
-                            bool isMandatory,
-                            const std::string& peer)
+void ListPeerOperations(OrthancPluginRestOutput* output,
+                        const char* url,
+                        const OrthancPluginHttpRequest* request)
 {
-  const Json::Value* value = NULL;
-
-  std::string upper, lower;
-  Orthanc::Toolbox::ToUpperCase(upper, tag);
-  Orthanc::Toolbox::ToLowerCase(lower, tag);
-  
-  if (answer.isMember(upper))
+  if (request->method != OrthancPluginHttpMethod_Get)
   {
-    value = &answer[upper];
-  }
-  else if (answer.isMember(lower))
-  {
-    value = &answer[lower];
-  }
-  else if (isMandatory)
-  {
-    std::string s = ("The STOW-RS JSON response from DICOMweb peer " + peer + 
-                     " does not contain the mandatory tag " + upper);
-    OrthancPluginLogError(context_, s.c_str());
-    throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);
+    OrthancPluginSendMethodNotAllowed(context_, output, "GET");
   }
   else
   {
-    return false;
-  }
+    // Make sure the peer does exist
+    OrthancPlugins::DicomWebPeers::GetInstance().GetPeer(request->groups[0]);
 
-  if (value->type() != Json::objectValue ||
-      !value->isMember("Value") ||
-      (*value) ["Value"].type() != Json::arrayValue)
-  {
-    std::string s = "Unable to parse STOW-RS JSON response from DICOMweb peer " + peer;
-    OrthancPluginLogError(context_, s.c_str());
-    throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);
-  }
+    Json::Value json = Json::arrayValue;
+    json.append("stow");
 
-  result = (*value) ["Value"].size();
-  return true;
-}
-
-
-static void SendStowRequest(const std::string& url,
-                            const char* username,
-                            const char* password,
-                            const std::string& body,
-                            const std::string& mime,
-                            size_t countInstances)
-{
-  const char* headersKeys[] = {
-    "Accept",
-    "Expect",
-    "Content-Type"
-  };
-
-  const char* headersValues[] = {
-    "application/json",
-    "",
-    mime.c_str()
-  };
-
-  uint16_t status = 0;
-  OrthancPluginMemoryBuffer answer;
-  OrthancPluginErrorCode code = OrthancPluginHttpClient(context_, &answer, &status, OrthancPluginHttpMethod_Post,
-                                                        url.c_str(), 3, headersKeys, headersValues,
-                                                        body.c_str(), body.size(), username, password, 0);
-  if (code != OrthancPluginErrorCode_Success ||
-      (status != 200 && status != 202))
-  {
-    std::string s = ("Cannot send DICOM images through STOW-RS to DICOMweb peer " + url + 
-                     " (HTTP status: " + boost::lexical_cast<std::string>(status) + ")");
-    OrthancPluginLogError(context_, s.c_str());
-    throw Orthanc::OrthancException(static_cast<Orthanc::ErrorCode>(code));
-  }
-
-  Json::Value response;
-  Json::Reader reader;
-  bool success = reader.parse(reinterpret_cast<const char*>(answer.data),
-                              reinterpret_cast<const char*>(answer.data) + answer.size, response);
-  OrthancPluginFreeMemoryBuffer(context_, &answer);
-
-  if (!success ||
-      response.type() != Json::objectValue ||
-      !response.isMember("00081199"))
-  {
-    std::string s = "Unable to parse STOW-RS JSON response from DICOMweb peer " + url;
-    OrthancPluginLogError(context_, s.c_str());
-    throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);
-  }
-
-  size_t size;
-  if (!GetSequenceSize(size, response, "00081199", true, url) ||
-      size != countInstances)
-  {
-    std::string s = ("The STOW-RS server was only able to receive " + 
-                     boost::lexical_cast<std::string>(size) + " instances out of " +
-                     boost::lexical_cast<std::string>(countInstances));
-    OrthancPluginLogError(context_, s.c_str());
-    throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);
-  }
-
-  if (GetSequenceSize(size, response, "00081198", false, url) &&
-      size != 0)
-  {
-    std::string s = ("The response from the STOW-RS server contains " + 
-                     boost::lexical_cast<std::string>(size) + 
-                     " items in its Failed SOP Sequence (0008,1198) tag");
-    OrthancPluginLogError(context_, s.c_str());
-    throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);    
-  }
-
-  if (GetSequenceSize(size, response, "0008119A", false, url) &&
-      size != 0)
-  {
-    std::string s = ("The response from the STOW-RS server contains " + 
-                     boost::lexical_cast<std::string>(size) + 
-                     " items in its Other Failures Sequence (0008,119A) tag");
-    OrthancPluginLogError(context_, s.c_str());
-    throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);    
+    std::string answer = json.toStyledString(); 
+    OrthancPluginAnswerBuffer(context_, output, answer.c_str(), answer.size(), "application/json");
   }
 }
 
-
-static void GetListOfInstances(std::list<std::string>& instances,
-                               const OrthancPluginHttpRequest* request)
-{
-  Json::Value resources;
-  Json::Reader reader;
-  if (!reader.parse(request->body, request->body + request->bodySize, resources) ||
-      resources.type() != Json::arrayValue)
-  {
-    std::string s = "The list of resources to be sent through DICOMweb STOW-RS must be given as a JSON array";
-    OrthancPluginLogError(context_, s.c_str());
-    throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
-  }
-
-  // Extract information about all the child instances
-  for (Json::Value::ArrayIndex i = 0; i < resources.size(); i++)
-  {
-    if (resources[i].type() != Json::stringValue)
-    {
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
-    }
-
-    std::string resource = resources[i].asString();
-
-    Json::Value tmp;
-    if (OrthancPlugins::RestApiGetJson(tmp, context_, "/instances/" + resource, false))
-    {
-      AddInstance(instances, tmp);
-    }
-    else if ((OrthancPlugins::RestApiGetJson(tmp, context_, "/series/" + resource, false) &&
-              OrthancPlugins::RestApiGetJson(tmp, context_, "/series/" + resource + "/instances", false)) ||
-             (OrthancPlugins::RestApiGetJson(tmp, context_, "/studies/" + resource, false) &&
-              OrthancPlugins::RestApiGetJson(tmp, context_, "/studies/" + resource + "/instances", false)) ||
-             (OrthancPlugins::RestApiGetJson(tmp, context_, "/patients/" + resource, false) &&
-              OrthancPlugins::RestApiGetJson(tmp, context_, "/patients/" + resource + "/instances", false)))
-    {
-      if (tmp.type() != Json::arrayValue)
-      {
-        throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
-      }
-
-      for (Json::Value::ArrayIndex j = 0; j < tmp.size(); j++)
-      {
-        AddInstance(instances, tmp[j]);
-      }
-    }
-    else
-    {
-      // Unkown resource
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_UnknownResource);
-    }   
-  }
-}
-
-
-
-void StowClient(OrthancPluginRestOutput* output,
-                const char* /*url*/,
-                const OrthancPluginHttpRequest* request)
-{
-  if (request->groupsCount != 1)
-  {
-    throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest);
-  }
-
-  if (request->method != OrthancPluginHttpMethod_Post)
-  {
-    OrthancPluginSendMethodNotAllowed(context_, output, "POST");
-    return;
-  }
-
-  {
-    std::string peer(request->groups[0]);
-    // TODO
-  }
-
-  std::string url = "http://localhost:8043/dicom-web/studies";
-
-
-  std::list<std::string> instances;
-  GetListOfInstances(instances, request);
-
-  {
-    std::string s = ("Sending " + boost::lexical_cast<std::string>(instances.size()) + 
-                     " instances using STOW-RS to DICOMweb server: " + url);
-    OrthancPluginLogInfo(context_, s.c_str());
-  }
-
-  std::string boundary;
-
-  {
-    char* uuid = OrthancPluginGenerateUuid(context_);
-    try
-    {
-      boundary.assign(uuid);
-    }
-    catch (...)
-    {
-      OrthancPluginFreeString(context_, uuid);
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_NotEnoughMemory);
-    }
-
-    OrthancPluginFreeString(context_, uuid);
-  }
-
-  std::string mime = "multipart/related; type=application/dicom; boundary=" + boundary;
-
-  Orthanc::ChunkedBuffer chunks;
-
-  for (std::list<std::string>::const_iterator it = instances.begin(); it != instances.end(); it++)
-  {
-    std::string dicom;
-    if (OrthancPlugins::RestApiGetString(dicom, context_, "/instances/" + *it + "/file"))
-    {
-      chunks.AddChunk("\r\n--" + boundary + "\r\n" +
-                      "Content-Type: application/dicom\r\n" +
-                      "Content-Length: " + boost::lexical_cast<std::string>(dicom.size()) +
-                      "\r\n\r\n");
-      chunks.AddChunk(dicom);
-    }
-  }
-
-  chunks.AddChunk("\r\n--" + boundary + "--\r\n");
-
-  std::string body;
-  chunks.Flatten(body);
-
-  // TODO Split the message
-
-  SendStowRequest(url, NULL, NULL, body, mime, instances.size());
-}
 
 
 extern "C"
@@ -461,6 +224,9 @@ extern "C"
       }
     }
 
+    OrthancPlugins::DicomWebPeers::GetInstance().Load(configuration_);
+
+
     // Configure the DICOMweb callbacks
     if (OrthancPlugins::Configuration::GetBoolValue(configuration_, "Enable", true))
     {
@@ -485,6 +251,8 @@ extern "C"
       Register(root, "studies/([^/]*)/series/([^/]*)/instances/([^/]*)/frames", Protect<RetrieveFrames>);
       Register(root, "studies/([^/]*)/series/([^/]*)/instances/([^/]*)/frames/([^/]*)", Protect<RetrieveFrames>);
 
+      Register(root, "peers", Protect<ListPeers>);
+      Register(root, "peers/([^/]*)", Protect<ListPeerOperations>);
       Register(root, "peers/([^/]*)/stow", Protect<StowClient>);
     }
     else
@@ -497,14 +265,14 @@ extern "C"
     {
       std::string wado = OrthancPlugins::Configuration::GetWadoRoot(configuration_);
 
-      std::string message = "URI to the WADO API: " + wado;
+      std::string message = "URI to the WADO-URI API: " + wado;
       OrthancPluginLogWarning(context_, message.c_str());
 
       OrthancPluginRegisterRestCallback(context_, wado.c_str(), Protect<WadoUriCallback>);
     }
     else
     {
-      OrthancPluginLogWarning(context_, "WADO support is disabled");
+      OrthancPluginLogWarning(context_, "WADO-URI support is disabled");
     }
 
     return 0;
