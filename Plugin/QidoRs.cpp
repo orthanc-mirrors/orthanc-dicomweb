@@ -172,7 +172,7 @@ namespace
         case QueryLevel_Series:
           // http://medical.nema.org/medical/dicom/current/output/html/part18.html#table_6.7.1-2a
           result.push_back(gdcm::Tag(0x0008, 0x0005));  // Specific Character Set
-          result.push_back(gdcm::Tag(0x0008, 0x0056));  // Modality
+          result.push_back(gdcm::Tag(0x0008, 0x0060));  // Modality
           result.push_back(gdcm::Tag(0x0008, 0x0201));  // Timezone Offset From UTC
           result.push_back(gdcm::Tag(0x0008, 0x103E));  // Series Description
           //result.push_back(gdcm::Tag(0x0008, 0x1190));  // Retrieve URL  => SPECIAL CASE
