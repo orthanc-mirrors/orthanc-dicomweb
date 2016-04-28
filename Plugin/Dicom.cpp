@@ -477,6 +477,10 @@ namespace OrthancPlugins
         {
           value.append_child(pugi::node_pcdata).set_value(tmp.c_str());
         }
+        else
+        {
+          value.append_child(pugi::node_pcdata).set_value("");
+        }
       }
     }
   }
@@ -578,8 +582,13 @@ namespace OrthancPlugins
         if (ConvertDicomStringToUtf8(value, dictionary, file, *it, sourceEncoding)) 
         {
           node["Value"].append(value.c_str());
-          ok = true;
         }
+        else
+        {
+          node["Value"].append("");
+        }
+
+        ok = true;
       }
 
       if (ok)
