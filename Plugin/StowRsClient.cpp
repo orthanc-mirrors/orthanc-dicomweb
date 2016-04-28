@@ -197,6 +197,10 @@ static void GetListOfInstances(std::list<std::string>& instances,
     }
 
     std::string resource = resources[i].asString();
+    if (resource.empty())
+    {
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_UnknownResource);
+    }
 
     Json::Value tmp;
     if (OrthancPlugins::RestApiGetJson(tmp, context_, "/instances/" + resource, false))
@@ -222,7 +226,6 @@ static void GetListOfInstances(std::list<std::string>& instances,
     }
     else
     {
-      // Unkown resource
       throw Orthanc::OrthancException(Orthanc::ErrorCode_UnknownResource);
     }   
   }
@@ -316,4 +319,7 @@ void StowClient(OrthancPluginRestOutput* output,
   }
 
   SendStowChunks(peer, mime, boundary, chunks, countInstances, true);
+
+  std::string answer = "{}\n";
+  OrthancPluginAnswerBuffer(context_, output, answer.c_str(), answer.size(), "application/json");
 }
