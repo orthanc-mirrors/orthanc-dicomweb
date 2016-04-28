@@ -2,6 +2,9 @@ Pending changes in the mainline
 ===============================
 
 
+* Fix issue #13 (QIDO-RS study-level query is slow)
+
+
 Version 0.2 (2015/12/10)
 ========================
 

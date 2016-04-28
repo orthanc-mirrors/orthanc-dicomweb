@@ -33,30 +33,6 @@
 
 namespace OrthancPlugins
 {
-  namespace
-  {
-    class ChunkedBufferWriter : public pugi::xml_writer
-    {
-    private:
-      ChunkedBuffer buffer_;
-
-    public:
-      virtual void write(const void *data, size_t size)
-      {
-        if (size > 0)
-        {
-          buffer_.AddChunk(reinterpret_cast<const char*>(data), size);
-        }
-      }
-
-      void Flatten(std::string& s)
-      {
-        buffer_.Flatten(s);
-      }
-    };
-  }
-
-
   static std::string MyStripSpaces(const std::string& source)
   {
     size_t first = 0;
@@ -89,12 +65,12 @@ namespace OrthancPlugins
 
   static const char* GetVRName(bool& isSequence,
                                const gdcm::Dict& dictionary,
-                               const gdcm::DataElement& element)
+                               const gdcm::Tag& tag,
+                               gdcm::VR vr)
   {
-    gdcm::VR vr = element.GetVR();
     if (vr == gdcm::VR::INVALID)
     {
-      const gdcm::DictEntry &entry = dictionary.GetDictEntry(element.GetTag());
+      const gdcm::DictEntry &entry = dictionary.GetDictEntry(tag);
       vr = entry.GetVR();
 
       if (vr == gdcm::VR::OB_OW)
@@ -124,6 +100,21 @@ namespace OrthancPlugins
     }
   }
 
+
+  const char* GetVRName(bool& isSequence,
+                        const gdcm::Dict& dictionary,
+                        const gdcm::Tag& tag)
+  {
+    return GetVRName(isSequence, dictionary, tag, gdcm::VR::INVALID);
+  }
+
+
+  static const char* GetVRName(bool& isSequence,
+                               const gdcm::Dict& dictionary,
+                               const gdcm::DataElement& element)
+  {
+    return GetVRName(isSequence, dictionary, element.GetTag(), element.GetVR());
+  }
 
 
   static bool ConvertDicomStringToUtf8(std::string& result,
@@ -295,7 +286,7 @@ namespace OrthancPlugins
 
 
 
-  static std::string FormatTag(const gdcm::Tag& tag)
+  std::string FormatTag(const gdcm::Tag& tag)
   {
     char tmp[16];
     sprintf(tmp, "%04X%04X", tag.GetGroup(), tag.GetElement());
@@ -303,8 +294,8 @@ namespace OrthancPlugins
   }
 
 
-  static const char* GetKeyword(const gdcm::Dict& dictionary,
-                                const gdcm::Tag& tag)
+  const char* GetKeyword(const gdcm::Dict& dictionary,
+                         const gdcm::Tag& tag)
   {
     const gdcm::DictEntry &entry = dictionary.GetDictEntry(tag);
     const char* keyword = entry.GetKeyword();
@@ -363,7 +354,7 @@ namespace OrthancPlugins
     }
     else
     {
-      return wadoBase + "studies/" + study + "/series/" + series + "/instances/" + instance + "/";
+      return Configuration::GetWadoUrl(wadoBase, study, series, instance);
     }
   }
 
@@ -424,12 +415,6 @@ namespace OrthancPlugins
       pugi::xml_node node = target.append_child("DicomAttribute");
       node.append_attribute("tag").set_value(FormatTag(it->GetTag()).c_str());
 
-      const char* keyword = GetKeyword(dictionary, it->GetTag());
-      if (keyword != NULL)
-      {
-        node.append_attribute("keyword").set_value(keyword);
-      }
-
       bool isSequence = false;
       std::string vr;
       if (it->GetTag() == DICOM_TAG_RETRIEVE_URL)
@@ -443,6 +428,12 @@ namespace OrthancPlugins
       }
 
       node.append_attribute("vr").set_value(vr.c_str());
+
+      const char* keyword = GetKeyword(dictionary, it->GetTag());
+      if (keyword != NULL)
+      {
+        node.append_attribute("keyword").set_value(keyword);
+      }
 
       if (isSequence)
       {
@@ -542,6 +533,7 @@ namespace OrthancPlugins
 
       node["vr"] = vr.c_str();
 
+      bool ok = true;
       if (isSequence)
       {
         // Deal with sequences
@@ -565,6 +557,8 @@ namespace OrthancPlugins
             node["Value"].append(child);
           }
         }
+
+        ok = true;
       }
       else if (IsBulkData(vr))
       {
@@ -572,6 +566,7 @@ namespace OrthancPlugins
         if (!bulkUri.empty())
         {
           node["BulkDataURI"] = bulkUri + std::string(path);
+          ok = true;
         }
       }
       else
@@ -583,10 +578,14 @@ namespace OrthancPlugins
         if (ConvertDicomStringToUtf8(value, dictionary, file, *it, sourceEncoding)) 
         {
           node["Value"].append(value.c_str());
+          ok = true;
         }
       }
 
-      target[FormatTag(it->GetTag())] = node;
+      if (ok)
+      {
+        target[FormatTag(it->GetTag())] = node;
+      }
     }
   }
 
@@ -656,5 +655,89 @@ namespace OrthancPlugins
   {
     const std::string base = OrthancPlugins::Configuration::GetBaseUrl(configuration_, request);
     return OrthancPlugins::GetWadoUrl(base, GetDataSet());
+  }
+
+
+  static inline uint16_t GetCharValue(char c)
+  {
+    if (c >= '0' && c <= '9')
+      return c - '0';
+    else if (c >= 'a' && c <= 'f')
+      return c - 'a' + 10;
+    else if (c >= 'A' && c <= 'F')
+      return c - 'A' + 10;
+    else
+      return 0;
+  }
+
+  static inline uint16_t GetTagValue(const char* c)
+  {
+    return ((GetCharValue(c[0]) << 12) + 
+            (GetCharValue(c[1]) << 8) + 
+            (GetCharValue(c[2]) << 4) + 
+            GetCharValue(c[3]));
+  }
+
+
+  gdcm::Tag ParseTag(const gdcm::Dict& dictionary,
+                     const std::string& key)
+  {
+    if (key.find('.') != std::string::npos)
+    {
+      std::string s = "This DICOMweb plugin does not support hierarchical queries: " + key;
+      OrthancPluginLogError(context_, s.c_str());
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_NotImplemented);
+    }
+
+    if (key.size() == 8 &&  // This is the DICOMweb convention
+        isxdigit(key[0]) &&
+        isxdigit(key[1]) &&
+        isxdigit(key[2]) &&
+        isxdigit(key[3]) &&
+        isxdigit(key[4]) &&
+        isxdigit(key[5]) &&
+        isxdigit(key[6]) &&
+        isxdigit(key[7]))        
+    {
+      return gdcm::Tag(GetTagValue(key.c_str()),
+                       GetTagValue(key.c_str() + 4));
+    }
+    else if (key.size() == 9 &&  // This is the Orthanc convention
+             isxdigit(key[0]) &&
+             isxdigit(key[1]) &&
+             isxdigit(key[2]) &&
+             isxdigit(key[3]) &&
+             key[4] == ',' &&
+             isxdigit(key[5]) &&
+             isxdigit(key[6]) &&
+             isxdigit(key[7]) &&
+             isxdigit(key[8]))        
+    {
+      return gdcm::Tag(GetTagValue(key.c_str()),
+                       GetTagValue(key.c_str() + 5));
+    }
+    else
+    {
+      gdcm::Tag tag;
+      dictionary.GetDictEntryByKeyword(key.c_str(), tag);
+
+      if (tag.IsIllegal() || tag.IsPrivate())
+      {
+        if (key.find('.') != std::string::npos)
+        {
+          std::string s = "This QIDO-RS implementation does not support search over sequences: " + key;
+          OrthancPluginLogError(context_, s.c_str());
+          throw Orthanc::OrthancException(Orthanc::ErrorCode_NotImplemented);
+        }
+        else
+        {
+          std::string s = "Illegal tag name in QIDO-RS: " + key;
+          OrthancPluginLogError(context_, s.c_str());
+          throw Orthanc::OrthancException(Orthanc::ErrorCode_UnknownDicomTag);
+        }
+      }
+
+      return tag;
+    }
   }
 }

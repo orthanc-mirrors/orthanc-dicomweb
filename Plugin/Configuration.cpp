@@ -360,5 +360,27 @@ namespace OrthancPlugins
 
       return (ssl ? "https://" : "http://") + host + GetRoot(configuration);
     }
+
+
+
+    std::string GetWadoUrl(const std::string& wadoBase,
+                           const std::string& studyInstanceUid,
+                           const std::string& seriesInstanceUid,
+                           const std::string& sopInstanceUid)
+    {
+      if (studyInstanceUid.empty() ||
+          seriesInstanceUid.empty() ||
+          sopInstanceUid.empty())
+      {
+        return "";
+      }
+      else
+      {
+        return (wadoBase + 
+                "studies/" + studyInstanceUid + 
+                "/series/" + seriesInstanceUid + 
+                "/instances/" + sopInstanceUid + "/");
+      }
+    }
   }
 }
