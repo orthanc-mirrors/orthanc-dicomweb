@@ -465,6 +465,10 @@ static void ApplyMatcher(OrthancPluginRestOutput* output,
   OrthancPlugins::DicomResults results(context_, output, wadoBase, *dictionary_, IsXmlExpected(request), true);
 
 #if 0
+  // Implementation up to version 0.2 of the plugin. Each instance is
+  // downloaded and decoded using GDCM, which slows down things
+  // wrt. the new implementation below that directly uses the Orthanc
+  // pre-computed JSON summary.
   for (std::list<std::string>::const_iterator
          it = instances.begin(); it != instances.end(); it++)
   {
@@ -480,6 +484,7 @@ static void ApplyMatcher(OrthancPluginRestOutput* output,
   }
 
 #else
+  // Fix of issue #13
   for (std::list<std::string>::const_iterator
          it = instances.begin(); it != instances.end(); it++)
   {
