@@ -42,6 +42,35 @@
 
 namespace
 {
+  static std::string FormatOrthancTag(const gdcm::Tag& tag)
+  {
+    char b[16];
+    sprintf(b, "%04x,%04x", tag.GetGroup(), tag.GetElement());
+    return std::string(b);
+  }
+
+
+  static std::string GetOrthancTag(const Json::Value& source,
+                                   const gdcm::Tag& tag,
+                                   const std::string& defaultValue)
+  {
+    std::string s = FormatOrthancTag(tag);
+      
+    if (source.isMember(s) &&
+        source[s].type() == Json::objectValue &&
+        source[s].isMember("Value") &&
+        source[s].isMember("Type") &&
+        source[s]["Type"] == "String" &&
+        source[s]["Value"].type() == Json::stringValue)
+    {
+      return source[s]["Value"].asString();
+    }
+    else
+    {
+      return defaultValue;
+    }
+  }
+
 
   enum QueryLevel
   {
@@ -53,94 +82,16 @@ namespace
 
   class ModuleMatcher
   {
-  private:
+  public:
     typedef std::map<gdcm::Tag, std::string>  Filters;
 
-    const gdcm::Dict&     dictionary_;
+  private:
     bool                  fuzzy_;
     unsigned int          offset_;
     unsigned int          limit_;
     std::list<gdcm::Tag>  includeFields_;
     bool                  includeAllFields_;
     Filters               filters_;
-
-
-
-    static inline uint16_t GetCharValue(char c)
-    {
-      if (c >= '0' && c <= '9')
-        return c - '0';
-      else if (c >= 'a' && c <= 'f')
-        return c - 'a' + 10;
-      else if (c >= 'A' && c <= 'F')
-        return c - 'A' + 10;
-      else
-        return 0;
-    }
-
-    static inline uint16_t GetTagValue(const char* c)
-    {
-      return ((GetCharValue(c[0]) << 12) + 
-              (GetCharValue(c[1]) << 8) + 
-              (GetCharValue(c[2]) << 4) + 
-              GetCharValue(c[3]));
-    }
-
-
-    static std::string Format(const gdcm::Tag& tag)
-    {
-      char b[16];
-      sprintf(b, "%04x,%04x", tag.GetGroup(), tag.GetElement());
-      return std::string(b);
-    }
-
-
-    gdcm::Tag  ParseTag(const std::string& key) const
-    {
-      if (key.find('.') != std::string::npos)
-      {
-        std::string s = "This DICOMweb plugin does not support hierarchical queries: " + key;
-        OrthancPluginLogError(context_, s.c_str());
-        throw Orthanc::OrthancException(Orthanc::ErrorCode_NotImplemented);
-      }
-
-      if (key.size() == 8 &&
-          isxdigit(key[0]) &&
-          isxdigit(key[1]) &&
-          isxdigit(key[2]) &&
-          isxdigit(key[3]) &&
-          isxdigit(key[4]) &&
-          isxdigit(key[5]) &&
-          isxdigit(key[6]) &&
-          isxdigit(key[7]))        
-      {
-        return gdcm::Tag(GetTagValue(key.c_str()),
-                         GetTagValue(key.c_str() + 4));
-      }
-      else
-      {
-        gdcm::Tag tag;
-        dictionary_.GetDictEntryByKeyword(key.c_str(), tag);
-
-        if (tag.IsIllegal() || tag.IsPrivate())
-        {
-          if (key.find('.') != std::string::npos)
-          {
-            std::string s = "This QIDO-RS implementation does not support search over sequences: " + key;
-            OrthancPluginLogError(context_, s.c_str());
-            throw Orthanc::OrthancException(Orthanc::ErrorCode_NotImplemented);
-          }
-          else
-          {
-            std::string s = "Illegal tag name in QIDO-RS: " + key;
-            OrthancPluginLogError(context_, s.c_str());
-            throw Orthanc::OrthancException(Orthanc::ErrorCode_UnknownDicomTag);
-          }
-        }
-
-        return tag;
-      }
-    }
 
 
     static void AddResultAttributesForLevel(std::list<gdcm::Tag>& result,
@@ -155,7 +106,7 @@ namespace
           result.push_back(gdcm::Tag(0x0008, 0x0030));  // Study Time
           result.push_back(gdcm::Tag(0x0008, 0x0050));  // Accession Number
           result.push_back(gdcm::Tag(0x0008, 0x0056));  // Instance Availability
-          result.push_back(gdcm::Tag(0x0008, 0x0061));  // Modalities in Study
+          //result.push_back(gdcm::Tag(0x0008, 0x0061));  // Modalities in Study  => SPECIAL CASE
           result.push_back(gdcm::Tag(0x0008, 0x0090));  // Referring Physician's Name
           result.push_back(gdcm::Tag(0x0008, 0x0201));  // Timezone Offset From UTC
           //result.push_back(gdcm::Tag(0x0008, 0x1190));  // Retrieve URL  => SPECIAL CASE
@@ -165,20 +116,20 @@ namespace
           result.push_back(gdcm::Tag(0x0010, 0x0040));  // Patient's Sex
           result.push_back(gdcm::Tag(0x0020, 0x000D));  // Study Instance UID
           result.push_back(gdcm::Tag(0x0020, 0x0010));  // Study ID
-          result.push_back(gdcm::Tag(0x0020, 0x1206));  // Number of Study Related Series
-          result.push_back(gdcm::Tag(0x0020, 0x1208));  // Number of Study Related Instances
+          //result.push_back(gdcm::Tag(0x0020, 0x1206));  // Number of Study Related Series  => SPECIAL CASE
+          //result.push_back(gdcm::Tag(0x0020, 0x1208));  // Number of Study Related Instances  => SPECIAL CASE
           break;
 
         case QueryLevel_Series:
           // http://medical.nema.org/medical/dicom/current/output/html/part18.html#table_6.7.1-2a
           result.push_back(gdcm::Tag(0x0008, 0x0005));  // Specific Character Set
-          result.push_back(gdcm::Tag(0x0008, 0x0056));  // Modality
+          result.push_back(gdcm::Tag(0x0008, 0x0060));  // Modality
           result.push_back(gdcm::Tag(0x0008, 0x0201));  // Timezone Offset From UTC
           result.push_back(gdcm::Tag(0x0008, 0x103E));  // Series Description
           //result.push_back(gdcm::Tag(0x0008, 0x1190));  // Retrieve URL  => SPECIAL CASE
           result.push_back(gdcm::Tag(0x0020, 0x000E));  // Series Instance UID
           result.push_back(gdcm::Tag(0x0020, 0x0011));  // Series Number
-          result.push_back(gdcm::Tag(0x0020, 0x1209));  // Number of Series Related Instances
+          //result.push_back(gdcm::Tag(0x0020, 0x1209));  // Number of Series Related Instances  => SPECIAL CASE
           result.push_back(gdcm::Tag(0x0040, 0x0244));  // Performed Procedure Step Start Date
           result.push_back(gdcm::Tag(0x0040, 0x0245));  // Performed Procedure Step Start Time
           result.push_back(gdcm::Tag(0x0040, 0x0275));  // Request Attribute Sequence
@@ -205,10 +156,8 @@ namespace
     }
 
 
-
   public:
     ModuleMatcher(const OrthancPluginHttpRequest* request) :
-    dictionary_(gdcm::Global::GetInstance().GetDicts().GetPublicDict()),
     fuzzy_(false),
     offset_(0),
     limit_(0),
@@ -257,13 +206,13 @@ namespace
             Orthanc::Toolbox::TokenizeString(tags, value, ',');
             for (size_t i = 0; i < tags.size(); i++)
             {
-              includeFields_.push_back(ParseTag(tags[i]));
+              includeFields_.push_back(OrthancPlugins::ParseTag(*dictionary_, tags[i]));
             }
           }
         }
         else
         {
-          filters_[ParseTag(key)] = value;
+          filters_[OrthancPlugins::ParseTag(*dictionary_, key)] = value;
         }
       }
     }
@@ -323,9 +272,86 @@ namespace
       for (Filters::const_iterator it = filters_.begin(); 
            it != filters_.end(); ++it)
       {
-        result["Query"][Format(it->first)] = it->second;
+        result["Query"][FormatOrthancTag(it->first)] = it->second;
       }
     }
+
+
+    void ComputeDerivedTags(Filters& target,
+                            QueryLevel level,
+                            const std::string& resource) const
+    {
+      target.clear();
+
+      switch (level)
+      {
+        case QueryLevel_Study:
+        {
+          Json::Value series, instances;
+          if (OrthancPlugins::RestApiGetJson(series, context_, "/studies/" + resource + "/series?expand") &&
+              OrthancPlugins::RestApiGetJson(instances, context_, "/studies/" + resource + "/instances"))
+          {
+            // Number of Study Related Series
+            target[gdcm::Tag(0x0020, 0x1206)] = boost::lexical_cast<std::string>(series.size());
+
+            // Number of Study Related Instances
+            target[gdcm::Tag(0x0020, 0x1208)] = boost::lexical_cast<std::string>(instances.size());
+
+            // Collect the Modality of all the child series
+            std::set<std::string> modalities;
+            for (Json::Value::ArrayIndex i = 0; i < series.size(); i++)
+            {
+              if (series[i].isMember("MainDicomTags") &&
+                  series[i]["MainDicomTags"].isMember("Modality"))
+              {
+                modalities.insert(series[i]["MainDicomTags"]["Modality"].asString());
+              }
+            }
+
+            std::string s;
+            for (std::set<std::string>::const_iterator 
+                   it = modalities.begin(); it != modalities.end(); ++it)
+            {
+              if (!s.empty())
+              {
+                s += "\\";
+              }
+
+              s += *it;
+            }
+
+            target[gdcm::Tag(0x0008, 0x0061)] = s;  // Modalities in Study
+          }
+          else
+          {
+            target[gdcm::Tag(0x0008, 0x0061)] = "";   // Modalities in Study
+            target[gdcm::Tag(0x0020, 0x1206)] = "0";  // Number of Study Related Series
+            target[gdcm::Tag(0x0020, 0x1208)] = "0";  // Number of Study Related Instances
+          }
+
+          break;
+        }
+
+        case QueryLevel_Series:
+        {
+          Json::Value instances;
+          if (OrthancPlugins::RestApiGetJson(instances, context_, "/series/" + resource + "/instances"))
+          {
+            // Number of Series Related Instances
+            target[gdcm::Tag(0x0020, 0x1209)] = boost::lexical_cast<std::string>(instances.size());
+          }
+          else
+          {
+            target[gdcm::Tag(0x0020, 0x1209)] = "0";  // Number of Series Related Instances
+          }
+
+          break;
+        }
+
+        default:
+          break;
+      }
+    }                              
 
 
     void ExtractFields(gdcm::DataSet& result,
@@ -365,7 +391,7 @@ namespace
 
       // Copy all the required fields to the target
       for (std::list<gdcm::Tag>::const_iterator
-             it = fields.begin(); it != fields.end(); it++)
+             it = fields.begin(); it != fields.end(); ++it)
       {
         if (dicom.GetDataSet().FindDataElement(*it))
         {
@@ -392,6 +418,76 @@ namespace
       element.SetByteValue(url.c_str(), url.size());
       result.Replace(element);
     }
+
+
+    void ExtractFields(Json::Value& result,
+                       const Json::Value& source,
+                       const std::string& wadoBase,
+                       QueryLevel level) const
+    {
+      result = Json::objectValue;
+      std::list<gdcm::Tag> fields = includeFields_;
+
+      // The list of attributes for this query level
+      AddResultAttributesForLevel(fields, level);
+
+      // All other attributes passed as query keys
+      for (Filters::const_iterator it = filters_.begin();
+           it != filters_.end(); ++it)
+      {
+        fields.push_back(it->first);
+      }
+
+      // For instances and series, add all Study-level attributes if
+      // {StudyInstanceUID} is not specified.
+      if ((level == QueryLevel_Instance  || level == QueryLevel_Series) 
+          && filters_.find(OrthancPlugins::DICOM_TAG_STUDY_INSTANCE_UID) == filters_.end()
+        )
+      {
+        AddResultAttributesForLevel(fields, QueryLevel_Study);
+      }
+
+      // For instances, add all Series-level attributes if
+      // {SeriesInstanceUID} is not specified.
+      if (level == QueryLevel_Instance
+          && filters_.find(OrthancPlugins::DICOM_TAG_SERIES_INSTANCE_UID) == filters_.end()
+        )
+      {
+        AddResultAttributesForLevel(fields, QueryLevel_Series);
+      }
+
+      // Copy all the required fields to the target
+      for (std::list<gdcm::Tag>::const_iterator
+             it = fields.begin(); it != fields.end(); ++it)
+      {
+        std::string tag = FormatOrthancTag(*it);
+        if (source.isMember(tag))
+        {
+          result[tag] = source[tag];
+        }
+      }
+
+      // Set the retrieve URL for WADO-RS
+      std::string url = (wadoBase + "studies/" + 
+                         GetOrthancTag(source, OrthancPlugins::DICOM_TAG_STUDY_INSTANCE_UID, ""));
+
+      if (level == QueryLevel_Series || level == QueryLevel_Instance)
+      {
+        url += "/series/" + GetOrthancTag(source, OrthancPlugins::DICOM_TAG_SERIES_INSTANCE_UID, "");
+      }
+
+      if (level == QueryLevel_Instance)
+      {
+        url += "/instances/" + GetOrthancTag(source, OrthancPlugins::DICOM_TAG_SOP_INSTANCE_UID, "");
+      }
+    
+      Json::Value tmp = Json::objectValue;
+      tmp["Name"] = "RetrieveURL";
+      tmp["Type"] = "String";
+      tmp["Value"] = url;
+
+      result[FormatOrthancTag(OrthancPlugins::DICOM_TAG_RETRIEVE_URL)] = tmp;
+    }
   };
 }
 
@@ -415,26 +511,30 @@ static void ApplyMatcher(OrthancPluginRestOutput* output,
     throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
   }
 
-  std::list<std::string> instances;
+  typedef std::list< std::pair<std::string, std::string> > ResourcesAndInstances;
+
+  ResourcesAndInstances resourcesAndInstances;
   std::string root = (level == QueryLevel_Study ? "/studies/" : "/series/");
     
   for (Json::Value::ArrayIndex i = 0; i < resources.size(); i++)
   {
+    const std::string resource = resources[i].asString();
+
     if (level == QueryLevel_Study ||
         level == QueryLevel_Series)
     {
       // Find one child instance of this resource
       Json::Value tmp;
-      if (OrthancPlugins::RestApiGetJson(tmp, context_, root + resources[i].asString() + "/instances") &&
+      if (OrthancPlugins::RestApiGetJson(tmp, context_, root + resource + "/instances") &&
           tmp.type() == Json::arrayValue &&
           tmp.size() > 0)
       {
-        instances.push_back(tmp[0]["ID"].asString());
+        resourcesAndInstances.push_back(std::make_pair(resource, tmp[0]["ID"].asString()));
       }
     }
     else
     {
-      instances.push_back(resources[i].asString());
+      resourcesAndInstances.push_back(std::make_pair(resource, resource));
     }
   }
   
@@ -442,19 +542,76 @@ static void ApplyMatcher(OrthancPluginRestOutput* output,
 
   OrthancPlugins::DicomResults results(context_, output, wadoBase, *dictionary_, IsXmlExpected(request), true);
 
-  for (std::list<std::string>::const_iterator
-         it = instances.begin(); it != instances.end(); it++)
+#if 0
+  // Implementation up to version 0.2 of the plugin. Each instance is
+  // downloaded and decoded using GDCM, which slows down things
+  // wrt. the new implementation below that directly uses the Orthanc
+  // pre-computed JSON summary.
+  for (ResourcesAndInstances::const_iterator
+         it = resourcesAndInstances.begin(); it != resourcesAndInstances.end(); ++it)
   {
+    ModuleMatcher::Filters derivedTags;
+    matcher.ComputeDerivedTags(derivedTags, level, it->first);
+
     std::string file;
-    if (OrthancPlugins::RestApiGetString(file, context_, "/instances/" + *it + "/file"))
+    if (OrthancPlugins::RestApiGetString(file, context_, "/instances/" + it->second + "/file"))
     {
       OrthancPlugins::ParsedDicomFile dicom(file);
 
       std::auto_ptr<gdcm::DataSet> result(new gdcm::DataSet);
       matcher.ExtractFields(*result, dicom, wadoBase, level);
+
+      // Inject the derived tags
+      ModuleMatcher::Filters derivedTags;
+      matcher.ComputeDerivedTags(derivedTags, level, it->first);
+
+      for (ModuleMatcher::Filters::const_iterator
+             tag = derivedTags.begin(); tag != derivedTags.end(); ++tag)
+      {
+        gdcm::DataElement element(tag->first);
+        element.SetByteValue(tag->second.c_str(), tag->second.size());
+        result->Replace(element);
+      }
+
       results.Add(dicom.GetFile(), *result);
     }
   }
+
+#else
+  // Fix of issue #13
+  for (ResourcesAndInstances::const_iterator
+         it = resourcesAndInstances.begin(); it != resourcesAndInstances.end(); ++it)
+  {
+    Json::Value tags;
+    if (OrthancPlugins::RestApiGetJson(tags, context_, "/instances/" + it->second + "/tags"))
+    {
+      std::string wadoUrl = OrthancPlugins::Configuration::GetWadoUrl(
+        wadoBase, 
+        GetOrthancTag(tags, OrthancPlugins::DICOM_TAG_STUDY_INSTANCE_UID, ""),
+        GetOrthancTag(tags, OrthancPlugins::DICOM_TAG_SERIES_INSTANCE_UID, ""),
+        GetOrthancTag(tags, OrthancPlugins::DICOM_TAG_SOP_INSTANCE_UID, ""));
+
+      Json::Value result;
+      matcher.ExtractFields(result, tags, wadoBase, level);
+
+      // Inject the derived tags
+      ModuleMatcher::Filters derivedTags;
+      matcher.ComputeDerivedTags(derivedTags, level, it->first);
+
+      for (ModuleMatcher::Filters::const_iterator
+             tag = derivedTags.begin(); tag != derivedTags.end(); ++tag)
+      {
+        Json::Value tmp = Json::objectValue;
+        tmp["Name"] = OrthancPlugins::GetKeyword(*dictionary_, tag->first);
+        tmp["Type"] = "String";
+        tmp["Value"] = tag->second;
+        result[FormatOrthancTag(tag->first)] = tmp;
+      }
+
+      results.AddFromOrthanc(result, wadoUrl);
+    }
+  }
+#endif
 
   results.Answer();
 }

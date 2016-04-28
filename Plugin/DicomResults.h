@@ -26,6 +26,7 @@
 #include <gdcmDataSet.h>
 #include <gdcmDict.h>
 #include <gdcmFile.h>
+#include <json/value.h>
 
 namespace OrthancPlugins
 {
@@ -40,6 +41,8 @@ namespace OrthancPlugins
     bool                      isFirst_; 
     bool                      isXml_;
     bool                      isBulkAccessible_;
+
+    void AddInternal(const std::string& item);
 
     void AddInternal(const gdcm::File* file,
                      const gdcm::DataSet& dicom);
@@ -62,6 +65,9 @@ namespace OrthancPlugins
     {
       AddInternal(&file, subset);
     }
+
+    void AddFromOrthanc(const Json::Value& dicom,
+                        const std::string& wadoUrl);
 
     void Answer();
   };

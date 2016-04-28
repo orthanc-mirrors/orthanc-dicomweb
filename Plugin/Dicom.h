@@ -22,6 +22,7 @@
 
 #include "Configuration.h"
 
+#include "../Orthanc/Core/ChunkedBuffer.h"
 #include "../Orthanc/Core/Enumerations.h"
 
 #include <gdcmReader.h>
@@ -99,6 +100,10 @@ namespace OrthancPlugins
   };
 
 
+  const char* GetVRName(bool& isSequence /* out */,
+                        const gdcm::Dict& dictionary,
+                        const gdcm::Tag& tag);
+
   void GenerateSingleDicomAnswer(std::string& result,
                                  const std::string& wadoBase,
                                  const gdcm::Dict& dictionary,
@@ -114,4 +119,32 @@ namespace OrthancPlugins
                    const gdcm::DataSet& dicom,
                    bool isXml,
                    bool isBulkAccessible);
+
+  gdcm::Tag ParseTag(const gdcm::Dict& dictionary,
+                     const std::string& key);
+
+  std::string FormatTag(const gdcm::Tag& tag);
+
+  const char* GetKeyword(const gdcm::Dict& dictionary,
+                         const gdcm::Tag& tag);
+
+  class ChunkedBufferWriter : public pugi::xml_writer
+  {
+  private:
+    Orthanc::ChunkedBuffer buffer_;
+
+  public:
+    virtual void write(const void *data, size_t size)
+    {
+      if (size > 0)
+      {
+        buffer_.AddChunk(reinterpret_cast<const char*>(data), size);
+      }
+    }
+
+    void Flatten(std::string& s)
+    {
+      buffer_.Flatten(s);
+    }
+  };
 }

@@ -93,5 +93,10 @@ namespace OrthancPlugins
       
     std::string GetBaseUrl(const Json::Value& configuration,
                            const OrthancPluginHttpRequest* request);
+
+    std::string GetWadoUrl(const std::string& wadoBase,
+                           const std::string& studyInstanceUid,
+                           const std::string& seriesInstanceUid,
+                           const std::string& sopInstanceUid);
   }
 }
