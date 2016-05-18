@@ -20,6 +20,7 @@
  *    - Possibly register a custom database back-end area using OrthancPluginRegisterDatabaseBackendV2().
  *    - Possibly register a handler for C-Find SCP against DICOM worklists using OrthancPluginRegisterWorklistCallback().
  *    - Possibly register a custom decoder for DICOM images using OrthancPluginRegisterDecodeImageCallback().
+ *    - Possibly register a callback to filter incoming HTTP requests using OrthancPluginRegisterIncomingHttpRequestFilter().
  * -# <tt>void OrthancPluginFinalize()</tt>:
  *    This function is invoked by Orthanc during its shutdown. The plugin
  *    must free all its memory.
@@ -69,7 +70,7 @@
 
 /**
  * Orthanc - A Lightweight, RESTful DICOM Store
- * Copyright (C) 2012-2015 Sebastien Jodogne, Medical Physics
+ * Copyright (C) 2012-2016 Sebastien Jodogne, Medical Physics
  * Department, University Hospital of Liege, Belgium
  *
  * This program is free software: you can redistribute it and/or
@@ -112,9 +113,9 @@
 #define ORTHANC_PLUGINS_API
 #endif
 
-#define ORTHANC_PLUGINS_MINIMAL_MAJOR_NUMBER     0
-#define ORTHANC_PLUGINS_MINIMAL_MINOR_NUMBER     9
-#define ORTHANC_PLUGINS_MINIMAL_REVISION_NUMBER  5
+#define ORTHANC_PLUGINS_MINIMAL_MAJOR_NUMBER     1
+#define ORTHANC_PLUGINS_MINIMAL_MINOR_NUMBER     0
+#define ORTHANC_PLUGINS_MINIMAL_REVISION_NUMBER  1
 
 
 
@@ -238,8 +239,8 @@ extern "C"
     OrthancPluginErrorCode_DirectoryOverFile = 2000    /*!< The directory to be created is already occupied by a regular file */,
     OrthancPluginErrorCode_FileStorageCannotWrite = 2001    /*!< Unable to create a subdirectory or a file in the file storage */,
     OrthancPluginErrorCode_DirectoryExpected = 2002    /*!< The specified path does not point to a directory */,
-    OrthancPluginErrorCode_HttpPortInUse = 2003    /*!< The TCP port of the HTTP server is already in use */,
-    OrthancPluginErrorCode_DicomPortInUse = 2004    /*!< The TCP port of the DICOM server is already in use */,
+    OrthancPluginErrorCode_HttpPortInUse = 2003    /*!< The TCP port of the HTTP server is privileged or already in use */,
+    OrthancPluginErrorCode_DicomPortInUse = 2004    /*!< The TCP port of the DICOM server is privileged or already in use */,
     OrthancPluginErrorCode_BadHttpStatusInRest = 2005    /*!< This HTTP status is not allowed in a REST API */,
     OrthancPluginErrorCode_RegularFileExpected = 2006    /*!< The specified path does not point to a regular file */,
     OrthancPluginErrorCode_PathToExecutable = 2007    /*!< Unable to get the path to the executable */,
@@ -277,6 +278,7 @@ extern "C"
     OrthancPluginErrorCode_SslDisabled = 2039    /*!< Orthanc has been built without SSL support */,
     OrthancPluginErrorCode_CannotOrderSlices = 2040    /*!< Unable to order the slices of the series */,
     OrthancPluginErrorCode_NoWorklistHandler = 2041    /*!< No request handler factory for DICOM C-Find Modality SCP */,
+    OrthancPluginErrorCode_AlreadyExistingTag = 2042    /*!< Cannot override the value of a tag that already exists */,
 
     _OrthancPluginErrorCode_INTERNAL = 0x7fffffff
   } OrthancPluginErrorCode;
@@ -401,6 +403,8 @@ extern "C"
     _OrthancPluginService_ComputeMd5 = 24,
     _OrthancPluginService_ComputeSha1 = 25,
     _OrthancPluginService_LookupDictionary = 26,
+    _OrthancPluginService_CallHttpClient2 = 27,
+    _OrthancPluginService_GenerateUuid = 28,
 
     /* Registration of callbacks */
     _OrthancPluginService_RegisterRestCallback = 1000,
@@ -410,6 +414,7 @@ extern "C"
     _OrthancPluginService_RegisterRestCallbackNoLock = 1004,
     _OrthancPluginService_RegisterWorklistCallback = 1005,
     _OrthancPluginService_RegisterDecodeImageCallback = 1006,
+    _OrthancPluginService_RegisterIncomingHttpRequestFilter = 1007,
 
     /* Sending answers to REST calls */
     _OrthancPluginService_AnswerBuffer = 2000,
@@ -424,6 +429,7 @@ extern "C"
     _OrthancPluginService_SendMultipartItem = 2009,
     _OrthancPluginService_SendHttpStatus = 2010,
     _OrthancPluginService_CompressAndAnswerImage = 2011,
+    _OrthancPluginService_SendMultipartItem2 = 2012,
 
     /* Access to the Orthanc database and API */
     _OrthancPluginService_GetDicomForInstance = 3000,
@@ -946,6 +952,34 @@ extern "C"
     const OrthancPluginWorklistQuery* query,
     const char*                       remoteAet,
     const char*                       calledAet);
+
+
+
+  /**
+   * @brief Callback to filter incoming HTTP requests received by Orthanc.
+   *
+   * Signature of a callback function that is triggered whenever
+   * Orthanc receives an HTTP/REST request, and that answers whether
+   * this request should be allowed. If the callback returns "0"
+   * ("false"), the server answers with HTTP status code 403
+   * (Forbidden).
+   *
+   * @param method The HTTP method used by the request.
+   * @param uri The URI of interest.
+   * @param ip The IP address of the HTTP client.
+   * @param headersCount The number of HTTP headers.
+   * @param headersKeys The keys of the HTTP headers (always converted to low-case).
+   * @param headersValues The values of the HTTP headers.
+   * @return 0 if forbidden access, 1 if allowed access, -1 if error.
+   * @ingroup Callback
+   **/
+  typedef int32_t (*OrthancPluginIncomingHttpRequestFilter) (
+    OrthancPluginHttpMethod  method,
+    const char*              uri,
+    const char*              ip,
+    uint32_t                 headersCount,
+    const char* const*       headersKeys,
+    const char* const*       headersValues);
 
 
 
@@ -2396,7 +2430,7 @@ extern "C"
    * Orthanc, you should make these calls in a separate thread (with
    * the events passing through a message queue). Otherwise, this
    * could result in deadlocks in the presence of other plugins or Lua
-   * script.
+   * scripts.
    * 
    * @param context The Orthanc plugin context, as received by OrthancPluginInitialize().
    * @param callback The callback function.
@@ -2719,7 +2753,7 @@ extern "C"
    * @param subType The sub-type of the multipart answer ("mixed" or "related").
    * @param contentType The MIME type of the items in the multipart answer.
    * @return 0 if success, or the error code if failure.
-   * @see OrthancPluginSendMultipartItem()
+   * @see OrthancPluginSendMultipartItem(), OrthancPluginSendMultipartItem2()
    * @ingroup REST
    **/
   ORTHANC_PLUGIN_INLINE OrthancPluginErrorCode OrthancPluginStartMultipartAnswer(
@@ -2748,6 +2782,7 @@ extern "C"
    * @param answerSize Number of bytes of the item.
    * @return 0 if success, or the error code if failure (this notably happens
    * if the connection is closed by the client).
+   * @see OrthancPluginSendMultipartItem2()
    * @ingroup REST
    **/
   ORTHANC_PLUGIN_INLINE OrthancPluginErrorCode OrthancPluginSendMultipartItem(
@@ -3989,7 +4024,7 @@ extern "C"
   {
     char**                          result;
     const char*                     instanceId;
-    const char*                     buffer;
+    const void*                     buffer;
     uint32_t                        size;
     OrthancPluginDicomToJsonFormat  format;
     OrthancPluginDicomToJsonFlags   flags;
@@ -4018,7 +4053,7 @@ extern "C"
    **/
   ORTHANC_PLUGIN_INLINE char* OrthancPluginDicomBufferToJson(
     OrthancPluginContext*           context,
-    const char*                     buffer,
+    const void*                     buffer,
     uint32_t                        size,
     OrthancPluginDicomToJsonFormat  format,
     OrthancPluginDicomToJsonFlags   flags, 
@@ -4115,8 +4150,8 @@ extern "C"
    * @param target The target memory buffer. It must be freed with OrthancPluginFreeMemoryBuffer().
    * @param uri The URI in the built-in Orthanc API.
    * @param headersCount The number of HTTP headers.
-   * @param headersKeys Array containing the keys of the HTTP headers.
-   * @param headersValues Array containing the values of the HTTP headers.
+   * @param headersKeys Array containing the keys of the HTTP headers (can be <tt>NULL</tt> if no header).
+   * @param headersValues Array containing the values of the HTTP headers (can be <tt>NULL</tt> if no header).
    * @param afterPlugins If 0, the built-in API of Orthanc is used.
    * If 1, the API is tainted by the plugins.
    * @return 0 if success, or the error code if failure.
@@ -4674,6 +4709,191 @@ extern "C"
     params.target = target;
     params.name = name;
     return context->InvokeService(context, _OrthancPluginService_LookupDictionary, &params);
+  }
+
+
+
+  typedef struct
+  {
+    OrthancPluginRestOutput* output;
+    const char*              answer;
+    uint32_t                 answerSize;
+    uint32_t                 headersCount;
+    const char* const*       headersKeys;
+    const char* const*       headersValues;
+  } _OrthancPluginSendMultipartItem2;
+
+  /**
+   * @brief Send an item as a part of some HTTP multipart answer, with custom headers.
+   *
+   * This function sends an item as a part of some HTTP multipart
+   * answer that was initiated by OrthancPluginStartMultipartAnswer(). In addition to
+   * OrthancPluginSendMultipartItem(), this function will set HTTP header associated
+   * with the item.
+   * 
+   * @param context The Orthanc plugin context, as received by OrthancPluginInitialize().
+   * @param output The HTTP connection to the client application.
+   * @param answer Pointer to the memory buffer containing the item.
+   * @param answerSize Number of bytes of the item.
+   * @param headersCount The number of HTTP headers.
+   * @param headersKeys Array containing the keys of the HTTP headers.
+   * @param headersValues Array containing the values of the HTTP headers.
+   * @return 0 if success, or the error code if failure (this notably happens
+   * if the connection is closed by the client).
+   * @see OrthancPluginSendMultipartItem()
+   * @ingroup REST
+   **/
+  ORTHANC_PLUGIN_INLINE OrthancPluginErrorCode OrthancPluginSendMultipartItem2(
+    OrthancPluginContext*    context,
+    OrthancPluginRestOutput* output,
+    const char*              answer,
+    uint32_t                 answerSize,
+    uint32_t                 headersCount,
+    const char* const*       headersKeys,
+    const char* const*       headersValues)
+  {
+    _OrthancPluginSendMultipartItem2 params;
+    params.output = output;
+    params.answer = answer;
+    params.answerSize = answerSize;
+    params.headersCount = headersCount;
+    params.headersKeys = headersKeys;
+    params.headersValues = headersValues;    
+
+    return context->InvokeService(context, _OrthancPluginService_SendMultipartItem2, &params);
+  }
+
+
+  typedef struct
+  {
+    OrthancPluginIncomingHttpRequestFilter callback;
+  } _OrthancPluginIncomingHttpRequestFilter;
+
+  /**
+   * @brief Register a callback to filter incoming HTTP requests.
+   *
+   * This function registers a custom callback to filter incoming HTTP/REST
+   * requests received by the HTTP server of Orthanc.
+   *
+   * @param context The Orthanc plugin context, as received by OrthancPluginInitialize().
+   * @param callback The callback.
+   * @return 0 if success, other value if error.
+   * @ingroup Callbacks
+   **/
+  ORTHANC_PLUGIN_INLINE OrthancPluginErrorCode OrthancPluginRegisterIncomingHttpRequestFilter(
+    OrthancPluginContext*                   context,
+    OrthancPluginIncomingHttpRequestFilter  callback)
+  {
+    _OrthancPluginIncomingHttpRequestFilter params;
+    params.callback = callback;
+
+    return context->InvokeService(context, _OrthancPluginService_RegisterIncomingHttpRequestFilter, &params);
+  }
+  
+
+
+  typedef struct
+  {
+    OrthancPluginMemoryBuffer*  target;
+    uint16_t*                   httpStatus;
+    OrthancPluginHttpMethod     method;
+    const char*                 url;
+    uint32_t                    headersCount;
+    const char* const*          headersKeys;
+    const char* const*          headersValues;
+    const char*                 body;
+    uint32_t                    bodySize;
+    const char*                 username;
+    const char*                 password;
+    uint32_t                    timeout;
+  } _OrthancPluginCallHttpClient2;
+
+
+
+  /**
+   * @brief Issue a HTTP call with full flexibility.
+   * 
+   * Make a HTTP call to the given URL. The result to the query is
+   * stored into a newly allocated memory buffer.
+   * 
+   * @param context The Orthanc plugin context, as received by OrthancPluginInitialize().
+   * @param target The target memory buffer. It must be freed with OrthancPluginFreeMemoryBuffer() (out argument).
+   * @param httpStatus The HTTP status after the execution of the request (out argument).
+   * @param method HTTP method to be used.
+   * @param url The URL of interest.
+   * @param headersCount The number of HTTP headers.
+   * @param headersKeys Array containing the keys of the HTTP headers (can be <tt>NULL</tt> if no header).
+   * @param headersValues Array containing the values of the HTTP headers (can be <tt>NULL</tt> if no header).
+   * @param username The username (can be <tt>NULL</tt> if no password protection).
+   * @param password The password (can be <tt>NULL</tt> if no password protection).
+   * @param body The body of the POST request.
+   * @param bodySize The size of the body.
+   * @param timeout Timeout in seconds (0 for default timeout).
+   * @return 0 if success, or the error code if failure.
+   **/
+  ORTHANC_PLUGIN_INLINE OrthancPluginErrorCode  OrthancPluginHttpClient(
+    OrthancPluginContext*       context,
+    OrthancPluginMemoryBuffer*  target,
+    uint16_t*                   httpStatus,
+    OrthancPluginHttpMethod     method,
+    const char*                 url,
+    uint32_t                    headersCount,
+    const char* const*          headersKeys,
+    const char* const*          headersValues,
+    const char*                 body,
+    uint32_t                    bodySize,
+    const char*                 username,
+    const char*                 password,
+    uint32_t                    timeout)
+  {
+    _OrthancPluginCallHttpClient2 params;
+    memset(&params, 0, sizeof(params));
+
+    params.target = target;
+    params.httpStatus = httpStatus;
+    params.method = method;
+    params.url = url;
+    params.headersCount = headersCount;
+    params.headersKeys = headersKeys;
+    params.headersValues = headersValues;
+    params.body = body;
+    params.bodySize = bodySize;
+    params.username = username;
+    params.password = password;
+    params.timeout = timeout;
+
+    return context->InvokeService(context, _OrthancPluginService_CallHttpClient2, &params);
+  }
+
+
+  /**
+   * @brief Generate an UUID.
+   *
+   * Generate a random GUID/UUID (globally unique identifier).
+   * 
+   * @param context The Orthanc plugin context, as received by OrthancPluginInitialize().
+   * @return NULL in the case of an error, or a newly allocated string
+   * containing the UUID. This string must be freed by OrthancPluginFreeString().
+   * @ingroup Toolbox
+   **/
+  ORTHANC_PLUGIN_INLINE char* OrthancPluginGenerateUuid(
+    OrthancPluginContext*  context)
+  {
+    char* result;
+
+    _OrthancPluginRetrieveDynamicString params;
+    params.result = &result;
+    params.argument = NULL;
+
+    if (context->InvokeService(context, _OrthancPluginService_GenerateUuid, &params) != OrthancPluginErrorCode_Success)
+    {
+      /* Error */
+      return NULL;
+    }
+    else
+    {
+      return result;
+    }
   }
 
 

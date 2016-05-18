@@ -11,7 +11,7 @@ import stat
 import urllib2
 
 TARGET = os.path.join(os.path.dirname(__file__), '..', 'Orthanc')
-PLUGIN_SDK_VERSION = '0.9.5'
+PLUGIN_SDK_VERSION = 'mainline'
 REPOSITORY = 'https://bitbucket.org/sjodogne/orthanc/raw'
 
 FILES = [
@@ -66,7 +66,11 @@ def Download(x):
     url = '%s/%s/%s' % (REPOSITORY, branch, source)
 
     with open(target, 'w') as f:
-        f.write(urllib2.urlopen(url).read())
+        try:
+            f.write(urllib2.urlopen(url).read())
+        except:
+            print('Cannot download %s' % url)
+            raise
 
 
 commands = []
@@ -75,7 +79,12 @@ for f in FILES:
     commands.append([ 'default', f, f ])
 
 for f in SDK:
-    commands.append([ 'Orthanc-%s' % PLUGIN_SDK_VERSION, 
+    if PLUGIN_SDK_VERSION == 'mainline':
+        branch = 'default'
+    else:
+        branch = 'Orthanc-%s' % PLUGIN_SDK_VERSION
+
+    commands.append([ branch, 
                       'Plugins/Include/%s' % f,
                       'Sdk-%s/%s' % (PLUGIN_SDK_VERSION, f) ])
 
