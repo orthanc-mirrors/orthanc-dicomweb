@@ -35,6 +35,7 @@
 
 #include "OrthancException.h"
 #include "Toolbox.h"
+#include "Logging.h"
 
 #include <string.h>
 #include <cassert>
@@ -900,6 +901,151 @@ namespace Orthanc
   }
 
 
+  ValueRepresentation StringToValueRepresentation(const std::string& vr,
+                                                  bool throwIfUnsupported)
+  {
+    if (vr == "AE")
+    {
+      return ValueRepresentation_ApplicationEntity;
+    }
+    else if (vr == "AS")
+    {
+      return ValueRepresentation_AgeString;
+    }
+    else if (vr == "AT")
+    {
+      return ValueRepresentation_AttributeTag;
+    }
+    else if (vr == "CS")
+    {
+      return ValueRepresentation_CodeString;
+    }
+    else if (vr == "DA")
+    {
+      return ValueRepresentation_Date;
+    }
+    else if (vr == "DS")
+    {
+      return ValueRepresentation_DecimalString;
+    }
+    else if (vr == "DT")
+    {
+      return ValueRepresentation_DateTime;
+    }
+    else if (vr == "FL")
+    {
+      return ValueRepresentation_FloatingPointSingle;
+    }
+    else if (vr == "FD")
+    {
+      return ValueRepresentation_FloatingPointDouble;
+    }
+    else if (vr == "IS")
+    {
+      return ValueRepresentation_IntegerString;
+    }
+    else if (vr == "LO")
+    {
+      return ValueRepresentation_LongString;
+    }
+    else if (vr == "LT")
+    {
+      return ValueRepresentation_LongText;
+    }
+    else if (vr == "OB")
+    {
+      return ValueRepresentation_OtherByte;
+    }
+    else if (vr == "OD")
+    {
+      return ValueRepresentation_OtherDouble;
+    }
+    else if (vr == "OF")
+    {
+      return ValueRepresentation_OtherFloat;
+    }
+    else if (vr == "OL")
+    {
+      return ValueRepresentation_OtherLong;
+    }
+    else if (vr == "OW")
+    {
+      return ValueRepresentation_OtherWord;
+    }
+    else if (vr == "PN")
+    {
+      return ValueRepresentation_PersonName;
+    }
+    else if (vr == "SH")
+    {
+      return ValueRepresentation_ShortString;
+    }
+    else if (vr == "SL")
+    {
+      return ValueRepresentation_SignedLong;
+    }
+    else if (vr == "SQ")
+    {
+      return ValueRepresentation_Sequence;
+    }
+    else if (vr == "SS")
+    {
+      return ValueRepresentation_SignedShort;
+    }
+    else if (vr == "ST")
+    {
+      return ValueRepresentation_ShortText;
+    }
+    else if (vr == "TM")
+    {
+      return ValueRepresentation_Time;
+    }
+    else if (vr == "UC")
+    {
+      return ValueRepresentation_UnlimitedCharacters;
+    }
+    else if (vr == "UI")
+    {
+      return ValueRepresentation_UniqueIdentifier;
+    }
+    else if (vr == "UL")
+    {
+      return ValueRepresentation_UnsignedLong;
+    }
+    else if (vr == "UN")
+    {
+      return ValueRepresentation_Unknown;
+    }
+    else if (vr == "UR")
+    {
+      return ValueRepresentation_UniversalResource;
+    }
+    else if (vr == "US")
+    {
+      return ValueRepresentation_UnsignedShort;
+    }
+    else if (vr == "UT")
+    {
+      return ValueRepresentation_UnlimitedText;
+    }
+    else
+    {
+      std::string s = "Unsupported value representation encountered: " + vr;
+
+      if (throwIfUnsupported)
+      {
+        LOG(ERROR) << s;
+        throw OrthancException(ErrorCode_ParameterOutOfRange);
+      }
+      else
+      {
+        LOG(INFO) << s;
+        return ValueRepresentation_NotSupported;
+      }
+    }
+  }
+
+
   unsigned int GetBytesPerPixel(PixelFormat format)
   {
     switch (format)
@@ -1186,5 +1332,61 @@ namespace Orthanc
   {
     return (type >= FileContentType_StartUser &&
             type <= FileContentType_EndUser);
+  }
+
+
+  bool IsBinaryValueRepresentation(ValueRepresentation vr)
+  {
+    // http://dicom.nema.org/medical/dicom/current/output/chtml/part05/sect_6.2.html
+
+    switch (vr)
+    {
+      case ValueRepresentation_ApplicationEntity:     // AE
+      case ValueRepresentation_AgeString:             // AS
+      case ValueRepresentation_CodeString:            // CS
+      case ValueRepresentation_Date:                  // DA
+      case ValueRepresentation_DecimalString:         // DS
+      case ValueRepresentation_DateTime:              // DT
+      case ValueRepresentation_IntegerString:         // IS
+      case ValueRepresentation_LongString:            // LO
+      case ValueRepresentation_LongText:              // LT
+      case ValueRepresentation_PersonName:            // PN
+      case ValueRepresentation_ShortString:           // SH
+      case ValueRepresentation_ShortText:             // ST
+      case ValueRepresentation_Time:                  // TM
+      case ValueRepresentation_UnlimitedCharacters:   // UC
+      case ValueRepresentation_UniqueIdentifier:      // UI (UID)
+      case ValueRepresentation_UniversalResource:     // UR (URI or URL)
+      case ValueRepresentation_UnlimitedText:         // UT
+      {
+        return false;
+      }
+
+      /**
+       * Below are all the VR whose character repertoire is tagged as
+       * "not applicable"
+       **/
+      case ValueRepresentation_AttributeTag:          // AT (2 x uint16_t)
+      case ValueRepresentation_FloatingPointSingle:   // FL (float)
+      case ValueRepresentation_FloatingPointDouble:   // FD (double)
+      case ValueRepresentation_OtherByte:             // OB
+      case ValueRepresentation_OtherDouble:           // OD
+      case ValueRepresentation_OtherFloat:            // OF
+      case ValueRepresentation_OtherLong:             // OL
+      case ValueRepresentation_OtherWord:             // OW
+      case ValueRepresentation_SignedLong:            // SL (int32_t)
+      case ValueRepresentation_Sequence:              // SQ
+      case ValueRepresentation_SignedShort:           // SS (int16_t)
+      case ValueRepresentation_UnsignedLong:          // UL (uint32_t)
+      case ValueRepresentation_Unknown:               // UN
+      case ValueRepresentation_UnsignedShort:         // US (uint16_t)
+      {
+        return true;
+      }
+
+      case ValueRepresentation_NotSupported:
+      default:
+        throw OrthancException(ErrorCode_ParameterOutOfRange);
+    }
   }
 }

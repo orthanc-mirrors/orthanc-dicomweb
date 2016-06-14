@@ -49,9 +49,9 @@ namespace Orthanc
 
   namespace Toolbox
   {
-    void ServerBarrier(const bool& stopFlag);
+    ServerBarrierEvent ServerBarrier(const bool& stopFlag);
 
-    void ServerBarrier();
+    ServerBarrierEvent ServerBarrier();
 
     void ToUpperCase(std::string& s);  // Inplace version
 
@@ -196,5 +196,8 @@ namespace Orthanc
     int GetProcessId();
 
     bool IsRegularFile(const std::string& path);
+
+    FILE* OpenFile(const std::string& path,
+                   FileMode mode);
   }
 }
