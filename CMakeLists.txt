@@ -113,6 +113,7 @@ set(CORE_SOURCES
   ${ORTHANC_ROOT}/Core/ChunkedBuffer.cpp
   ${ORTHANC_ROOT}/Core/Enumerations.cpp
   ${ORTHANC_ROOT}/Core/Toolbox.cpp
+  ${ORTHANC_ROOT}/Core/WebServiceParameters.cpp
 
   Plugin/ChunkedBuffer.cpp
   Plugin/Configuration.cpp

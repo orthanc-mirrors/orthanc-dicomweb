@@ -94,7 +94,22 @@ static bool GetSequenceSize(size_t& result,
 }
 
 
-static void SendStowRequest(const OrthancPlugins::DicomWebPeer& peer,
+
+static const char* ConvertToCString(const std::string& s)
+{
+  if (s.empty())
+  {
+    return NULL;
+  }
+  else
+  {
+    return s.c_str();
+  }
+}
+
+
+
+static void SendStowRequest(const Orthanc::WebServiceParameters& peer,
                             const std::string& mime,
                             const std::string& body,
                             size_t countInstances)
@@ -115,9 +130,19 @@ static void SendStowRequest(const OrthancPlugins::DicomWebPeer& peer,
 
   uint16_t status = 0;
   OrthancPluginMemoryBuffer answer;
-  OrthancPluginErrorCode code = OrthancPluginHttpClient(context_, &answer, &status, OrthancPluginHttpMethod_Post,
-                                                        url.c_str(), 3, headersKeys, headersValues,
-                                                        body.c_str(), body.size(), peer.GetUsernameC(), peer.GetPasswordC(), 0);
+  OrthancPluginErrorCode code = OrthancPluginHttpClient(
+    context_, &answer, &status, 
+    OrthancPluginHttpMethod_Post,
+    url.c_str(), 
+    3, headersKeys, headersValues,        /* HTTP headers */
+    body.c_str(), body.size(),            /* POST body */
+    ConvertToCString(peer.GetUsername()), /* Authentication */
+    ConvertToCString(peer.GetPassword()), 
+    0,                                    /* Timeout */
+    ConvertToCString(peer.GetCertificateFile()),
+    ConvertToCString(peer.GetCertificateKeyFile()),
+    ConvertToCString(peer.GetCertificateKeyPassword()));
+
   if (code != OrthancPluginErrorCode_Success ||
       (status != 200 && status != 202))
   {
@@ -232,7 +257,7 @@ static void GetListOfInstances(std::list<std::string>& instances,
 }
 
 
-static void SendStowChunks(const OrthancPlugins::DicomWebPeer& peer,
+static void SendStowChunks(const Orthanc::WebServiceParameters& peer,
                            const std::string& mime,
                            const std::string& boundary,
                            Orthanc::ChunkedBuffer& chunks,
@@ -269,7 +294,7 @@ void StowClient(OrthancPluginRestOutput* output,
     return;
   }
 
-  OrthancPlugins::DicomWebPeer peer(OrthancPlugins::DicomWebPeers::GetInstance().GetPeer(request->groups[0]));
+  Orthanc::WebServiceParameters peer(OrthancPlugins::DicomWebPeers::GetInstance().GetPeer(request->groups[0]));
 
   std::list<std::string> instances;
   GetListOfInstances(instances, request);

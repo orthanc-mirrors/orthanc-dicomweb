@@ -19,6 +19,8 @@
 
 #pragma once
 
+#include "../Orthanc/Core/WebServiceParameters.h"
+
 #include <list>
 #include <string>
 #include <boost/thread/mutex.hpp>
@@ -26,61 +28,10 @@
 
 namespace OrthancPlugins
 {
-  class DicomWebPeer
-  {
-  private:
-    std::string url_;
-    std::string username_;
-    std::string password_;
-
-    void SetUrl(const std::string& url);
-
-  public:
-    DicomWebPeer(const std::string& url,
-                 const std::string& username,
-                 const std::string& password) :
-      username_(username),
-      password_(password)
-    {
-      SetUrl(url);
-    }
-
-    DicomWebPeer(const std::string& url)
-    {
-      SetUrl(url);
-    }
-
-    const std::string& GetUrl() const
-    {
-      return url_;
-    }
-
-    const std::string& GetUsername() const
-    {
-      return username_;
-    }
-
-    const std::string& GetPassword() const
-    {
-      return password_;
-    }
-
-    const char* GetUsernameC() const
-    {
-      return username_.empty() ? NULL : username_.c_str();
-    }
-
-    const char* GetPasswordC() const
-    {
-      return password_.empty() ? NULL : password_.c_str();
-    }
-  };
-
-
   class DicomWebPeers
   {
   private:
-    typedef std::map<std::string, DicomWebPeer*>  Peers;
+    typedef std::map<std::string, Orthanc::WebServiceParameters*>  Peers;
 
     boost::mutex  mutex_;
     Peers         peers_;
@@ -101,7 +52,7 @@ namespace OrthancPlugins
 
     static DicomWebPeers& GetInstance();
 
-    DicomWebPeer GetPeer(const std::string& name);
+    Orthanc::WebServiceParameters GetPeer(const std::string& name);
 
     void ListPeers(std::list<std::string>& peers);
   };

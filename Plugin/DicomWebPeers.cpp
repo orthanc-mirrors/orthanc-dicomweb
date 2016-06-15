@@ -25,23 +25,6 @@
 
 namespace OrthancPlugins
 {
-  void DicomWebPeer::SetUrl(const std::string& url)
-  {
-    if (url.empty())
-    {
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
-    }
-
-    url_ = url;
-
-    // Add trailing slash
-    if (url_[url.size() - 1] != '/')
-    {
-      url_ += '/';
-    }
-  }
-
-
   void DicomWebPeers::Clear()
   {
     for (Peers::iterator it = peers_.begin(); it != peers_.end(); ++it)
@@ -64,34 +47,28 @@ namespace OrthancPlugins
 
     bool ok = true;
 
-    if (configuration["Peers"].type() != Json::objectValue)
+    try
     {
-      ok = false;
-    }
-    else
-    {
-      Json::Value::Members members = configuration["Peers"].getMemberNames();
-
-      for (size_t i = 0; i < members.size(); i++)
+      if (configuration["Peers"].type() != Json::objectValue)
       {
-        const Json::Value& peer = configuration["Peers"][members[i]];
+        ok = false;
+      }
+      else
+      {
+        Json::Value::Members members = configuration["Peers"].getMemberNames();
 
-        if (peer.type() != Json::arrayValue ||
-            (peer.size() != 1 && peer.size() != 3) ||
-            peer[0].type() != Json::stringValue ||
-            (peer.size() == 3 && peer[1].type() != Json::stringValue) ||
-            (peer.size() == 3 && peer[2].type() != Json::stringValue))
+        for (size_t i = 0; i < members.size(); i++)
         {
-          ok = false;
-          break;
-        }
-        else
-        {
-          peers_[members[i]] = new DicomWebPeer(peer[0].asString(),
-                                                peer[1].asString(),
-                                                peer[2].asString());
+          std::auto_ptr<Orthanc::WebServiceParameters> parameters(new Orthanc::WebServiceParameters);
+          parameters->FromJson(configuration["Peers"][members[i]]);
+
+          peers_[members[i]] = parameters.release();
         }
       }
+    }
+    catch (Orthanc::OrthancException&)
+    {
+      ok = false;
     }
 
     if (!ok)
@@ -109,7 +86,7 @@ namespace OrthancPlugins
   }
 
 
-  DicomWebPeer DicomWebPeers::GetPeer(const std::string& name)
+  Orthanc::WebServiceParameters DicomWebPeers::GetPeer(const std::string& name)
   {
     boost::mutex::scoped_lock lock(mutex_);
     Peers::const_iterator peer = peers_.find(name);

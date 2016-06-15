@@ -9,6 +9,7 @@ import multiprocessing
 import os
 import stat
 import urllib2
+import uuid
 
 TARGET = os.path.join(os.path.dirname(__file__), '..', 'Orthanc')
 PLUGIN_SDK_VERSION = 'mainline'
@@ -24,6 +25,8 @@ FILES = [
     'Core/PrecompiledHeaders.h',
     'Core/Toolbox.cpp',
     'Core/Toolbox.h',
+    'Core/WebServiceParameters.cpp',
+    'Core/WebServiceParameters.h',
     'Plugins/Samples/Common/ExportedSymbols.list',
     'Plugins/Samples/Common/VersionScript.map',
     'Resources/CMake/BoostConfiguration.cmake',
@@ -63,7 +66,7 @@ def Download(x):
     except:
         pass
 
-    url = '%s/%s/%s' % (REPOSITORY, branch, source)
+    url = '%s/%s/%s?force=%s' % (REPOSITORY, branch, source, uuid.uuid4())
 
     with open(target, 'w') as f:
         try:
