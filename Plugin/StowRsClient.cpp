@@ -141,7 +141,8 @@ static void SendStowRequest(const Orthanc::WebServiceParameters& peer,
     0,                                    /* Timeout */
     ConvertToCString(peer.GetCertificateFile()),
     ConvertToCString(peer.GetCertificateKeyFile()),
-    ConvertToCString(peer.GetCertificateKeyPassword()));
+    ConvertToCString(peer.GetCertificateKeyPassword()),
+    peer.IsPkcs11Enabled() ? 1 : 0);
 
   if (code != OrthancPluginErrorCode_Success ||
       (status != 200 && status != 202))
