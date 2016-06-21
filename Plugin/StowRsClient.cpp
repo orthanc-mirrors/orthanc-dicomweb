@@ -131,7 +131,9 @@ static void SendStowRequest(const Orthanc::WebServiceParameters& peer,
   uint16_t status = 0;
   OrthancPluginMemoryBuffer answer;
   OrthancPluginErrorCode code = OrthancPluginHttpClient(
-    context_, &answer, &status, 
+    context_, &answer, 
+    NULL,                                 /* No interest in the HTTP headers of the answer */
+    &status, 
     OrthancPluginHttpMethod_Post,
     url.c_str(), 
     3, headersKeys, headersValues,        /* HTTP headers */
