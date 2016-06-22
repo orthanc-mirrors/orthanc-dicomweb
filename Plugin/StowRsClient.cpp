@@ -110,10 +110,13 @@ static const char* ConvertToCString(const std::string& s)
 
 
 static void SendStowRequest(const Orthanc::WebServiceParameters& server,
-                            const std::string& mime,
+                            const std::map<std::string, std::string>& httpHeaders,
+                            const std::string& mime,  // TODO remove this
                             const std::string& body,
                             size_t countInstances)
 {
+  // TODO use httpHeaders
+
   const char* headersKeys[] = {
     "Accept",
     "Expect",
@@ -203,18 +206,24 @@ static void SendStowRequest(const Orthanc::WebServiceParameters& server,
 }
 
 
-static void GetListOfInstances(std::list<std::string>& instances,
-                               const OrthancPluginHttpRequest* request)
+static void ParseRestRequest(std::list<std::string>& instances /* out */,
+                             std::map<std::string, std::string>& httpHeaders /* out */,
+                             const OrthancPluginHttpRequest* request /* in */)
 {
-  Json::Value resources;
+  instances.clear();
+  httpHeaders.clear();
+
+  Json::Value body;
   Json::Reader reader;
-  if (!reader.parse(request->body, request->body + request->bodySize, resources) ||
-      resources.type() != Json::arrayValue)
+  if (!reader.parse(request->body, request->body + request->bodySize, body) ||
+      body.type() != Json::arrayValue)
   {
     std::string s = "The list of resources to be sent through DICOMweb STOW-RS must be given as a JSON array";
     OrthancPluginLogError(context_, s.c_str());
     throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
   }
+
+  Json::Value& resources = body;  // TODO
 
   // Extract information about all the child instances
   for (Json::Value::ArrayIndex i = 0; i < resources.size(); i++)
@@ -261,6 +270,7 @@ static void GetListOfInstances(std::list<std::string>& instances,
 
 
 static void SendStowChunks(const Orthanc::WebServiceParameters& server,
+                           const std::map<std::string, std::string>& httpHeaders,
                            const std::string& mime,
                            const std::string& boundary,
                            Orthanc::ChunkedBuffer& chunks,
@@ -276,7 +286,7 @@ static void SendStowChunks(const Orthanc::WebServiceParameters& server,
     std::string body;
     chunks.Flatten(body);
 
-    SendStowRequest(server, mime, body, countInstances);
+    SendStowRequest(server, httpHeaders, mime, body, countInstances);
     countInstances = 0;
   }
 }
@@ -300,7 +310,8 @@ void StowClient(OrthancPluginRestOutput* output,
   Orthanc::WebServiceParameters server(OrthancPlugins::DicomWebServers::GetInstance().GetServer(request->groups[0]));
 
   std::list<std::string> instances;
-  GetListOfInstances(instances, request);
+  std::map<std::string, std::string> httpHeaders;
+  ParseRestRequest(instances, httpHeaders, request);
 
   {
     std::string s = ("Sending " + boost::lexical_cast<std::string>(instances.size()) + 
@@ -342,11 +353,11 @@ void StowClient(OrthancPluginRestOutput* output,
       chunks.AddChunk(dicom);
       countInstances ++;
 
-      SendStowChunks(server, mime, boundary, chunks, countInstances, false);
+      SendStowChunks(server, httpHeaders, mime, boundary, chunks, countInstances, false);
     }
   }
 
-  SendStowChunks(server, mime, boundary, chunks, countInstances, true);
+  SendStowChunks(server, httpHeaders, mime, boundary, chunks, countInstances, true);
 
   std::string answer = "{}\n";
   OrthancPluginAnswerBuffer(context_, output, answer.c_str(), answer.size(), "application/json");
