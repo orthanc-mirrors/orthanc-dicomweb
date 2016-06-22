@@ -66,9 +66,12 @@ namespace OrthancPlugins
         }
       }
     }
-    catch (Orthanc::OrthancException&)
+    catch (Orthanc::OrthancException& e)
     {
-      ok = false;
+      std::string s = ("Exception while parsing the \"DicomWeb.Peers\" section "
+                       "of the configuration file: " + std::string(e.What()));
+      OrthancPluginLogError(context_, s.c_str());
+      throw;
     }
 
     if (!ok)

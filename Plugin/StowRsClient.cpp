@@ -129,9 +129,9 @@ static void SendStowRequest(const Orthanc::WebServiceParameters& peer,
   std::string url = peer.GetUrl() + "studies";
 
   uint16_t status = 0;
-  OrthancPluginMemoryBuffer answer;
+  OrthancPluginMemoryBuffer answerBody;
   OrthancPluginErrorCode code = OrthancPluginHttpClient(
-    context_, &answer, 
+    context_, &answerBody, 
     NULL,                                 /* No interest in the HTTP headers of the answer */
     &status, 
     OrthancPluginHttpMethod_Post,
@@ -157,9 +157,9 @@ static void SendStowRequest(const Orthanc::WebServiceParameters& peer,
 
   Json::Value response;
   Json::Reader reader;
-  bool success = reader.parse(reinterpret_cast<const char*>(answer.data),
-                              reinterpret_cast<const char*>(answer.data) + answer.size, response);
-  OrthancPluginFreeMemoryBuffer(context_, &answer);
+  bool success = reader.parse(reinterpret_cast<const char*>(answerBody.data),
+                              reinterpret_cast<const char*>(answerBody.data) + answerBody.size, response);
+  OrthancPluginFreeMemoryBuffer(context_, &answerBody);
 
   if (!success ||
       response.type() != Json::objectValue ||
