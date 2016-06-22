@@ -18,29 +18,29 @@
  **/
 
 
-#include "DicomWebPeers.h"
+#include "DicomWebServers.h"
 
 #include "Plugin.h"
 #include "../Orthanc/Core/OrthancException.h"
 
 namespace OrthancPlugins
 {
-  void DicomWebPeers::Clear()
+  void DicomWebServers::Clear()
   {
-    for (Peers::iterator it = peers_.begin(); it != peers_.end(); ++it)
+    for (Servers::iterator it = servers_.begin(); it != servers_.end(); ++it)
     {
       delete it->second;
     }
   }
 
 
-  void DicomWebPeers::Load(const Json::Value& configuration)
+  void DicomWebServers::Load(const Json::Value& configuration)
   {
     boost::mutex::scoped_lock lock(mutex_);
 
     Clear();
 
-    if (!configuration.isMember("Peers"))
+    if (!configuration.isMember("Servers"))
     {
       return;
     }
@@ -49,26 +49,26 @@ namespace OrthancPlugins
 
     try
     {
-      if (configuration["Peers"].type() != Json::objectValue)
+      if (configuration["Servers"].type() != Json::objectValue)
       {
         ok = false;
       }
       else
       {
-        Json::Value::Members members = configuration["Peers"].getMemberNames();
+        Json::Value::Members members = configuration["Servers"].getMemberNames();
 
         for (size_t i = 0; i < members.size(); i++)
         {
           std::auto_ptr<Orthanc::WebServiceParameters> parameters(new Orthanc::WebServiceParameters);
-          parameters->FromJson(configuration["Peers"][members[i]]);
+          parameters->FromJson(configuration["Servers"][members[i]]);
 
-          peers_[members[i]] = parameters.release();
+          servers_[members[i]] = parameters.release();
         }
       }
     }
     catch (Orthanc::OrthancException& e)
     {
-      std::string s = ("Exception while parsing the \"DicomWeb.Peers\" section "
+      std::string s = ("Exception while parsing the \"DicomWeb.Servers\" section "
                        "of the configuration file: " + std::string(e.What()));
       OrthancPluginLogError(context_, s.c_str());
       throw;
@@ -76,46 +76,46 @@ namespace OrthancPlugins
 
     if (!ok)
     {
-      OrthancPluginLogError(context_, "Cannot parse the \"DicomWeb.Peers\" section of the configuration file");
+      OrthancPluginLogError(context_, "Cannot parse the \"DicomWeb.Servers\" section of the configuration file");
       throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
     }
   }
 
 
-  DicomWebPeers& DicomWebPeers::GetInstance()
+  DicomWebServers& DicomWebServers::GetInstance()
   {
-    static DicomWebPeers singleton;
+    static DicomWebServers singleton;
     return singleton;
   }
 
 
-  Orthanc::WebServiceParameters DicomWebPeers::GetPeer(const std::string& name)
+  Orthanc::WebServiceParameters DicomWebServers::GetServer(const std::string& name)
   {
     boost::mutex::scoped_lock lock(mutex_);
-    Peers::const_iterator peer = peers_.find(name);
+    Servers::const_iterator server = servers_.find(name);
 
-    if (peer == peers_.end() ||
-        peer->second == NULL)
+    if (server == servers_.end() ||
+        server->second == NULL)
     {
-      std::string s = "Inexistent peer: " + name;
+      std::string s = "Inexistent server: " + name;
       OrthancPluginLogError(context_, s.c_str());
       throw Orthanc::OrthancException(Orthanc::ErrorCode_InexistentItem);
     }
     else
     {
-      return *peer->second;
+      return *server->second;
     }
   }
 
 
-  void DicomWebPeers::ListPeers(std::list<std::string>& peers)
+  void DicomWebServers::ListServers(std::list<std::string>& servers)
   {
     boost::mutex::scoped_lock lock(mutex_);
 
-    peers.clear();
-    for (Peers::const_iterator it = peers_.begin(); it != peers_.end(); ++it)
+    servers.clear();
+    for (Servers::const_iterator it = servers_.begin(); it != servers_.end(); ++it)
     {
-      peers.push_back(it->first);
+      servers.push_back(it->first);
     }
   }
 }

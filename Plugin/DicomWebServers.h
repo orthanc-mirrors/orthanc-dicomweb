@@ -28,32 +28,32 @@
 
 namespace OrthancPlugins
 {
-  class DicomWebPeers
+  class DicomWebServers
   {
   private:
-    typedef std::map<std::string, Orthanc::WebServiceParameters*>  Peers;
+    typedef std::map<std::string, Orthanc::WebServiceParameters*>  Servers;
 
     boost::mutex  mutex_;
-    Peers         peers_;
+    Servers       servers_;
 
     void Clear();
 
-    DicomWebPeers()  // Forbidden (singleton pattern)
+    DicomWebServers()  // Forbidden (singleton pattern)
     {
     }
 
   public:
     void Load(const Json::Value& configuration);
 
-    ~DicomWebPeers()
+    ~DicomWebServers()
     {
       Clear();
     }
 
-    static DicomWebPeers& GetInstance();
+    static DicomWebServers& GetInstance();
 
-    Orthanc::WebServiceParameters GetPeer(const std::string& name);
+    Orthanc::WebServiceParameters GetServer(const std::string& name);
 
-    void ListPeers(std::list<std::string>& peers);
+    void ListServers(std::list<std::string>& servers);
   };
 }

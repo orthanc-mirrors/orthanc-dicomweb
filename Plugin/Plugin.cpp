@@ -26,7 +26,7 @@
 #include "WadoRs.h"
 #include "WadoUri.h"
 #include "Configuration.h"
-#include "DicomWebPeers.h"
+#include "DicomWebServers.h"
 
 #include <gdcmDictEntry.h>
 #include <gdcmDict.h>
@@ -134,9 +134,9 @@ static void Register(const std::string& root,
 
 
 
-void ListPeers(OrthancPluginRestOutput* output,
-               const char* url,
-               const OrthancPluginHttpRequest* request)
+void ListServers(OrthancPluginRestOutput* output,
+                 const char* url,
+                 const OrthancPluginHttpRequest* request)
 {
   if (request->method != OrthancPluginHttpMethod_Get)
   {
@@ -144,11 +144,11 @@ void ListPeers(OrthancPluginRestOutput* output,
   }
   else
   {
-    std::list<std::string> peers;
-    OrthancPlugins::DicomWebPeers::GetInstance().ListPeers(peers);
+    std::list<std::string> servers;
+    OrthancPlugins::DicomWebServers::GetInstance().ListServers(servers);
 
     Json::Value json = Json::arrayValue;
-    for (std::list<std::string>::const_iterator it = peers.begin(); it != peers.end(); ++it)
+    for (std::list<std::string>::const_iterator it = servers.begin(); it != servers.end(); ++it)
     {
       json.append(*it);
     }
@@ -159,9 +159,9 @@ void ListPeers(OrthancPluginRestOutput* output,
 }
 
 
-void ListPeerOperations(OrthancPluginRestOutput* output,
-                        const char* url,
-                        const OrthancPluginHttpRequest* request)
+void ListServerOperations(OrthancPluginRestOutput* output,
+                          const char* url,
+                          const OrthancPluginHttpRequest* request)
 {
   if (request->method != OrthancPluginHttpMethod_Get)
   {
@@ -169,8 +169,8 @@ void ListPeerOperations(OrthancPluginRestOutput* output,
   }
   else
   {
-    // Make sure the peer does exist
-    OrthancPlugins::DicomWebPeers::GetInstance().GetPeer(request->groups[0]);
+    // Make sure the server does exist
+    OrthancPlugins::DicomWebServers::GetInstance().GetServer(request->groups[0]);
 
     Json::Value json = Json::arrayValue;
     json.append("stow");
@@ -224,7 +224,7 @@ extern "C"
       }
     }
 
-    OrthancPlugins::DicomWebPeers::GetInstance().Load(configuration_);
+    OrthancPlugins::DicomWebServers::GetInstance().Load(configuration_);
 
 
     // Configure the DICOMweb callbacks
@@ -251,9 +251,9 @@ extern "C"
       Register(root, "studies/([^/]*)/series/([^/]*)/instances/([^/]*)/frames", Protect<RetrieveFrames>);
       Register(root, "studies/([^/]*)/series/([^/]*)/instances/([^/]*)/frames/([^/]*)", Protect<RetrieveFrames>);
 
-      Register(root, "peers", Protect<ListPeers>);
-      Register(root, "peers/([^/]*)", Protect<ListPeerOperations>);
-      Register(root, "peers/([^/]*)/stow", Protect<StowClient>);
+      Register(root, "servers", Protect<ListServers>);
+      Register(root, "servers/([^/]*)", Protect<ListServerOperations>);
+      Register(root, "servers/([^/]*)/stow", Protect<StowClient>);
     }
     else
     {

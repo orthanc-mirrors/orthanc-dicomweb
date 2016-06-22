@@ -21,7 +21,7 @@
 #include "StowRsClient.h"
 
 #include "Plugin.h"
-#include "DicomWebPeers.h"
+#include "DicomWebServers.h"
 
 #include <json/reader.h>
 #include <list>
@@ -52,7 +52,7 @@ static bool GetSequenceSize(size_t& result,
                             const Json::Value& answer,
                             const std::string& tag,
                             bool isMandatory,
-                            const std::string& peer)
+                            const std::string& server)
 {
   const Json::Value* value = NULL;
 
@@ -70,7 +70,7 @@ static bool GetSequenceSize(size_t& result,
   }
   else if (isMandatory)
   {
-    std::string s = ("The STOW-RS JSON response from DICOMweb peer " + peer + 
+    std::string s = ("The STOW-RS JSON response from DICOMweb server " + server + 
                      " does not contain the mandatory tag " + upper);
     OrthancPluginLogError(context_, s.c_str());
     throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);
@@ -84,7 +84,7 @@ static bool GetSequenceSize(size_t& result,
       !value->isMember("Value") ||
       (*value) ["Value"].type() != Json::arrayValue)
   {
-    std::string s = "Unable to parse STOW-RS JSON response from DICOMweb peer " + peer;
+    std::string s = "Unable to parse STOW-RS JSON response from DICOMweb server " + server;
     OrthancPluginLogError(context_, s.c_str());
     throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);
   }
@@ -109,7 +109,7 @@ static const char* ConvertToCString(const std::string& s)
 
 
 
-static void SendStowRequest(const Orthanc::WebServiceParameters& peer,
+static void SendStowRequest(const Orthanc::WebServiceParameters& server,
                             const std::string& mime,
                             const std::string& body,
                             size_t countInstances)
@@ -126,30 +126,30 @@ static void SendStowRequest(const Orthanc::WebServiceParameters& peer,
     mime.c_str()
   };
 
-  std::string url = peer.GetUrl() + "studies";
+  std::string url = server.GetUrl() + "studies";
 
   uint16_t status = 0;
   OrthancPluginMemoryBuffer answerBody;
   OrthancPluginErrorCode code = OrthancPluginHttpClient(
     context_, &answerBody, 
-    NULL,                                 /* No interest in the HTTP headers of the answer */
+    NULL,                                   /* No interest in the HTTP headers of the answer */
     &status, 
     OrthancPluginHttpMethod_Post,
     url.c_str(), 
-    3, headersKeys, headersValues,        /* HTTP headers */
-    body.c_str(), body.size(),            /* POST body */
-    ConvertToCString(peer.GetUsername()), /* Authentication */
-    ConvertToCString(peer.GetPassword()), 
-    0,                                    /* Timeout */
-    ConvertToCString(peer.GetCertificateFile()),
-    ConvertToCString(peer.GetCertificateKeyFile()),
-    ConvertToCString(peer.GetCertificateKeyPassword()),
-    peer.IsPkcs11Enabled() ? 1 : 0);
+    3, headersKeys, headersValues,          /* HTTP headers */
+    body.c_str(), body.size(),              /* POST body */
+    ConvertToCString(server.GetUsername()), /* Authentication */
+    ConvertToCString(server.GetPassword()), 
+    0,                                      /* Timeout */
+    ConvertToCString(server.GetCertificateFile()),
+    ConvertToCString(server.GetCertificateKeyFile()),
+    ConvertToCString(server.GetCertificateKeyPassword()),
+    server.IsPkcs11Enabled() ? 1 : 0);
 
   if (code != OrthancPluginErrorCode_Success ||
       (status != 200 && status != 202))
   {
-    std::string s = ("Cannot send DICOM images through STOW-RS to DICOMweb peer " + peer.GetUrl() + 
+    std::string s = ("Cannot send DICOM images through STOW-RS to DICOMweb server " + server.GetUrl() + 
                      " (HTTP status: " + boost::lexical_cast<std::string>(status) + ")");
     OrthancPluginLogError(context_, s.c_str());
     throw Orthanc::OrthancException(static_cast<Orthanc::ErrorCode>(code));
@@ -165,13 +165,13 @@ static void SendStowRequest(const Orthanc::WebServiceParameters& peer,
       response.type() != Json::objectValue ||
       !response.isMember("00081199"))
   {
-    std::string s = "Unable to parse STOW-RS JSON response from DICOMweb peer " + peer.GetUrl();
+    std::string s = "Unable to parse STOW-RS JSON response from DICOMweb server " + server.GetUrl();
     OrthancPluginLogError(context_, s.c_str());
     throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);
   }
 
   size_t size;
-  if (!GetSequenceSize(size, response, "00081199", true, peer.GetUrl()) ||
+  if (!GetSequenceSize(size, response, "00081199", true, server.GetUrl()) ||
       size != countInstances)
   {
     std::string s = ("The STOW-RS server was only able to receive " + 
@@ -181,7 +181,7 @@ static void SendStowRequest(const Orthanc::WebServiceParameters& peer,
     throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);
   }
 
-  if (GetSequenceSize(size, response, "00081198", false, peer.GetUrl()) &&
+  if (GetSequenceSize(size, response, "00081198", false, server.GetUrl()) &&
       size != 0)
   {
     std::string s = ("The response from the STOW-RS server contains " + 
@@ -191,7 +191,7 @@ static void SendStowRequest(const Orthanc::WebServiceParameters& peer,
     throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);    
   }
 
-  if (GetSequenceSize(size, response, "0008119A", false, peer.GetUrl()) &&
+  if (GetSequenceSize(size, response, "0008119A", false, server.GetUrl()) &&
       size != 0)
   {
     std::string s = ("The response from the STOW-RS server contains " + 
@@ -260,7 +260,7 @@ static void GetListOfInstances(std::list<std::string>& instances,
 }
 
 
-static void SendStowChunks(const Orthanc::WebServiceParameters& peer,
+static void SendStowChunks(const Orthanc::WebServiceParameters& server,
                            const std::string& mime,
                            const std::string& boundary,
                            Orthanc::ChunkedBuffer& chunks,
@@ -276,7 +276,7 @@ static void SendStowChunks(const Orthanc::WebServiceParameters& peer,
     std::string body;
     chunks.Flatten(body);
 
-    SendStowRequest(peer, mime, body, countInstances);
+    SendStowRequest(server, mime, body, countInstances);
     countInstances = 0;
   }
 }
@@ -297,14 +297,14 @@ void StowClient(OrthancPluginRestOutput* output,
     return;
   }
 
-  Orthanc::WebServiceParameters peer(OrthancPlugins::DicomWebPeers::GetInstance().GetPeer(request->groups[0]));
+  Orthanc::WebServiceParameters server(OrthancPlugins::DicomWebServers::GetInstance().GetServer(request->groups[0]));
 
   std::list<std::string> instances;
   GetListOfInstances(instances, request);
 
   {
     std::string s = ("Sending " + boost::lexical_cast<std::string>(instances.size()) + 
-                     " instances using STOW-RS to DICOMweb server: " + peer.GetUrl());
+                     " instances using STOW-RS to DICOMweb server: " + server.GetUrl());
     OrthancPluginLogInfo(context_, s.c_str());
   }
 
@@ -342,11 +342,11 @@ void StowClient(OrthancPluginRestOutput* output,
       chunks.AddChunk(dicom);
       countInstances ++;
 
-      SendStowChunks(peer, mime, boundary, chunks, countInstances, false);
+      SendStowChunks(server, mime, boundary, chunks, countInstances, false);
     }
   }
 
-  SendStowChunks(peer, mime, boundary, chunks, countInstances, true);
+  SendStowChunks(server, mime, boundary, chunks, countInstances, true);
 
   std::string answer = "{}\n";
   OrthancPluginAnswerBuffer(context_, output, answer.c_str(), answer.size(), "application/json");
