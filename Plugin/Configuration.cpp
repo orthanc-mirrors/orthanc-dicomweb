@@ -309,6 +309,50 @@ namespace OrthancPlugins
   }
 
 
+  void ParseAssociativeArray(std::map<std::string, std::string>& target,
+                             const Json::Value& value,
+                             const std::string& key)
+  {
+    target.clear();
+
+    if (value.type() != Json::objectValue)
+    {
+      OrthancPlugins::Configuration::LogError("This is not a JSON object");
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
+    }
+
+    if (!value.isMember(key))
+    {
+      return;
+    }
+
+    const Json::Value& tmp = value[key];
+
+    if (tmp.type() != Json::objectValue)
+    {
+      OrthancPlugins::Configuration::LogError("The field \"" + key + "\" of a JSON object is "
+                                              "not a JSON associative array as expected");
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
+    }
+
+    Json::Value::Members names = tmp.getMemberNames();
+
+    for (size_t i = 0; i < names.size(); i++)
+    {
+      if (tmp[names[i]].type() != Json::stringValue)
+      {
+        OrthancPlugins::Configuration::LogError("Some value in the associative array \"" + key + 
+                                                "\" is not a string as expected");
+        throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
+      }
+      else
+      {
+        target[names[i]] = tmp[names[i]].asString();
+      }
+    }
+  }
+
+
   namespace Configuration
   {
     static OrthancConfiguration configuration_;

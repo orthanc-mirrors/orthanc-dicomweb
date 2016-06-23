@@ -74,6 +74,10 @@ namespace OrthancPlugins
                        const std::string& uri,
                        const std::string& body);
 
+  void ParseAssociativeArray(std::map<std::string, std::string>& target,
+                             const Json::Value& value,
+                             const std::string& key);
+
   namespace Configuration
   {
     void Initialize(OrthancPluginContext* context);

@@ -221,36 +221,9 @@ static void ParseRestRequest(std::list<std::string>& instances /* out */,
     throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
   }
 
+  OrthancPlugins::ParseAssociativeArray(httpHeaders, body, HTTP_HEADERS);
+
   Json::Value& resources = body[RESOURCES];
-
-  if (body.isMember(HTTP_HEADERS))
-  {
-    const Json::Value& tmp = body[HTTP_HEADERS];
-
-    if (tmp.type() != Json::objectValue)
-    {
-      OrthancPlugins::Configuration::LogError("The HTTP headers of a DICOMweb STOW-RS client request "
-                                              "must be given as a JSON associative array");
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
-    }
-    else
-    {
-      Json::Value::Members names = tmp.getMemberNames();
-      for (size_t i = 0; i < names.size(); i++)
-      {
-        if (tmp[names[i]].type() != Json::stringValue)
-        {
-          OrthancPlugins::Configuration::LogError("The HTTP header \"" + names[i] + 
-                                                  "\" is not a string in some DICOMweb STOW-RS client request");
-          throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
-        }
-        else
-        {
-          httpHeaders[names[i]] = tmp[names[i]].asString();
-        }
-      }
-    }
-  }
 
   // Extract information about all the child instances
   for (Json::Value::ArrayIndex i = 0; i < resources.size(); i++)

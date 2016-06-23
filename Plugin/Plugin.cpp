@@ -29,6 +29,7 @@
 #include "DicomWebServers.h"
 
 #include "../Orthanc/Plugins/Samples/Common/OrthancPluginCppWrapper.h"
+#include "../Orthanc/Core/Toolbox.h"
 
 #include <gdcmDictEntry.h>
 #include <gdcmDict.h>
@@ -116,7 +117,7 @@ void ListServers(OrthancPluginRestOutput* output,
 
 
 void ListServerOperations(OrthancPluginRestOutput* output,
-                          const char* url,
+                          const char* /*url*/,
                           const OrthancPluginHttpRequest* request)
 {
   if (request->method != OrthancPluginHttpMethod_Get)
@@ -139,8 +140,69 @@ void ListServerOperations(OrthancPluginRestOutput* output,
 
 
 
+static const char* GET_ARGUMENTS = "Arguments";
+
+
+static void UrlEncode(std::string& url,
+                      const Orthanc::WebServiceParameters& server,
+                      const std::string& uri,
+                      const std::map<std::string, std::string>& getArguments)
+{
+  url = server.GetUrl();
+  assert(!url.empty() && url[url.size() - 1] == '/');
+
+  if (uri.find('?') != std::string::npos)
+  {
+    OrthancPlugins::Configuration::LogError("The GET arguments must be provided in the \"" + 
+                                            std::string(GET_ARGUMENTS) + "\" field (\"?\" is disallowed): " + uri);
+    throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
+  }
+
+  // Remove the leading "/" in the URI if need be
+  std::string tmp;
+  if (!uri.empty() &&
+      uri[0] == '/')
+  {
+    url += uri.substr(1);
+  }
+  else
+  {
+    url += uri;
+  }
+
+  bool isFirst = true;
+  for (std::map<std::string, std::string>::const_iterator
+         it = getArguments.begin(); it != getArguments.end(); ++it)
+  {
+    if (isFirst)
+    {
+      url += '?';
+      isFirst = false;
+    }
+    else
+    {
+      url += '&';
+    }
+
+    std::string key, value;
+    Orthanc::Toolbox::UriEncode(key, it->first);
+    Orthanc::Toolbox::UriEncode(value, it->second);
+
+    if (value.empty())
+    {
+      url += key;
+    }
+    else
+    {
+      url += key + "=" + value;
+    }
+  }
+}
+                      
+
+
 void GetFromServer(OrthancPluginRestOutput* output,
-                   const char* url,
+                   const char* /*url*/,
                    const OrthancPluginHttpRequest* request)
 {
   if (request->method != OrthancPluginHttpMethod_Post)
@@ -151,7 +213,6 @@ void GetFromServer(OrthancPluginRestOutput* output,
 
   Orthanc::WebServiceParameters server(OrthancPlugins::DicomWebServers::GetInstance().GetServer(request->groups[0]));
 
-#if 0
   static const char* URI = "Uri";
   static const char* HTTP_HEADERS = "HttpHeaders";
 
@@ -162,15 +223,19 @@ void GetFromServer(OrthancPluginRestOutput* output,
       !body.isMember(URI) ||
       body[URI].type() != Json::stringValue)
   {
-    std::string s = ("A request to the DICOMweb STOW-RS client must provide a JSON object "
-                     "with the field \"Uri\" containing the URI of interest");
-    OrthancPluginLogError(OrthancPlugins::Configuration::GetContext(), s.c_str());
+    OrthancPlugins::Configuration::LogError("A request to the DICOMweb STOW-RS client must provide a JSON object "
+                                            "with the field \"Uri\" containing the URI of interest");
     throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
   }
 
-  std::map<std::string, std::string>
-  Json
-#endif
+  std::map<std::string, std::string> httpHeaders, getArguments;
+  OrthancPlugins::ParseAssociativeArray(httpHeaders, body, HTTP_HEADERS);
+  OrthancPlugins::ParseAssociativeArray(getArguments, body, GET_ARGUMENTS);
+
+  std::string url; 
+  UrlEncode(url, server, body[URI].asString(), getArguments);
+
+  printf("URL: [%s]\n", url.c_str());
 }
 
 
