@@ -662,7 +662,7 @@ namespace OrthancPlugins
 
   std::string ParsedDicomFile::GetWadoUrl(const OrthancPluginHttpRequest* request) const
   {
-    const std::string base = OrthancPlugins::Configuration::GetBaseUrl(configuration_, request);
+    const std::string base = OrthancPlugins::Configuration::GetBaseUrl(request);
     return OrthancPlugins::GetWadoUrl(base, GetDataSet());
   }
 
@@ -693,8 +693,7 @@ namespace OrthancPlugins
   {
     if (key.find('.') != std::string::npos)
     {
-      std::string s = "This DICOMweb plugin does not support hierarchical queries: " + key;
-      OrthancPluginLogError(context_, s.c_str());
+      OrthancPlugins::Configuration::LogError("This DICOMweb plugin does not support hierarchical queries: " + key);
       throw Orthanc::OrthancException(Orthanc::ErrorCode_NotImplemented);
     }
 
@@ -734,14 +733,12 @@ namespace OrthancPlugins
       {
         if (key.find('.') != std::string::npos)
         {
-          std::string s = "This QIDO-RS implementation does not support search over sequences: " + key;
-          OrthancPluginLogError(context_, s.c_str());
+          OrthancPlugins::Configuration::LogError("This QIDO-RS implementation does not support search over sequences: " + key);
           throw Orthanc::OrthancException(Orthanc::ErrorCode_NotImplemented);
         }
         else
         {
-          std::string s = "Illegal tag name in QIDO-RS: " + key;
-          OrthancPluginLogError(context_, s.c_str());
+          OrthancPlugins::Configuration::LogError("Illegal tag name in QIDO-RS: " + key);
           throw Orthanc::OrthancException(Orthanc::ErrorCode_UnknownDicomTag);
         }
       }

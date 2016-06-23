@@ -20,6 +20,7 @@
 #pragma once
 
 #include "../Orthanc/Core/WebServiceParameters.h"
+#include "../Orthanc/Plugins/Samples/Common/OrthancPluginCppWrapper.h"
 
 #include <list>
 #include <string>
@@ -56,4 +57,10 @@ namespace OrthancPlugins
 
     void ListServers(std::list<std::string>& servers);
   };
+
+  void QueryServer(std::string& result,
+                   const Orthanc::WebServiceParameters& server,
+                   const std::map<std::string, std::string>& httpHeaders,
+                   const std::string& uri,
+                   const std::string& body);
 }

@@ -25,6 +25,8 @@
 #include <boost/regex.hpp>
 #include <boost/lexical_cast.hpp>
 
+#include "Plugin.h"
+#include "DicomWebServers.h"
 #include "../Orthanc/Core/Toolbox.h"
 
 namespace OrthancPlugins
@@ -309,73 +311,43 @@ namespace OrthancPlugins
 
   namespace Configuration
   {
-    bool Read(Json::Value& configuration,
-              OrthancPluginContext* context)
-    {
-      std::string s;
+    static OrthancConfiguration configuration_;
 
-      {
-        char* tmp = OrthancPluginGetConfiguration(context);
-        if (tmp == NULL)
-        {
-          OrthancPluginLogError(context, "Error while retrieving the configuration from Orthanc");
-          return false;
-        }
 
-        s.assign(tmp);
-        OrthancPluginFreeString(context, tmp);      
-      }
+    void Initialize(OrthancPluginContext* context)
+    {      
+      OrthancPlugins::OrthancConfiguration global(context);
+      global.GetSection(configuration_, "DicomWeb");
 
-      Json::Reader reader;
-      if (reader.parse(s, configuration))
-      {
-        return true;
-      }
-      else
-      {
-        OrthancPluginLogError(context, "Unable to parse the configuration");
-        return false;
-      }
+      OrthancPlugins::OrthancConfiguration servers;
+      configuration_.GetSection(servers, "Servers");
+      OrthancPlugins::DicomWebServers::GetInstance().Load(servers.GetJson());
     }
 
 
-    std::string GetStringValue(const Json::Value& configuration,
-                               const std::string& key,
+    OrthancPluginContext* GetContext()
+    {
+      return configuration_.GetContext();
+    }
+
+
+    std::string GetStringValue(const std::string& key,
                                const std::string& defaultValue)
     {
-      if (configuration.type() != Json::objectValue ||
-          !configuration.isMember(key) ||
-          configuration[key].type() != Json::stringValue)
-      {
-        return defaultValue;
-      }
-      else
-      {
-        return configuration[key].asString();
-      }
+      return configuration_.GetStringValue(key, defaultValue);
     }
 
 
-    bool GetBoolValue(const Json::Value& configuration,
-                      const std::string& key,
-                      bool defaultValue)
+    bool GetBooleanValue(const std::string& key,
+                         bool defaultValue)
     {
-      if (configuration.type() != Json::objectValue ||
-          !configuration.isMember(key) ||
-          configuration[key].type() != Json::booleanValue)
-      {
-        return defaultValue;
-      }
-      else
-      {
-        return configuration[key].asBool();
-      }
+      return configuration_.GetBooleanValue(key, defaultValue);
     }
 
 
-    std::string GetRoot(const Json::Value& configuration)
+    std::string GetRoot()
     {
-      std::string root = GetStringValue(configuration, "Root", "/dicom-web/");
+      std::string root = configuration_.GetStringValue("Root", "/dicom-web/");
 
       // Make sure the root URI starts and ends with a slash
       if (root.size() == 0 ||
@@ -393,9 +365,9 @@ namespace OrthancPlugins
     }
 
 
-    std::string GetWadoRoot(const Json::Value& configuration)
+    std::string GetWadoRoot()
     {
-      std::string root = GetStringValue(configuration, "WadoRoot", "/wado/");
+      std::string root = configuration_.GetStringValue("WadoRoot", "/wado/");
 
       // Make sure the root URI starts with a slash
       if (root.size() == 0 ||
@@ -414,11 +386,10 @@ namespace OrthancPlugins
     }
 
 
-    std::string  GetBaseUrl(const Json::Value& configuration,
-                            const OrthancPluginHttpRequest* request)
+    std::string  GetBaseUrl(const OrthancPluginHttpRequest* request)
     {
-      std::string host = GetStringValue(configuration, "Host", "");
-      bool ssl = GetBoolValue(configuration, "Ssl", false);
+      std::string host = configuration_.GetStringValue("Host", "");
+      bool ssl = configuration_.GetBooleanValue("Ssl", false);
 
       if (host.empty() &&
           !LookupHttpHeader(host, request, "host"))
@@ -428,9 +399,8 @@ namespace OrthancPlugins
         host = "localhost:8042";
       }
 
-      return (ssl ? "https://" : "http://") + host + GetRoot(configuration);
+      return (ssl ? "https://" : "http://") + host + GetRoot();
     }
-
 
 
     std::string GetWadoUrl(const std::string& wadoBase,
@@ -451,6 +421,24 @@ namespace OrthancPlugins
                 "/series/" + seriesInstanceUid + 
                 "/instances/" + sopInstanceUid + "/");
       }
+    }
+
+
+    void LogError(const std::string& message)
+    {
+      OrthancPluginLogError(GetContext(), message.c_str());
+    }
+
+
+    void LogWarning(const std::string& message)
+    {
+      OrthancPluginLogWarning(GetContext(), message.c_str());
+    }
+
+
+    void LogInfo(const std::string& message)
+    {
+      OrthancPluginLogInfo(GetContext(), message.c_str());
     }
   }
 }

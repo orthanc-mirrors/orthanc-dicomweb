@@ -102,7 +102,10 @@ add_definitions(
   -DORTHANC_ENABLE_MD5=0
   -DORTHANC_ENABLE_BASE64=0
   -DORTHANC_ENABLE_LOGGING=0
+  -DHAS_ORTHANC_EXCEPTION=1
   )
+
+include_directories(${ORTHANC_ROOT}/Core)  # To access "OrthancException.h"
 
 set(CORE_SOURCES
   ${BOOST_SOURCES}
@@ -114,6 +117,7 @@ set(CORE_SOURCES
   ${ORTHANC_ROOT}/Core/Enumerations.cpp
   ${ORTHANC_ROOT}/Core/Toolbox.cpp
   ${ORTHANC_ROOT}/Core/WebServiceParameters.cpp
+  ${ORTHANC_ROOT}/Plugins/Samples/Common/OrthancPluginCppWrapper.cpp
 
   Plugin/ChunkedBuffer.cpp
   Plugin/Configuration.cpp
@@ -153,6 +157,7 @@ install(
 add_executable(UnitTests
   ${CORE_SOURCES}
   ${GTEST_SOURCES}
+  ${CMAKE_SOURCE_DIR}/Plugin/DicomWebServers.cpp
   UnitTestsSources/UnitTestsMain.cpp
   )
 

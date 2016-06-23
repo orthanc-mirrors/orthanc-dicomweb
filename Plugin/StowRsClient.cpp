@@ -70,9 +70,8 @@ static bool GetSequenceSize(size_t& result,
   }
   else if (isMandatory)
   {
-    std::string s = ("The STOW-RS JSON response from DICOMweb server " + server + 
-                     " does not contain the mandatory tag " + upper);
-    OrthancPluginLogError(context_, s.c_str());
+    OrthancPlugins::Configuration::LogError("The STOW-RS JSON response from DICOMweb server " + server + 
+                                            " does not contain the mandatory tag " + upper);
     throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);
   }
   else
@@ -84,8 +83,7 @@ static bool GetSequenceSize(size_t& result,
       !value->isMember("Value") ||
       (*value) ["Value"].type() != Json::arrayValue)
   {
-    std::string s = "Unable to parse STOW-RS JSON response from DICOMweb server " + server;
-    OrthancPluginLogError(context_, s.c_str());
+    OrthancPlugins::Configuration::LogError("Unable to parse STOW-RS JSON response from DICOMweb server " + server);
     throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);
   }
 
@@ -133,7 +131,7 @@ static void SendStowRequest(const Orthanc::WebServiceParameters& server,
   uint16_t status = 0;
   OrthancPluginMemoryBuffer answerBody;
   OrthancPluginErrorCode code = OrthancPluginHttpClient(
-    context_, &answerBody, 
+    OrthancPlugins::Configuration::GetContext(), &answerBody, 
     NULL,                                   /* No interest in the HTTP headers of the answer */
     &status, 
     OrthancPluginHttpMethod_Post,
@@ -154,9 +152,8 @@ static void SendStowRequest(const Orthanc::WebServiceParameters& server,
   if (code != OrthancPluginErrorCode_Success ||
       (status != 200 && status != 202))
   {
-    std::string s = ("Cannot send DICOM images through STOW-RS to DICOMweb server " + server.GetUrl() + 
-                     " (HTTP status: " + boost::lexical_cast<std::string>(status) + ")");
-    OrthancPluginLogError(context_, s.c_str());
+    OrthancPlugins::Configuration::LogError("Cannot send DICOM images through STOW-RS to DICOMweb server " + server.GetUrl() + 
+                                            " (HTTP status: " + boost::lexical_cast<std::string>(status) + ")");
     throw Orthanc::OrthancException(static_cast<Orthanc::ErrorCode>(code));
   }
 
@@ -164,14 +161,13 @@ static void SendStowRequest(const Orthanc::WebServiceParameters& server,
   Json::Reader reader;
   bool success = reader.parse(reinterpret_cast<const char*>(answerBody.data),
                               reinterpret_cast<const char*>(answerBody.data) + answerBody.size, response);
-  OrthancPluginFreeMemoryBuffer(context_, &answerBody);
+  OrthancPluginFreeMemoryBuffer(OrthancPlugins::Configuration::GetContext(), &answerBody);
 
   if (!success ||
       response.type() != Json::objectValue ||
       !response.isMember("00081199"))
   {
-    std::string s = "Unable to parse STOW-RS JSON response from DICOMweb server " + server.GetUrl();
-    OrthancPluginLogError(context_, s.c_str());
+    OrthancPlugins::Configuration::LogError("Unable to parse STOW-RS JSON response from DICOMweb server " + server.GetUrl());
     throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);
   }
 
@@ -179,30 +175,27 @@ static void SendStowRequest(const Orthanc::WebServiceParameters& server,
   if (!GetSequenceSize(size, response, "00081199", true, server.GetUrl()) ||
       size != countInstances)
   {
-    std::string s = ("The STOW-RS server was only able to receive " + 
-                     boost::lexical_cast<std::string>(size) + " instances out of " +
-                     boost::lexical_cast<std::string>(countInstances));
-    OrthancPluginLogError(context_, s.c_str());
+    OrthancPlugins::Configuration::LogError("The STOW-RS server was only able to receive " + 
+                                            boost::lexical_cast<std::string>(size) + " instances out of " +
+                                            boost::lexical_cast<std::string>(countInstances));
     throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);
   }
 
   if (GetSequenceSize(size, response, "00081198", false, server.GetUrl()) &&
       size != 0)
   {
-    std::string s = ("The response from the STOW-RS server contains " + 
-                     boost::lexical_cast<std::string>(size) + 
-                     " items in its Failed SOP Sequence (0008,1198) tag");
-    OrthancPluginLogError(context_, s.c_str());
+    OrthancPlugins::Configuration::LogError("The response from the STOW-RS server contains " + 
+                                            boost::lexical_cast<std::string>(size) + 
+                                            " items in its Failed SOP Sequence (0008,1198) tag");
     throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);    
   }
 
   if (GetSequenceSize(size, response, "0008119A", false, server.GetUrl()) &&
       size != 0)
   {
-    std::string s = ("The response from the STOW-RS server contains " + 
-                     boost::lexical_cast<std::string>(size) + 
-                     " items in its Other Failures Sequence (0008,119A) tag");
-    OrthancPluginLogError(context_, s.c_str());
+    OrthancPlugins::Configuration::LogError("The response from the STOW-RS server contains " + 
+                                            boost::lexical_cast<std::string>(size) + 
+                                            " items in its Other Failures Sequence (0008,119A) tag");
     throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);    
   }
 }
@@ -222,9 +215,9 @@ static void ParseRestRequest(std::list<std::string>& instances /* out */,
       !body.isMember(RESOURCES) ||
       body[RESOURCES].type() != Json::arrayValue)
   {
-    std::string s = ("A request to the DICOMweb STOW-RS client must provide a JSON object "
-                     "with the field \"Resources\" containing an array of resources to be sent");
-    OrthancPluginLogError(context_, s.c_str());
+    OrthancPlugins::Configuration::LogError("A request to the DICOMweb STOW-RS client must provide a JSON object "
+                                            "with the field \"" + std::string(RESOURCES) + 
+                                            "\" containing an array of resources to be sent");
     throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
   }
 
@@ -236,8 +229,8 @@ static void ParseRestRequest(std::list<std::string>& instances /* out */,
 
     if (tmp.type() != Json::objectValue)
     {
-      std::string s = "The HTTP headers of a DICOMweb STOW-RS client request must be given as a JSON associative array";
-      OrthancPluginLogError(context_, s.c_str());
+      OrthancPlugins::Configuration::LogError("The HTTP headers of a DICOMweb STOW-RS client request "
+                                              "must be given as a JSON associative array");
       throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
     }
     else
@@ -247,8 +240,8 @@ static void ParseRestRequest(std::list<std::string>& instances /* out */,
       {
         if (tmp[names[i]].type() != Json::stringValue)
         {
-          std::string s = "The HTTP header \"" + names[i] + "\" is not a string in some DICOMweb STOW-RS client request";
-          OrthancPluginLogError(context_, s.c_str());
+          OrthancPlugins::Configuration::LogError("The HTTP header \"" + names[i] + 
+                                                  "\" is not a string in some DICOMweb STOW-RS client request");
           throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
         }
         else
@@ -274,16 +267,16 @@ static void ParseRestRequest(std::list<std::string>& instances /* out */,
     }
 
     Json::Value tmp;
-    if (OrthancPlugins::RestApiGetJson(tmp, context_, "/instances/" + resource, false))
+    if (OrthancPlugins::RestApiGetJson(tmp, OrthancPlugins::Configuration::GetContext(), "/instances/" + resource, false))
     {
       AddInstance(instances, tmp);
     }
-    else if ((OrthancPlugins::RestApiGetJson(tmp, context_, "/series/" + resource, false) &&
-              OrthancPlugins::RestApiGetJson(tmp, context_, "/series/" + resource + "/instances", false)) ||
-             (OrthancPlugins::RestApiGetJson(tmp, context_, "/studies/" + resource, false) &&
-              OrthancPlugins::RestApiGetJson(tmp, context_, "/studies/" + resource + "/instances", false)) ||
-             (OrthancPlugins::RestApiGetJson(tmp, context_, "/patients/" + resource, false) &&
-              OrthancPlugins::RestApiGetJson(tmp, context_, "/patients/" + resource + "/instances", false)))
+    else if ((OrthancPlugins::RestApiGetJson(tmp, OrthancPlugins::Configuration::GetContext(), "/series/" + resource, false) &&
+              OrthancPlugins::RestApiGetJson(tmp, OrthancPlugins::Configuration::GetContext(), "/series/" + resource + "/instances", false)) ||
+             (OrthancPlugins::RestApiGetJson(tmp, OrthancPlugins::Configuration::GetContext(), "/studies/" + resource, false) &&
+              OrthancPlugins::RestApiGetJson(tmp, OrthancPlugins::Configuration::GetContext(), "/studies/" + resource + "/instances", false)) ||
+             (OrthancPlugins::RestApiGetJson(tmp, OrthancPlugins::Configuration::GetContext(), "/patients/" + resource, false) &&
+              OrthancPlugins::RestApiGetJson(tmp, OrthancPlugins::Configuration::GetContext(), "/patients/" + resource + "/instances", false)))
     {
       if (tmp.type() != Json::arrayValue)
       {
@@ -336,7 +329,7 @@ void StowClient(OrthancPluginRestOutput* output,
 
   if (request->method != OrthancPluginHttpMethod_Post)
   {
-    OrthancPluginSendMethodNotAllowed(context_, output, "POST");
+    OrthancPluginSendMethodNotAllowed(OrthancPlugins::Configuration::GetContext(), output, "POST");
     return;
   }
 
@@ -345,18 +338,18 @@ void StowClient(OrthancPluginRestOutput* output,
   std::string boundary;
 
   {
-    char* uuid = OrthancPluginGenerateUuid(context_);
+    char* uuid = OrthancPluginGenerateUuid(OrthancPlugins::Configuration::GetContext());
     try
     {
       boundary.assign(uuid);
     }
     catch (...)
     {
-      OrthancPluginFreeString(context_, uuid);
+      OrthancPluginFreeString(OrthancPlugins::Configuration::GetContext(), uuid);
       throw Orthanc::OrthancException(Orthanc::ErrorCode_NotEnoughMemory);
     }
 
-    OrthancPluginFreeString(context_, uuid);
+    OrthancPluginFreeString(OrthancPlugins::Configuration::GetContext(), uuid);
   }
 
   std::string mime = "multipart/related; type=application/dicom; boundary=" + boundary;
@@ -370,9 +363,8 @@ void StowClient(OrthancPluginRestOutput* output,
   ParseRestRequest(instances, httpHeaders, request);
 
   {
-    std::string s = ("Sending " + boost::lexical_cast<std::string>(instances.size()) + 
-                     " instances using STOW-RS to DICOMweb server: " + server.GetUrl());
-    OrthancPluginLogInfo(context_, s.c_str());
+    OrthancPlugins::Configuration::LogInfo("Sending " + boost::lexical_cast<std::string>(instances.size()) + 
+                                           " instances using STOW-RS to DICOMweb server: " + server.GetUrl());
   }
 
   Orthanc::ChunkedBuffer chunks;
@@ -381,7 +373,7 @@ void StowClient(OrthancPluginRestOutput* output,
   for (std::list<std::string>::const_iterator it = instances.begin(); it != instances.end(); it++)
   {
     std::string dicom;
-    if (OrthancPlugins::RestApiGetString(dicom, context_, "/instances/" + *it + "/file"))
+    if (OrthancPlugins::RestApiGetString(dicom, OrthancPlugins::Configuration::GetContext(), "/instances/" + *it + "/file"))
     {
       chunks.AddChunk("\r\n--" + boundary + "\r\n" +
                       "Content-Type: application/dicom\r\n" +
@@ -397,5 +389,5 @@ void StowClient(OrthancPluginRestOutput* output,
   SendStowChunks(server, httpHeaders, boundary, chunks, countInstances, true);
 
   std::string answer = "{}\n";
-  OrthancPluginAnswerBuffer(context_, output, answer.c_str(), answer.size(), "application/json");
+  OrthancPluginAnswerBuffer(OrthancPlugins::Configuration::GetContext(), output, answer.c_str(), answer.size(), "application/json");
 }

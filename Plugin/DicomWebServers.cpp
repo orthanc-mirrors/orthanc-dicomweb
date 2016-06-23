@@ -20,7 +20,7 @@
 
 #include "DicomWebServers.h"
 
-#include "Plugin.h"
+#include "Configuration.h"
 #include "../Orthanc/Core/OrthancException.h"
 
 namespace OrthancPlugins
@@ -34,33 +34,28 @@ namespace OrthancPlugins
   }
 
 
-  void DicomWebServers::Load(const Json::Value& configuration)
+  void DicomWebServers::Load(const Json::Value& servers)
   {
     boost::mutex::scoped_lock lock(mutex_);
 
     Clear();
 
-    if (!configuration.isMember("Servers"))
-    {
-      return;
-    }
-
     bool ok = true;
 
     try
     {
-      if (configuration["Servers"].type() != Json::objectValue)
+      if (servers.type() != Json::objectValue)
       {
         ok = false;
       }
       else
       {
-        Json::Value::Members members = configuration["Servers"].getMemberNames();
+        Json::Value::Members members = servers.getMemberNames();
 
         for (size_t i = 0; i < members.size(); i++)
         {
           std::auto_ptr<Orthanc::WebServiceParameters> parameters(new Orthanc::WebServiceParameters);
-          parameters->FromJson(configuration["Servers"][members[i]]);
+          parameters->FromJson(servers[members[i]]);
 
           servers_[members[i]] = parameters.release();
         }
@@ -68,15 +63,14 @@ namespace OrthancPlugins
     }
     catch (Orthanc::OrthancException& e)
     {
-      std::string s = ("Exception while parsing the \"DicomWeb.Servers\" section "
-                       "of the configuration file: " + std::string(e.What()));
-      OrthancPluginLogError(context_, s.c_str());
+      OrthancPlugins::Configuration::LogError("Exception while parsing the \"DicomWeb.Servers\" section "
+                                              "of the configuration file: " + std::string(e.What()));
       throw;
     }
 
     if (!ok)
     {
-      OrthancPluginLogError(context_, "Cannot parse the \"DicomWeb.Servers\" section of the configuration file");
+      OrthancPlugins::Configuration::LogError("Cannot parse the \"DicomWeb.Servers\" section of the configuration file");
       throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
     }
   }
@@ -97,8 +91,7 @@ namespace OrthancPlugins
     if (server == servers_.end() ||
         server->second == NULL)
     {
-      std::string s = "Inexistent server: " + name;
-      OrthancPluginLogError(context_, s.c_str());
+      OrthancPlugins::Configuration::LogError("Inexistent server: " + name);
       throw Orthanc::OrthancException(Orthanc::ErrorCode_InexistentItem);
     }
     else

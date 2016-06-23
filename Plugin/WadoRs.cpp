@@ -45,8 +45,7 @@ static bool AcceptMultipartDicom(const OrthancPluginHttpRequest* request)
   if (application != "multipart/related" &&
       application != "*/*")
   {
-    std::string s = "This WADO-RS plugin cannot generate the following content type: " + accept;
-    OrthancPluginLogError(context_, s.c_str());
+    OrthancPlugins::Configuration::LogError("This WADO-RS plugin cannot generate the following content type: " + accept);
     return false;
   }
 
@@ -56,16 +55,16 @@ static bool AcceptMultipartDicom(const OrthancPluginHttpRequest* request)
     Orthanc::Toolbox::ToLowerCase(s);
     if (s != "application/dicom")
     {
-      std::string s = "This WADO-RS plugin only supports application/dicom return type for DICOM retrieval (" + accept + ")";
-      OrthancPluginLogError(context_, s.c_str());
+      OrthancPlugins::Configuration::LogError("This WADO-RS plugin only supports application/dicom "
+                                              "return type for DICOM retrieval (" + accept + ")");
       return false;
     }
   }
 
   if (attributes.find("transfer-syntax") != attributes.end())
   {
-    std::string s = "This WADO-RS plugin cannot change the transfer syntax to " + attributes["transfer-syntax"];
-    OrthancPluginLogError(context_, s.c_str());
+    OrthancPlugins::Configuration::LogError("This WADO-RS plugin cannot change the transfer syntax to " + 
+                                            attributes["transfer-syntax"]);
     return false;
   }
 
@@ -100,8 +99,7 @@ static bool AcceptMetadata(const OrthancPluginHttpRequest* request,
   if (application != "multipart/related" &&
       application != "*/*")
   {
-    std::string s = "This WADO-RS plugin cannot generate the following content type: " + accept;
-    OrthancPluginLogError(context_, s.c_str());
+    OrthancPlugins::Configuration::LogError("This WADO-RS plugin cannot generate the following content type: " + accept);
     return false;
   }
 
@@ -111,16 +109,16 @@ static bool AcceptMetadata(const OrthancPluginHttpRequest* request,
     Orthanc::Toolbox::ToLowerCase(s);
     if (s != "application/dicom+xml")
     {
-      std::string s = "This WADO-RS plugin only supports application/json or application/dicom+xml return types for metadata (" + accept + ")";
-      OrthancPluginLogError(context_, s.c_str());
+      OrthancPlugins::Configuration::LogError("This WADO-RS plugin only supports application/json or "
+                                              "application/dicom+xml return types for metadata (" + accept + ")");
       return false;
     }
   }
 
   if (attributes.find("transfer-syntax") != attributes.end())
   {
-    std::string s = "This WADO-RS plugin cannot change the transfer syntax to " + attributes["transfer-syntax"];
-    OrthancPluginLogError(context_, s.c_str());
+    OrthancPlugins::Configuration::LogError("This WADO-RS plugin cannot change the transfer syntax to " + 
+                                            attributes["transfer-syntax"]);
     return false;
   }
 
@@ -145,8 +143,7 @@ static bool AcceptBulkData(const OrthancPluginHttpRequest* request)
   if (application != "multipart/related" &&
       application != "*/*")
   {
-    std::string s = "This WADO-RS plugin cannot generate the following bulk data type: " + accept;
-    OrthancPluginLogError(context_, s.c_str());
+    OrthancPlugins::Configuration::LogError("This WADO-RS plugin cannot generate the following bulk data type: " + accept);
     return false;
   }
 
@@ -156,16 +153,16 @@ static bool AcceptBulkData(const OrthancPluginHttpRequest* request)
     Orthanc::Toolbox::ToLowerCase(s);
     if (s != "application/octet-stream")
     {
-      std::string s = "This WADO-RS plugin only supports application/octet-stream return type for bulk data retrieval (" + accept + ")";
-      OrthancPluginLogError(context_, s.c_str());
+      OrthancPlugins::Configuration::LogError("This WADO-RS plugin only supports application/octet-stream "
+                                              "return type for bulk data retrieval (" + accept + ")");
       return false;
     }
   }
 
   if (attributes.find("ra,ge") != attributes.end())
   {
-    std::string s = "This WADO-RS plugin does not support Range retrieval, it can only return entire bulk data object";
-    OrthancPluginLogError(context_, s.c_str());
+    OrthancPlugins::Configuration::LogError("This WADO-RS plugin does not support Range retrieval, "
+                                            "it can only return entire bulk data object");
     return false;
   }
 
@@ -177,14 +174,14 @@ static void AnswerListOfDicomInstances(OrthancPluginRestOutput* output,
                                        const std::string& resource)
 {
   Json::Value instances;
-  if (!OrthancPlugins::RestApiGetJson(instances, context_, resource + "/instances"))
+  if (!OrthancPlugins::RestApiGetJson(instances, OrthancPlugins::Configuration::GetContext(), resource + "/instances"))
   {
     // Internal error
-    OrthancPluginSendHttpStatusCode(context_, output, 400);
+    OrthancPluginSendHttpStatusCode(OrthancPlugins::Configuration::GetContext(), output, 400);
     return;
   }
 
-  if (OrthancPluginStartMultipartAnswer(context_, output, "related", "application/dicom"))
+  if (OrthancPluginStartMultipartAnswer(OrthancPlugins::Configuration::GetContext(), output, "related", "application/dicom"))
   {
     throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);
   }
@@ -193,8 +190,8 @@ static void AnswerListOfDicomInstances(OrthancPluginRestOutput* output,
   {
     std::string uri = "/instances/" + instances[i]["ID"].asString() + "/file";
     std::string dicom;
-    if (OrthancPlugins::RestApiGetString(dicom, context_, uri) &&
-        OrthancPluginSendMultipartItem(context_, output, dicom.c_str(), dicom.size()) != 0)
+    if (OrthancPlugins::RestApiGetString(dicom, OrthancPlugins::Configuration::GetContext(), uri) &&
+        OrthancPluginSendMultipartItem(OrthancPlugins::Configuration::GetContext(), output, dicom.c_str(), dicom.size()) != 0)
     {
       throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
     }
@@ -217,10 +214,10 @@ static void AnswerMetadata(OrthancPluginRestOutput* output,
   else
   {
     Json::Value instances;
-    if (!OrthancPlugins::RestApiGetJson(instances, context_, resource + "/instances"))
+    if (!OrthancPlugins::RestApiGetJson(instances, OrthancPlugins::Configuration::GetContext(), resource + "/instances"))
     {
       // Internal error
-      OrthancPluginSendHttpStatusCode(context_, output, 400);
+      OrthancPluginSendHttpStatusCode(OrthancPlugins::Configuration::GetContext(), output, 400);
       return;
     }
 
@@ -230,14 +227,14 @@ static void AnswerMetadata(OrthancPluginRestOutput* output,
     }
   }
 
-  const std::string wadoBase = OrthancPlugins::Configuration::GetBaseUrl(configuration_, request);
-  OrthancPlugins::DicomResults results(context_, output, wadoBase, *dictionary_, isXml, true);
+  const std::string wadoBase = OrthancPlugins::Configuration::GetBaseUrl(request);
+  OrthancPlugins::DicomResults results(OrthancPlugins::Configuration::GetContext(), output, wadoBase, *dictionary_, isXml, true);
   
   for (std::list<std::string>::const_iterator
          it = files.begin(); it != files.end(); ++it)
   {
     std::string content; 
-    if (OrthancPlugins::RestApiGetString(content, context_, *it))
+    if (OrthancPlugins::RestApiGetString(content, OrthancPlugins::Configuration::GetContext(), *it))
     {
       OrthancPlugins::ParsedDicomFile dicom(content);
       results.Add(dicom.GetFile());
@@ -256,24 +253,23 @@ static bool LocateStudy(OrthancPluginRestOutput* output,
 {
   if (request->method != OrthancPluginHttpMethod_Get)
   {
-    OrthancPluginSendMethodNotAllowed(context_, output, "GET");
+    OrthancPluginSendMethodNotAllowed(OrthancPlugins::Configuration::GetContext(), output, "GET");
     return false;
   }
 
   std::string id;
 
   {
-    char* tmp = OrthancPluginLookupStudy(context_, request->groups[0]);
+    char* tmp = OrthancPluginLookupStudy(OrthancPlugins::Configuration::GetContext(), request->groups[0]);
     if (tmp == NULL)
     {
-      std::string s = "Accessing an inexistent study with WADO-RS: " + std::string(request->groups[0]);
-      OrthancPluginLogError(context_, s.c_str());
-      OrthancPluginSendHttpStatusCode(context_, output, 404);
+      OrthancPlugins::Configuration::LogError("Accessing an inexistent study with WADO-RS: " + std::string(request->groups[0]));
+      OrthancPluginSendHttpStatusCode(OrthancPlugins::Configuration::GetContext(), output, 404);
       return false;
     }
 
     id.assign(tmp);
-    OrthancPluginFreeString(context_, tmp);
+    OrthancPluginFreeString(OrthancPlugins::Configuration::GetContext(), tmp);
   }
   
   uri = "/studies/" + id;
@@ -287,38 +283,37 @@ static bool LocateSeries(OrthancPluginRestOutput* output,
 {
   if (request->method != OrthancPluginHttpMethod_Get)
   {
-    OrthancPluginSendMethodNotAllowed(context_, output, "GET");
+    OrthancPluginSendMethodNotAllowed(OrthancPlugins::Configuration::GetContext(), output, "GET");
     return false;
   }
 
   std::string id;
 
   {
-    char* tmp = OrthancPluginLookupSeries(context_, request->groups[1]);
+    char* tmp = OrthancPluginLookupSeries(OrthancPlugins::Configuration::GetContext(), request->groups[1]);
     if (tmp == NULL)
     {
-      std::string s = "Accessing an inexistent series with WADO-RS: " + std::string(request->groups[1]);
-      OrthancPluginLogError(context_, s.c_str());
-      OrthancPluginSendHttpStatusCode(context_, output, 404);
+      OrthancPlugins::Configuration::LogError("Accessing an inexistent series with WADO-RS: " + std::string(request->groups[1]));
+      OrthancPluginSendHttpStatusCode(OrthancPlugins::Configuration::GetContext(), output, 404);
       return false;
     }
 
     id.assign(tmp);
-    OrthancPluginFreeString(context_, tmp);
+    OrthancPluginFreeString(OrthancPlugins::Configuration::GetContext(), tmp);
   }
   
   Json::Value study;
-  if (!OrthancPlugins::RestApiGetJson(study, context_, "/series/" + id + "/study"))
+  if (!OrthancPlugins::RestApiGetJson(study, OrthancPlugins::Configuration::GetContext(), "/series/" + id + "/study"))
   {
-    OrthancPluginSendHttpStatusCode(context_, output, 404);
+    OrthancPluginSendHttpStatusCode(OrthancPlugins::Configuration::GetContext(), output, 404);
     return false;
   }
 
   if (study["MainDicomTags"]["StudyInstanceUID"].asString() != std::string(request->groups[0]))
   {
-    std::string s = "No series " + std::string(request->groups[1]) + " in study " + std::string(request->groups[0]);
-    OrthancPluginLogError(context_, s.c_str());
-    OrthancPluginSendHttpStatusCode(context_, output, 404);
+    OrthancPlugins::Configuration::LogError("No series " + std::string(request->groups[1]) + 
+                                            " in study " + std::string(request->groups[0]));
+    OrthancPluginSendHttpStatusCode(OrthancPlugins::Configuration::GetContext(), output, 404);
     return false;
   }
   
@@ -333,42 +328,41 @@ bool LocateInstance(OrthancPluginRestOutput* output,
 {
   if (request->method != OrthancPluginHttpMethod_Get)
   {
-    OrthancPluginSendMethodNotAllowed(context_, output, "GET");
+    OrthancPluginSendMethodNotAllowed(OrthancPlugins::Configuration::GetContext(), output, "GET");
     return false;
   }
 
   std::string id;
 
   {
-    char* tmp = OrthancPluginLookupInstance(context_, request->groups[2]);
+    char* tmp = OrthancPluginLookupInstance(OrthancPlugins::Configuration::GetContext(), request->groups[2]);
     if (tmp == NULL)
     {
-      std::string s = "Accessing an inexistent instance with WADO-RS: " + std::string(request->groups[2]);
-      OrthancPluginLogError(context_, s.c_str());
-      OrthancPluginSendHttpStatusCode(context_, output, 404);
+      OrthancPlugins::Configuration::LogError("Accessing an inexistent instance with WADO-RS: " + 
+                                              std::string(request->groups[2]));
+      OrthancPluginSendHttpStatusCode(OrthancPlugins::Configuration::GetContext(), output, 404);
       return false;
     }
 
     id.assign(tmp);
-    OrthancPluginFreeString(context_, tmp);
+    OrthancPluginFreeString(OrthancPlugins::Configuration::GetContext(), tmp);
   }
   
   Json::Value study, series;
-  if (!OrthancPlugins::RestApiGetJson(series, context_, "/instances/" + id + "/series") ||
-      !OrthancPlugins::RestApiGetJson(study, context_, "/instances/" + id + "/study"))
+  if (!OrthancPlugins::RestApiGetJson(series, OrthancPlugins::Configuration::GetContext(), "/instances/" + id + "/series") ||
+      !OrthancPlugins::RestApiGetJson(study, OrthancPlugins::Configuration::GetContext(), "/instances/" + id + "/study"))
   {
-    OrthancPluginSendHttpStatusCode(context_, output, 404);
+    OrthancPluginSendHttpStatusCode(OrthancPlugins::Configuration::GetContext(), output, 404);
     return false;
   }
 
   if (study["MainDicomTags"]["StudyInstanceUID"].asString() != std::string(request->groups[0]) ||
       series["MainDicomTags"]["SeriesInstanceUID"].asString() != std::string(request->groups[1]))
   {
-    std::string s = ("No instance " + std::string(request->groups[2]) + 
-                     " in study " + std::string(request->groups[0]) + " or " +
-                     " in series " + std::string(request->groups[1]));
-    OrthancPluginLogError(context_, s.c_str());
-    OrthancPluginSendHttpStatusCode(context_, output, 404);
+    OrthancPlugins::Configuration::LogError("No instance " + std::string(request->groups[2]) + 
+                                            " in study " + std::string(request->groups[0]) + " or " +
+                                            " in series " + std::string(request->groups[1]));
+    OrthancPluginSendHttpStatusCode(OrthancPlugins::Configuration::GetContext(), output, 404);
     return false;
   }
 
@@ -383,7 +377,7 @@ void RetrieveDicomStudy(OrthancPluginRestOutput* output,
 {
   if (!AcceptMultipartDicom(request))
   {
-    OrthancPluginSendHttpStatusCode(context_, output, 400 /* Bad request */);
+    OrthancPluginSendHttpStatusCode(OrthancPlugins::Configuration::GetContext(), output, 400 /* Bad request */);
   }
   else
   {
@@ -402,7 +396,7 @@ void RetrieveDicomSeries(OrthancPluginRestOutput* output,
 {
   if (!AcceptMultipartDicom(request))
   {
-    OrthancPluginSendHttpStatusCode(context_, output, 400 /* Bad request */);
+    OrthancPluginSendHttpStatusCode(OrthancPlugins::Configuration::GetContext(), output, 400 /* Bad request */);
   }
   else
   {
@@ -422,21 +416,21 @@ void RetrieveDicomInstance(OrthancPluginRestOutput* output,
 {
   if (!AcceptMultipartDicom(request))
   {
-    OrthancPluginSendHttpStatusCode(context_, output, 400 /* Bad request */);
+    OrthancPluginSendHttpStatusCode(OrthancPlugins::Configuration::GetContext(), output, 400 /* Bad request */);
   }
   else
   {
     std::string uri;
     if (LocateInstance(output, uri, request))
     {
-      if (OrthancPluginStartMultipartAnswer(context_, output, "related", "application/dicom"))
+      if (OrthancPluginStartMultipartAnswer(OrthancPlugins::Configuration::GetContext(), output, "related", "application/dicom"))
       {
         throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);
       }
   
       std::string dicom;
-      if (OrthancPlugins::RestApiGetString(dicom, context_, uri + "/file") &&
-          OrthancPluginSendMultipartItem(context_, output, dicom.c_str(), dicom.size()) != 0)
+      if (OrthancPlugins::RestApiGetString(dicom, OrthancPlugins::Configuration::GetContext(), uri + "/file") &&
+          OrthancPluginSendMultipartItem(OrthancPlugins::Configuration::GetContext(), output, dicom.c_str(), dicom.size()) != 0)
       {
         throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);
       }
@@ -453,7 +447,7 @@ void RetrieveStudyMetadata(OrthancPluginRestOutput* output,
   bool isXml;
   if (!AcceptMetadata(request, isXml))
   {
-    OrthancPluginSendHttpStatusCode(context_, output, 400 /* Bad request */);
+    OrthancPluginSendHttpStatusCode(OrthancPlugins::Configuration::GetContext(), output, 400 /* Bad request */);
   }
   else
   {
@@ -473,7 +467,7 @@ void RetrieveSeriesMetadata(OrthancPluginRestOutput* output,
   bool isXml;
   if (!AcceptMetadata(request, isXml))
   {
-    OrthancPluginSendHttpStatusCode(context_, output, 400 /* Bad request */);
+    OrthancPluginSendHttpStatusCode(OrthancPlugins::Configuration::GetContext(), output, 400 /* Bad request */);
   }
   else
   {
@@ -493,7 +487,7 @@ void RetrieveInstanceMetadata(OrthancPluginRestOutput* output,
   bool isXml;
   if (!AcceptMetadata(request, isXml))
   {
-    OrthancPluginSendHttpStatusCode(context_, output, 400 /* Bad request */);
+    OrthancPluginSendHttpStatusCode(OrthancPlugins::Configuration::GetContext(), output, 400 /* Bad request */);
   }
   else
   {
@@ -584,13 +578,13 @@ void RetrieveBulkData(OrthancPluginRestOutput* output,
 {
   if (!AcceptBulkData(request))
   {
-    OrthancPluginSendHttpStatusCode(context_, output, 400 /* Bad request */);
+    OrthancPluginSendHttpStatusCode(OrthancPlugins::Configuration::GetContext(), output, 400 /* Bad request */);
     return;
   }
 
   std::string uri, content;
   if (LocateInstance(output, uri, request) &&
-      OrthancPlugins::RestApiGetString(content, context_, uri + "/file"))
+      OrthancPlugins::RestApiGetString(content, OrthancPlugins::Configuration::GetContext(), uri + "/file"))
   {
     OrthancPlugins::ParsedDicomFile dicom(content);
 
@@ -601,15 +595,15 @@ void RetrieveBulkData(OrthancPluginRestOutput* output,
     if (path.size() % 2 == 1 &&
         ExploreBulkData(result, path, 0, dicom.GetDataSet()))
     {
-      if (OrthancPluginStartMultipartAnswer(context_, output, "related", "application/octet-stream") != 0 ||
-          OrthancPluginSendMultipartItem(context_, output, result.c_str(), result.size()) != 0)
+      if (OrthancPluginStartMultipartAnswer(OrthancPlugins::Configuration::GetContext(), output, "related", "application/octet-stream") != 0 ||
+          OrthancPluginSendMultipartItem(OrthancPlugins::Configuration::GetContext(), output, result.c_str(), result.size()) != 0)
       {
         throw Orthanc::OrthancException(Orthanc::ErrorCode_Plugin);
       }
     }
     else
     {
-      OrthancPluginSendHttpStatusCode(context_, output, 400 /* Bad request */);
+      OrthancPluginSendHttpStatusCode(OrthancPlugins::Configuration::GetContext(), output, 400 /* Bad request */);
     }      
   }
 }

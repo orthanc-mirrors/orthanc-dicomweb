@@ -104,9 +104,8 @@ static gdcm::TransferSyntax ParseTransferSyntax(const OrthancPluginHttpRequest* 
         }
         else
         {
-          std::string s = ("DICOMweb RetrieveFrames: Cannot specify a transfer syntax (" + 
-                           transferSyntax + ") for default Little Endian uncompressed pixel data");
-          OrthancPluginLogError(context_, s.c_str());
+          OrthancPlugins::Configuration::LogError("DICOMweb RetrieveFrames: Cannot specify a transfer syntax (" + 
+                                                  transferSyntax + ") for default Little Endian uncompressed pixel data");
           throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest);
         }
       }
@@ -164,9 +163,8 @@ static gdcm::TransferSyntax ParseTransferSyntax(const OrthancPluginHttpRequest* 
         }
         else
         {
-          std::string s = ("DICOMweb RetrieveFrames: Transfer syntax \"" + 
-                           transferSyntax + "\" is incompatible with media type \"" + type + "\"");
-          OrthancPluginLogError(context_, s.c_str());
+          OrthancPlugins::Configuration::LogError("DICOMweb RetrieveFrames: Transfer syntax \"" + 
+                                                  transferSyntax + "\" is incompatible with media type \"" + type + "\"");
           throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest);
         }
       }
@@ -201,8 +199,7 @@ static void ParseFrameList(std::list<unsigned int>& frames,
     int frame = boost::lexical_cast<int>(tokens[i]);
     if (frame <= 0)
     {
-      std::string s = "Invalid frame number (must be > 0): " + tokens[i];
-      OrthancPluginLogError(context_, s.c_str());
+      OrthancPlugins::Configuration::LogError("Invalid frame number (must be > 0): " + tokens[i]);
       throw Orthanc::OrthancException(Orthanc::ErrorCode_ParameterOutOfRange);
     }
 
@@ -272,9 +269,9 @@ static void AnswerSingleFrame(OrthancPluginRestOutput* output,
   std::string location = dicom.GetWadoUrl(request) + "frames/" + boost::lexical_cast<std::string>(frameIndex + 1);
   const char *keys[] = { "Content-Location" };
   const char *values[] = { location.c_str() };
-  error = OrthancPluginSendMultipartItem2(context_, output, frame, size, 1, keys, values);
+  error = OrthancPluginSendMultipartItem2(OrthancPlugins::Configuration::GetContext(), output, frame, size, 1, keys, values);
 #else
-  error = OrthancPluginSendMultipartItem(context_, output, frame, size);
+  error = OrthancPluginSendMultipartItem(OrthancPlugins::Configuration::GetContext(), output, frame, size);
 #endif
 
   if (error != OrthancPluginErrorCode_Success)
@@ -299,7 +296,7 @@ static bool AnswerFrames(OrthancPluginRestOutput* output,
   const gdcm::DataElement& pixelData = dicom.GetDataSet().GetDataElement(OrthancPlugins::DICOM_TAG_PIXEL_DATA);
   const gdcm::SequenceOfFragments* fragments = pixelData.GetSequenceOfFragments();
 
-  if (OrthancPluginStartMultipartAnswer(context_, output, "related", GetMimeType(syntax)) != OrthancPluginErrorCode_Success)
+  if (OrthancPluginStartMultipartAnswer(OrthancPlugins::Configuration::GetContext(), output, "related", GetMimeType(syntax)) != OrthancPluginErrorCode_Success)
   {
     return false;
   }
@@ -310,7 +307,7 @@ static bool AnswerFrames(OrthancPluginRestOutput* output,
 
     if (pixelData.GetByteValue() == NULL)
     {
-      OrthancPluginLogError(context_, "Image was not properly decoded");
+      OrthancPlugins::Configuration::LogError("Image was not properly decoded");
       throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);      
     }
 
@@ -349,9 +346,8 @@ static bool AnswerFrames(OrthancPluginRestOutput* output,
     {
       if (*frame >= framesCount)
       {
-        std::string s = ("Trying to access frame number " + boost::lexical_cast<std::string>(*frame + 1) + 
-                         " of an image with " + boost::lexical_cast<std::string>(framesCount) + " frames");
-        OrthancPluginLogError(context_, s.c_str());
+        OrthancPlugins::Configuration::LogError("Trying to access frame number " + boost::lexical_cast<std::string>(*frame + 1) + 
+                                                " of an image with " + boost::lexical_cast<std::string>(framesCount) + " frames");
         throw Orthanc::OrthancException(Orthanc::ErrorCode_ParameterOutOfRange);
       }
       else
@@ -379,9 +375,12 @@ static bool AnswerFrames(OrthancPluginRestOutput* output,
     {
       if (*frame >= fragments->GetNumberOfFragments())
       {
-        std::string s = ("Trying to access frame number " + boost::lexical_cast<std::string>(*frame + 1) + 
-                         " of an image with " + boost::lexical_cast<std::string>(fragments->GetNumberOfFragments()) + " frames");
-        OrthancPluginLogError(context_, s.c_str());
+        // TODO A frame is not a fragment, looks like a bug
+        OrthancPlugins::Configuration::LogError("Trying to access frame number " + 
+                                                boost::lexical_cast<std::string>(*frame + 1) + 
+                                                " of an image with " + 
+                                                boost::lexical_cast<std::string>(fragments->GetNumberOfFragments()) + 
+                                                " frames");
         throw Orthanc::OrthancException(Orthanc::ErrorCode_ParameterOutOfRange);
       }
       else
@@ -410,8 +409,8 @@ void RetrieveFrames(OrthancPluginRestOutput* output,
   Json::Value header;
   std::string uri, content;
   if (LocateInstance(output, uri, request) &&
-      OrthancPlugins::RestApiGetString(content, context_, uri + "/file") &&
-      OrthancPlugins::RestApiGetJson(header, context_, uri + "/header?simplify"))
+      OrthancPlugins::RestApiGetString(content, OrthancPlugins::Configuration::GetContext(), uri + "/file") &&
+      OrthancPlugins::RestApiGetJson(header, OrthancPlugins::Configuration::GetContext(), uri + "/header?simplify"))
   {
     {
       std::string s = "DICOMweb RetrieveFrames on " + uri + ", frames: ";
@@ -420,7 +419,8 @@ void RetrieveFrames(OrthancPluginRestOutput* output,
       {
         s += boost::lexical_cast<std::string>(*frame + 1) + " ";
       }
-      OrthancPluginLogInfo(context_, s.c_str());
+
+      OrthancPlugins::Configuration::LogInfo(s);
     }
 
     std::auto_ptr<OrthancPlugins::ParsedDicomFile> source;
@@ -456,9 +456,9 @@ void RetrieveFrames(OrthancPluginRestOutput* output,
       // Need to convert the transfer syntax
 
       {
-        std::string s = ("DICOMweb RetrieveFrames: Transcoding " + uri + " from transfer syntax " + 
-                         std::string(sourceSyntax.GetString()) + " to " + std::string(targetSyntax.GetString()));
-        OrthancPluginLogInfo(context_, s.c_str());
+        OrthancPlugins::Configuration::LogInfo("DICOMweb RetrieveFrames: Transcoding " + uri + 
+                                               " from transfer syntax " + std::string(sourceSyntax.GetString()) + 
+                                               " to " + std::string(targetSyntax.GetString()));
       }
 
       gdcm::ImageChangeTransferSyntax change;
@@ -470,14 +470,14 @@ void RetrieveFrames(OrthancPluginRestOutput* output,
       reader.SetStream(stream);
       if (!reader.Read())
       {
-        OrthancPluginLogError(context_, "Cannot decode the image");
+        OrthancPlugins::Configuration::LogError("Cannot decode the image");
         throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
       }
 
       change.SetInput(reader.GetImage());
       if (!change.Change())
       {
-        OrthancPluginLogError(context_, "Cannot change the transfer syntax of the image");
+        OrthancPlugins::Configuration::LogError("Cannot change the transfer syntax of the image");
         throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
       }
 
