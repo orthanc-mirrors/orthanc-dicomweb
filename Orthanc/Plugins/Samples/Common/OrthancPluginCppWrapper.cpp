@@ -88,7 +88,6 @@ namespace OrthancPlugins
     if (buffer_.data == NULL ||
         buffer_.size == 0)
     {
-      OrthancPluginLogError(context_, "Cannot convert an empty memory buffer to JSON");
       throw PluginException(OrthancPluginErrorCode_InternalError);
     }
 

@@ -194,9 +194,9 @@ void StowCallback(OrthancPluginRestOutput* output,
         isFirst = false;
       }
 
-      OrthancPluginMemoryBuffer result;
-      bool ok = OrthancPluginRestApiPost(OrthancPlugins::Configuration::GetContext(), &result, "/instances", items[i].data_, items[i].size_) == 0;
-      OrthancPluginFreeMemoryBuffer(OrthancPlugins::Configuration::GetContext(), &result);
+      OrthancPlugins::MemoryBuffer tmp(OrthancPlugins::Configuration::GetContext());
+      bool ok = tmp.RestApiPost("/instances", items[i].data_, items[i].size_, false);
+      tmp.Clear();
 
       if (ok)
       {

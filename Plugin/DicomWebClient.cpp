@@ -100,6 +100,8 @@ static void ParseRestRequest(std::list<std::string>& instances /* out */,
   static const char* RESOURCES = "Resources";
   static const char* HTTP_HEADERS = "HttpHeaders";
 
+  OrthancPluginContext* context = OrthancPlugins::Configuration::GetContext();
+
   Json::Value body;
   Json::Reader reader;
   if (!reader.parse(request->body, request->body + request->bodySize, body) ||
@@ -131,17 +133,27 @@ static void ParseRestRequest(std::list<std::string>& instances /* out */,
       throw OrthancPlugins::PluginException(OrthancPluginErrorCode_UnknownResource);
     }
 
+    // Assume that this is an instance
     Json::Value tmp;
-    if (OrthancPlugins::RestApiGetJson(tmp, OrthancPlugins::Configuration::GetContext(), "/instances/" + resource, false))
+    try
     {
-      AddInstance(instances, tmp);
+      if (OrthancPlugins::RestApiGetJson(tmp, context, "/instances/" + resource, false))
+      {
+        AddInstance(instances, tmp);
+        continue;   // Success, go to the next item
+      }
     }
-    else if ((OrthancPlugins::RestApiGetJson(tmp, OrthancPlugins::Configuration::GetContext(), "/series/" + resource, false) &&
-              OrthancPlugins::RestApiGetJson(tmp, OrthancPlugins::Configuration::GetContext(), "/series/" + resource + "/instances", false)) ||
-             (OrthancPlugins::RestApiGetJson(tmp, OrthancPlugins::Configuration::GetContext(), "/studies/" + resource, false) &&
-              OrthancPlugins::RestApiGetJson(tmp, OrthancPlugins::Configuration::GetContext(), "/studies/" + resource + "/instances", false)) ||
-             (OrthancPlugins::RestApiGetJson(tmp, OrthancPlugins::Configuration::GetContext(), "/patients/" + resource, false) &&
-              OrthancPlugins::RestApiGetJson(tmp, OrthancPlugins::Configuration::GetContext(), "/patients/" + resource + "/instances", false)))
+    catch (OrthancPlugins::PluginException&)
+    {
+    }
+
+    // This was not an instance, try with series/studies/patients
+    if ((OrthancPlugins::RestApiGetJson(tmp, context, "/series/" + resource, false) &&
+         OrthancPlugins::RestApiGetJson(tmp, context, "/series/" + resource + "/instances", false)) ||
+        (OrthancPlugins::RestApiGetJson(tmp, context, "/studies/" + resource, false) &&
+         OrthancPlugins::RestApiGetJson(tmp, context, "/studies/" + resource + "/instances", false)) ||
+        (OrthancPlugins::RestApiGetJson(tmp, context, "/patients/" + resource, false) &&
+         OrthancPlugins::RestApiGetJson(tmp, context, "/patients/" + resource + "/instances", false)))
     {
       if (tmp.type() != Json::arrayValue)
       {
