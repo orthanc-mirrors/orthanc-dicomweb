@@ -240,6 +240,8 @@ void StowClient(OrthancPluginRestOutput* output,
                 const char* /*url*/,
                 const OrthancPluginHttpRequest* request)
 {
+  OrthancPluginContext* context = OrthancPlugins::Configuration::GetContext();
+
   if (request->groupsCount != 1)
   {
     throw OrthancPlugins::PluginException(OrthancPluginErrorCode_BadRequest);
@@ -247,7 +249,7 @@ void StowClient(OrthancPluginRestOutput* output,
 
   if (request->method != OrthancPluginHttpMethod_Post)
   {
-    OrthancPluginSendMethodNotAllowed(OrthancPlugins::Configuration::GetContext(), output, "POST");
+    OrthancPluginSendMethodNotAllowed(context, output, "POST");
     return;
   }
 
@@ -256,18 +258,18 @@ void StowClient(OrthancPluginRestOutput* output,
   std::string boundary;
 
   {
-    char* uuid = OrthancPluginGenerateUuid(OrthancPlugins::Configuration::GetContext());
+    char* uuid = OrthancPluginGenerateUuid(context);
     try
     {
       boundary.assign(uuid);
     }
     catch (...)
     {
-      OrthancPluginFreeString(OrthancPlugins::Configuration::GetContext(), uuid);
+      OrthancPluginFreeString(context, uuid);
       throw OrthancPlugins::PluginException(OrthancPluginErrorCode_NotEnoughMemory);
     }
 
-    OrthancPluginFreeString(OrthancPlugins::Configuration::GetContext(), uuid);
+    OrthancPluginFreeString(context, uuid);
   }
 
   std::string mime = "multipart/related; type=application/dicom; boundary=" + boundary;
@@ -288,7 +290,7 @@ void StowClient(OrthancPluginRestOutput* output,
 
   for (std::list<std::string>::const_iterator it = instances.begin(); it != instances.end(); it++)
   {
-    OrthancPlugins::MemoryBuffer dicom(OrthancPlugins::Configuration::GetContext());
+    OrthancPlugins::MemoryBuffer dicom(context);
     if (dicom.RestApiGet("/instances/" + *it + "/file", false))
     {
       chunks.AddChunk("\r\n--" + boundary + "\r\n" +
@@ -305,7 +307,7 @@ void StowClient(OrthancPluginRestOutput* output,
   SendStowChunks(server, httpHeaders, boundary, chunks, countInstances, true);
 
   std::string answer = "{}\n";
-  OrthancPluginAnswerBuffer(OrthancPlugins::Configuration::GetContext(), output, answer.c_str(), answer.size(), "application/json");
+  OrthancPluginAnswerBuffer(context, output, answer.c_str(), answer.size(), "application/json");
 }
 
 
@@ -343,9 +345,11 @@ void GetFromServer(OrthancPluginRestOutput* output,
   static const char* HTTP_HEADERS = "HttpHeaders";
   static const char* GET_ARGUMENTS = "Arguments";
 
+  OrthancPluginContext* context = OrthancPlugins::Configuration::GetContext();
+
   if (request->method != OrthancPluginHttpMethod_Post)
   {
-    OrthancPluginSendMethodNotAllowed(OrthancPlugins::Configuration::GetContext(), output, "POST");
+    OrthancPluginSendMethodNotAllowed(context, output, "POST");
     return;
   }
 
@@ -372,7 +376,7 @@ void GetFromServer(OrthancPluginRestOutput* output,
   std::map<std::string, std::string> httpHeaders;
   OrthancPlugins::ParseAssociativeArray(httpHeaders, body, HTTP_HEADERS);
 
-  OrthancPlugins::MemoryBuffer answerBody(OrthancPlugins::Configuration::GetContext());
+  OrthancPlugins::MemoryBuffer answerBody(context);
   std::map<std::string, std::string> answerHeaders;
   OrthancPlugins::CallServer(answerBody, answerHeaders, server, OrthancPluginHttpMethod_Get, httpHeaders, uri, "");
 
@@ -394,11 +398,11 @@ void GetFromServer(OrthancPluginRestOutput* output,
     }
     else
     {
-      OrthancPluginSetHttpHeader(OrthancPlugins::Configuration::GetContext(), output, it->first.c_str(), it->second.c_str());
+      OrthancPluginSetHttpHeader(context, output, it->first.c_str(), it->second.c_str());
     }
   }
 
-  OrthancPluginAnswerBuffer(OrthancPlugins::Configuration::GetContext(), output, 
+  OrthancPluginAnswerBuffer(context, output, 
                             reinterpret_cast<const char*>(answerBody.GetData()),
                             answerBody.GetSize(), contentType.c_str());
 }
@@ -415,6 +419,8 @@ static void RetrieveFromServerInternal(std::set<std::string>& instances,
   static const std::string INSTANCE = "Instance";
   static const std::string MULTIPART_RELATED = "multipart/related";
   static const std::string APPLICATION_DICOM = "application/dicom";
+
+  OrthancPluginContext* context = OrthancPlugins::Configuration::GetContext();
 
   if (resource.type() != Json::objectValue)
   {
@@ -453,7 +459,7 @@ static void RetrieveFromServerInternal(std::set<std::string>& instances,
     }
   }
 
-  OrthancPlugins::MemoryBuffer answerBody(OrthancPlugins::Configuration::GetContext());
+  OrthancPlugins::MemoryBuffer answerBody(context);
   std::map<std::string, std::string> answerHeaders;
   OrthancPlugins::CallServer(answerBody, answerHeaders, server, OrthancPluginHttpMethod_Get, httpHeaders, uri, "");
 
@@ -521,7 +527,7 @@ static void RetrieveFromServerInternal(std::set<std::string>& instances,
   }
 
   std::vector<OrthancPlugins::MultipartItem> parts;
-  OrthancPlugins::ParseMultipartBody(parts, OrthancPlugins::Configuration::GetContext(), 
+  OrthancPlugins::ParseMultipartBody(parts, context, 
                                      reinterpret_cast<const char*>(answerBody.GetData()),
                                      answerBody.GetSize(), boundary);
 
@@ -537,7 +543,7 @@ static void RetrieveFromServerInternal(std::set<std::string>& instances,
       throw OrthancPlugins::PluginException(OrthancPluginErrorCode_NetworkProtocol);      
     }
 
-    OrthancPlugins::MemoryBuffer tmp(OrthancPlugins::Configuration::GetContext());
+    OrthancPlugins::MemoryBuffer tmp(context);
     tmp.RestApiPost("/instances", parts[i].data_, parts[i].size_, false);
 
     Json::Value result;
@@ -565,9 +571,11 @@ void RetrieveFromServer(OrthancPluginRestOutput* output,
   static const std::string RESOURCES("Resources");
   static const char* HTTP_HEADERS = "HttpHeaders";
 
+  OrthancPluginContext* context = OrthancPlugins::Configuration::GetContext();
+
   if (request->method != OrthancPluginHttpMethod_Post)
   {
-    OrthancPluginSendMethodNotAllowed(OrthancPlugins::Configuration::GetContext(), output, "POST");
+    OrthancPluginSendMethodNotAllowed(context, output, "POST");
     return;
   }
 
@@ -604,5 +612,5 @@ void RetrieveFromServer(OrthancPluginRestOutput* output,
   }
 
   std::string s = status.toStyledString();
-  OrthancPluginAnswerBuffer(OrthancPlugins::Configuration::GetContext(), output, s.c_str(), s.size(), "application/json");
+  OrthancPluginAnswerBuffer(context, output, s.c_str(), s.size(), "application/json");
 }

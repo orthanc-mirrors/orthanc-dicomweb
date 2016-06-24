@@ -86,11 +86,13 @@ void StowCallback(OrthancPluginRestOutput* output,
                   const char* url,
                   const OrthancPluginHttpRequest* request)
 {
+  OrthancPluginContext* context = OrthancPlugins::Configuration::GetContext();
+
   const std::string wadoBase = OrthancPlugins::Configuration::GetBaseUrl(request);
 
   if (request->method != OrthancPluginHttpMethod_Post)
   {
-    OrthancPluginSendMethodNotAllowed(OrthancPlugins::Configuration::GetContext(), output, "POST");
+    OrthancPluginSendMethodNotAllowed(context, output, "POST");
     return;
   }
 
@@ -115,7 +117,7 @@ void StowCallback(OrthancPluginRestOutput* output,
   if (!OrthancPlugins::LookupHttpHeader(header, request, "content-type"))
   {
     OrthancPlugins::Configuration::LogError("No content type in the HTTP header of a STOW-RS request");
-    OrthancPluginSendHttpStatusCode(OrthancPlugins::Configuration::GetContext(), output, 400 /* Bad request */);
+    OrthancPluginSendHttpStatusCode(context, output, 400 /* Bad request */);
     return;
   }
 
@@ -128,7 +130,7 @@ void StowCallback(OrthancPluginRestOutput* output,
       attributes.find("boundary") == attributes.end())
   {
     OrthancPlugins::Configuration::LogError("Unable to parse the content type of a STOW-RS request (" + application + ")");
-    OrthancPluginSendHttpStatusCode(OrthancPlugins::Configuration::GetContext(), output, 400 /* Bad request */);
+    OrthancPluginSendHttpStatusCode(context, output, 400 /* Bad request */);
     return;
   }
 
@@ -138,7 +140,7 @@ void StowCallback(OrthancPluginRestOutput* output,
   if (attributes["type"] != "application/dicom")
   {
     OrthancPlugins::Configuration::LogError("The STOW-RS plugin currently only supports application/dicom");
-    OrthancPluginSendHttpStatusCode(OrthancPlugins::Configuration::GetContext(), output, 415 /* Unsupported media type */);
+    OrthancPluginSendHttpStatusCode(context, output, 415 /* Unsupported media type */);
     return;
   }
 
@@ -149,7 +151,7 @@ void StowCallback(OrthancPluginRestOutput* output,
   gdcm::SmartPointer<gdcm::SequenceOfItems> failed = new gdcm::SequenceOfItems();
   
   std::vector<OrthancPlugins::MultipartItem> items;
-  OrthancPlugins::ParseMultipartBody(items, OrthancPlugins::Configuration::GetContext(), request->body, request->bodySize, boundary);
+  OrthancPlugins::ParseMultipartBody(items, context, request->body, request->bodySize, boundary);
 
 
   for (size_t i = 0; i < items.size(); i++)
@@ -159,7 +161,7 @@ void StowCallback(OrthancPluginRestOutput* output,
     {
       OrthancPlugins::Configuration::LogError("The STOW-RS request contains a part that is not "
                                               "\"application/dicom\" (it is: \"" + items[i].contentType_ + "\")");
-      OrthancPluginSendHttpStatusCode(OrthancPlugins::Configuration::GetContext(), output, 415 /* Unsupported media type */);
+      OrthancPluginSendHttpStatusCode(context, output, 415 /* Unsupported media type */);
       return;
     }
 
@@ -194,7 +196,7 @@ void StowCallback(OrthancPluginRestOutput* output,
         isFirst = false;
       }
 
-      OrthancPlugins::MemoryBuffer tmp(OrthancPlugins::Configuration::GetContext());
+      OrthancPlugins::MemoryBuffer tmp(context);
       bool ok = tmp.RestApiPost("/instances", items[i].data_, items[i].size_, false);
       tmp.Clear();
 
@@ -220,5 +222,5 @@ void StowCallback(OrthancPluginRestOutput* output,
   SetSequenceTag(result, OrthancPlugins::DICOM_TAG_FAILED_SOP_SEQUENCE, failed);
   SetSequenceTag(result, OrthancPlugins::DICOM_TAG_REFERENCED_SOP_SEQUENCE, success);
 
-  OrthancPlugins::AnswerDicom(OrthancPlugins::Configuration::GetContext(), output, wadoBase, *dictionary_, result, isXml, false);
+  OrthancPlugins::AnswerDicom(context, output, wadoBase, *dictionary_, result, isXml, false);
 }

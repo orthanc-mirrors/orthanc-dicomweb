@@ -295,7 +295,8 @@ static bool AnswerFrames(OrthancPluginRestOutput* output,
   const gdcm::DataElement& pixelData = dicom.GetDataSet().GetDataElement(OrthancPlugins::DICOM_TAG_PIXEL_DATA);
   const gdcm::SequenceOfFragments* fragments = pixelData.GetSequenceOfFragments();
 
-  if (OrthancPluginStartMultipartAnswer(OrthancPlugins::Configuration::GetContext(), output, "related", GetMimeType(syntax)) != OrthancPluginErrorCode_Success)
+  if (OrthancPluginStartMultipartAnswer(OrthancPlugins::Configuration::GetContext(), 
+                                        output, "related", GetMimeType(syntax)) != OrthancPluginErrorCode_Success)
   {
     return false;
   }

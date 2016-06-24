@@ -178,10 +178,12 @@ namespace OrthancPlugins
       bodySize = body.size();
     }
 
+    OrthancPluginContext* context = OrthancPlugins::Configuration::GetContext();
+
     uint16_t status = 0;
-    MemoryBuffer answerHeadersTmp(OrthancPlugins::Configuration::GetContext());
+    MemoryBuffer answerHeadersTmp(context);
     OrthancPluginErrorCode code = OrthancPluginHttpClient(
-      OrthancPlugins::Configuration::GetContext(), 
+      context, 
       /* Outputs */
       *answerBody, *answerHeadersTmp, &status, 
       method,

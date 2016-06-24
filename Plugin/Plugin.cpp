@@ -91,9 +91,11 @@ void ListServers(OrthancPluginRestOutput* output,
                  const char* url,
                  const OrthancPluginHttpRequest* request)
 {
+  OrthancPluginContext* context = OrthancPlugins::Configuration::GetContext();
+
   if (request->method != OrthancPluginHttpMethod_Get)
   {
-    OrthancPluginSendMethodNotAllowed(OrthancPlugins::Configuration::GetContext(), output, "GET");
+    OrthancPluginSendMethodNotAllowed(context, output, "GET");
   }
   else
   {
@@ -107,7 +109,7 @@ void ListServers(OrthancPluginRestOutput* output,
     }
 
     std::string answer = json.toStyledString(); 
-    OrthancPluginAnswerBuffer(OrthancPlugins::Configuration::GetContext(), output, answer.c_str(), answer.size(), "application/json");
+    OrthancPluginAnswerBuffer(context, output, answer.c_str(), answer.size(), "application/json");
   }
 }
 
@@ -116,9 +118,11 @@ void ListServerOperations(OrthancPluginRestOutput* output,
                           const char* /*url*/,
                           const OrthancPluginHttpRequest* request)
 {
+  OrthancPluginContext* context = OrthancPlugins::Configuration::GetContext();
+
   if (request->method != OrthancPluginHttpMethod_Get)
   {
-    OrthancPluginSendMethodNotAllowed(OrthancPlugins::Configuration::GetContext(), output, "GET");
+    OrthancPluginSendMethodNotAllowed(context, output, "GET");
   }
   else
   {
@@ -131,7 +135,7 @@ void ListServerOperations(OrthancPluginRestOutput* output,
     json.append("stow");
 
     std::string answer = json.toStyledString(); 
-    OrthancPluginAnswerBuffer(OrthancPlugins::Configuration::GetContext(), output, answer.c_str(), answer.size(), "application/json");
+    OrthancPluginAnswerBuffer(context, output, answer.c_str(), answer.size(), "application/json");
   }
 }
 

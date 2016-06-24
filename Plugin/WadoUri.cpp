@@ -25,16 +25,19 @@
 
 #include <string>
 
+
 static bool MapWadoToOrthancIdentifier(std::string& orthanc,
                                        char* (*func) (OrthancPluginContext*, const char*),
                                        const std::string& dicom)
 {
-  char* tmp = func(OrthancPlugins::Configuration::GetContext(), dicom.c_str());
+  OrthancPluginContext* context = OrthancPlugins::Configuration::GetContext();
+
+  char* tmp = func(context, dicom.c_str());
 
   if (tmp)
   {
     orthanc = tmp;
-    OrthancPluginFreeString(OrthancPlugins::Configuration::GetContext(), tmp);
+    OrthancPluginFreeString(context, tmp);
     return true;
   }
   else
@@ -149,12 +152,14 @@ static bool LocateInstance(std::string& instance,
 static void AnswerDicom(OrthancPluginRestOutput* output,
                         const std::string& instance)
 {
+  OrthancPluginContext* context = OrthancPlugins::Configuration::GetContext();
+
   std::string uri = "/instances/" + instance + "/file";
 
-  OrthancPlugins::MemoryBuffer dicom(OrthancPlugins::Configuration::GetContext());
+  OrthancPlugins::MemoryBuffer dicom(context);
   if (dicom.RestApiGet(uri, false))
   {
-    OrthancPluginAnswerBuffer(OrthancPlugins::Configuration::GetContext(), output, 
+    OrthancPluginAnswerBuffer(context, output, 
                               dicom.GetData(), dicom.GetSize(), "application/dicom");
   }
   else
@@ -185,10 +190,12 @@ static bool RetrievePngPreview(OrthancPlugins::MemoryBuffer& png,
 static void AnswerPngPreview(OrthancPluginRestOutput* output,
                              const std::string& instance)
 {
-  OrthancPlugins::MemoryBuffer png(OrthancPlugins::Configuration::GetContext());
+  OrthancPluginContext* context = OrthancPlugins::Configuration::GetContext();
+
+  OrthancPlugins::MemoryBuffer png(context);
   if (RetrievePngPreview(png, instance))
   {
-    OrthancPluginAnswerBuffer(OrthancPlugins::Configuration::GetContext(), output, 
+    OrthancPluginAnswerBuffer(context, output, 
                               png.GetData(), png.GetSize(), "image/png");
   }
   else
