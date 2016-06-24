@@ -367,7 +367,6 @@ namespace OrthancPlugins
       if (global.LookupStringValue(s, "DefaultEncoding"))
       {
         defaultEncoding_ = Orthanc::StringToEncoding(s.c_str());
-        printf(">> [%s] [%d]\n", s.c_str(), defaultEncoding_);
       }
 
       OrthancPlugins::OrthancConfiguration servers;
