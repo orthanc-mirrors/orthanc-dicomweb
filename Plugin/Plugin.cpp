@@ -22,7 +22,7 @@
 
 #include "QidoRs.h"
 #include "StowRs.h"
-#include "StowRsClient.h"
+#include "DicomWebClient.h"
 #include "WadoRs.h"
 #include "WadoUri.h"
 #include "Configuration.h"

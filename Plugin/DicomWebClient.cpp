@@ -18,7 +18,7 @@
  **/
 
 
-#include "StowRsClient.h"
+#include "DicomWebClient.h"
 
 #include "Plugin.h"
 #include "DicomWebServers.h"
