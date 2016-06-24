@@ -561,7 +561,7 @@ namespace OrthancPlugins
   }
 
 
-  void Image::Clear()
+  void OrthancImage::Clear()
   {
     if (image_ != NULL)
     {
@@ -571,7 +571,7 @@ namespace OrthancPlugins
   }
 
 
-  void Image::CheckImageAvailable()
+  void OrthancImage::CheckImageAvailable()
   {
     if (image_ == NULL)
     {
@@ -581,7 +581,7 @@ namespace OrthancPlugins
   }
 
 
-  Image::Image(OrthancPluginContext*  context) :
+  OrthancImage::OrthancImage(OrthancPluginContext*  context) :
     context_(context),
     image_(NULL)
   {
@@ -592,8 +592,8 @@ namespace OrthancPlugins
   }
 
 
-  Image::Image(OrthancPluginContext*  context,
-               OrthancPluginImage*    image) :
+  OrthancImage::OrthancImage(OrthancPluginContext*  context,
+                             OrthancPluginImage*    image) :
     context_(context),
     image_(image)
   {
@@ -604,10 +604,10 @@ namespace OrthancPlugins
   }
   
 
-  Image::Image(OrthancPluginContext*     context,
-               OrthancPluginPixelFormat  format,
-               uint32_t                  width,
-               uint32_t                  height) :
+  OrthancImage::OrthancImage(OrthancPluginContext*     context,
+                             OrthancPluginPixelFormat  format,
+                             uint32_t                  width,
+                             uint32_t                  height) :
     context_(context)
   {
     if (context == NULL)
@@ -621,8 +621,8 @@ namespace OrthancPlugins
   }
 
 
-  void Image::UncompressPngImage(const void* data,
-                                 size_t size)
+  void OrthancImage::UncompressPngImage(const void* data,
+                                        size_t size)
   {
     Clear();
     image_ = OrthancPluginUncompressImage(context_, data, size, OrthancPluginImageFormat_Png);
@@ -634,8 +634,8 @@ namespace OrthancPlugins
   }
 
 
-  void Image::UncompressJpegImage(const void* data,
-                                  size_t size)
+  void OrthancImage::UncompressJpegImage(const void* data,
+                                         size_t size)
   {
     Clear();
     image_ = OrthancPluginUncompressImage(context_, data, size, OrthancPluginImageFormat_Jpeg);
@@ -647,9 +647,9 @@ namespace OrthancPlugins
   }
 
 
-  void Image::DecodeDicomImage(const void* data,
-                               size_t size,
-                               unsigned int frame)
+  void OrthancImage::DecodeDicomImage(const void* data,
+                                      size_t size,
+                                      unsigned int frame)
   {
     Clear();
     image_ = OrthancPluginDecodeDicomImage(context_, data, size, frame);
@@ -661,42 +661,42 @@ namespace OrthancPlugins
   }
 
 
-  OrthancPluginPixelFormat Image::GetPixelFormat()
+  OrthancPluginPixelFormat OrthancImage::GetPixelFormat()
   {
     CheckImageAvailable();
     return OrthancPluginGetImagePixelFormat(context_, image_);
   }
 
 
-  unsigned int Image::GetWidth()
+  unsigned int OrthancImage::GetWidth()
   {
     CheckImageAvailable();
     return OrthancPluginGetImageWidth(context_, image_);
   }
 
 
-  unsigned int Image::GetHeight()
+  unsigned int OrthancImage::GetHeight()
   {
     CheckImageAvailable();
     return OrthancPluginGetImageHeight(context_, image_);
   }
 
 
-  unsigned int Image::GetPitch()
+  unsigned int OrthancImage::GetPitch()
   {
     CheckImageAvailable();
     return OrthancPluginGetImagePitch(context_, image_);
   }
 
     
-  const void* Image::GetBuffer()
+  const void* OrthancImage::GetBuffer()
   {
     CheckImageAvailable();
     return OrthancPluginGetImageBuffer(context_, image_);
   }
 
 
-  void Image::CompressPngImage(MemoryBuffer& target)
+  void OrthancImage::CompressPngImage(MemoryBuffer& target)
   {
     CheckImageAvailable();
     
@@ -708,8 +708,8 @@ namespace OrthancPlugins
   }
 
 
-  void Image::CompressJpegImage(MemoryBuffer& target,
-                                uint8_t quality)
+  void OrthancImage::CompressJpegImage(MemoryBuffer& target,
+                                       uint8_t quality)
   {
     CheckImageAvailable();
     
@@ -721,7 +721,7 @@ namespace OrthancPlugins
   }
 
 
-  void Image::AnswerPngImage(OrthancPluginRestOutput* output)
+  void OrthancImage::AnswerPngImage(OrthancPluginRestOutput* output)
   {
     CheckImageAvailable();
     OrthancPluginCompressAndAnswerPngImage(context_, output, GetPixelFormat(),
@@ -729,8 +729,8 @@ namespace OrthancPlugins
   }
 
 
-  void Image::AnswerJpegImage(OrthancPluginRestOutput* output,
-                              uint8_t quality)
+  void OrthancImage::AnswerJpegImage(OrthancPluginRestOutput* output,
+                                     uint8_t quality)
   {
     CheckImageAvailable();
     OrthancPluginCompressAndAnswerJpegImage(context_, output, GetPixelFormat(),

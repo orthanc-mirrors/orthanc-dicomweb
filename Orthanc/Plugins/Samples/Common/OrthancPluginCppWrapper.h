@@ -227,7 +227,7 @@ namespace OrthancPlugins
                         float defaultValue) const;
   };
 
-  class Image
+  class OrthancImage
   {
   private:
     OrthancPluginContext*  context_;
@@ -238,17 +238,17 @@ namespace OrthancPlugins
     void CheckImageAvailable();
 
   public:
-    Image(OrthancPluginContext*  context);
+    OrthancImage(OrthancPluginContext*  context);
 
-    Image(OrthancPluginContext*  context,
-          OrthancPluginImage*    image);
+    OrthancImage(OrthancPluginContext*  context,
+                 OrthancPluginImage*    image);
 
-    Image(OrthancPluginContext*     context,
-          OrthancPluginPixelFormat  format,
-          uint32_t                  width,
-          uint32_t                  height);
+    OrthancImage(OrthancPluginContext*     context,
+                 OrthancPluginPixelFormat  format,
+                 uint32_t                  width,
+                 uint32_t                  height);
 
-    ~Image()
+    ~OrthancImage()
     {
       Clear();
     }

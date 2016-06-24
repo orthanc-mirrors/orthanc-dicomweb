@@ -217,7 +217,7 @@ static void AnswerJpegPreview(OrthancPluginRestOutput* output,
     throw OrthancPlugins::PluginException(OrthancPluginErrorCode_Plugin);
   }
   
-  OrthancPlugins::Image image(context);
+  OrthancPlugins::OrthancImage image(context);
   image.UncompressPngImage(png.GetData(), png.GetSize());
   image.AnswerJpegImage(output, 90 /* quality */);
 }
