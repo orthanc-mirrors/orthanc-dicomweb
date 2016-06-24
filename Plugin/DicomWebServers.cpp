@@ -21,7 +21,6 @@
 #include "DicomWebServers.h"
 
 #include "Configuration.h"
-#include "../Orthanc/Core/OrthancException.h"
 #include "../Orthanc/Core/Toolbox.h"
 
 namespace OrthancPlugins
@@ -72,7 +71,7 @@ namespace OrthancPlugins
     if (!ok)
     {
       OrthancPlugins::Configuration::LogError("Cannot parse the \"DicomWeb.Servers\" section of the configuration file");
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
+      throw OrthancPlugins::PluginException(OrthancPluginErrorCode_BadFileFormat);
     }
   }
 
@@ -93,7 +92,7 @@ namespace OrthancPlugins
         server->second == NULL)
     {
       OrthancPlugins::Configuration::LogError("Inexistent server: " + name);
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_InexistentItem);
+      throw OrthancPlugins::PluginException(OrthancPluginErrorCode_InexistentItem);
     }
     else
     {
@@ -242,7 +241,7 @@ namespace OrthancPlugins
     {
       OrthancPlugins::Configuration::LogError("The GET arguments must be provided in a separate field "
                                               "(explicit \"?\" is disallowed): " + resource);
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
+      throw OrthancPlugins::PluginException(OrthancPluginErrorCode_BadFileFormat);
     }
 
     uri = resource;

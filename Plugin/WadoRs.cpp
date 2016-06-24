@@ -24,7 +24,6 @@
 #include "Dicom.h"
 #include "DicomResults.h"
 #include "../Orthanc/Core/Toolbox.h"
-#include "../Orthanc/Core/OrthancException.h"
 
 #include <boost/lexical_cast.hpp>
 #include <memory>
@@ -183,7 +182,7 @@ static void AnswerListOfDicomInstances(OrthancPluginRestOutput* output,
 
   if (OrthancPluginStartMultipartAnswer(OrthancPlugins::Configuration::GetContext(), output, "related", "application/dicom"))
   {
-    throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);
+    throw OrthancPlugins::PluginException(OrthancPluginErrorCode_NetworkProtocol);
   }
   
   for (Json::Value::ArrayIndex i = 0; i < instances.size(); i++)
@@ -193,7 +192,7 @@ static void AnswerListOfDicomInstances(OrthancPluginRestOutput* output,
     if (OrthancPlugins::RestApiGetString(dicom, OrthancPlugins::Configuration::GetContext(), uri) &&
         OrthancPluginSendMultipartItem(OrthancPlugins::Configuration::GetContext(), output, dicom.c_str(), dicom.size()) != 0)
     {
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
+      throw OrthancPlugins::PluginException(OrthancPluginErrorCode_InternalError);
     }
   }
 }
@@ -425,14 +424,14 @@ void RetrieveDicomInstance(OrthancPluginRestOutput* output,
     {
       if (OrthancPluginStartMultipartAnswer(OrthancPlugins::Configuration::GetContext(), output, "related", "application/dicom"))
       {
-        throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);
+        throw OrthancPlugins::PluginException(OrthancPluginErrorCode_NetworkProtocol);
       }
   
       std::string dicom;
       if (OrthancPlugins::RestApiGetString(dicom, OrthancPlugins::Configuration::GetContext(), uri + "/file") &&
           OrthancPluginSendMultipartItem(OrthancPlugins::Configuration::GetContext(), output, dicom.c_str(), dicom.size()) != 0)
       {
-        throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);
+        throw OrthancPlugins::PluginException(OrthancPluginErrorCode_NetworkProtocol);
       }
     }
   }
@@ -598,7 +597,7 @@ void RetrieveBulkData(OrthancPluginRestOutput* output,
       if (OrthancPluginStartMultipartAnswer(OrthancPlugins::Configuration::GetContext(), output, "related", "application/octet-stream") != 0 ||
           OrthancPluginSendMultipartItem(OrthancPlugins::Configuration::GetContext(), output, result.c_str(), result.size()) != 0)
       {
-        throw Orthanc::OrthancException(Orthanc::ErrorCode_Plugin);
+        throw OrthancPlugins::PluginException(OrthancPluginErrorCode_Plugin);
       }
     }
     else

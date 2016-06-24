@@ -21,7 +21,6 @@
 #include "WadoUri.h"
 #include "Plugin.h"
 
-#include "../Orthanc/Core/OrthancException.h"
 #include "Configuration.h"
 
 #include <string>
@@ -158,7 +157,7 @@ static void AnswerDicom(OrthancPluginRestOutput* output,
   else
   {
     OrthancPlugins::Configuration::LogError("WADO-URI: Unable to retrieve DICOM file from " + uri);
-    throw Orthanc::OrthancException(Orthanc::ErrorCode_Plugin);
+    throw OrthancPlugins::PluginException(OrthancPluginErrorCode_Plugin);
   }
 }
 
@@ -190,7 +189,7 @@ static void AnswerPngPreview(OrthancPluginRestOutput* output,
   }
   else
   {
-    throw Orthanc::OrthancException(Orthanc::ErrorCode_Plugin);
+    throw OrthancPlugins::PluginException(OrthancPluginErrorCode_Plugin);
   }
 }
 
@@ -202,7 +201,7 @@ static void AnswerJpegPreview(OrthancPluginRestOutput* output,
   std::string png;
   if (!RetrievePngPreview(png, instance))
   {
-    throw Orthanc::OrthancException(Orthanc::ErrorCode_Plugin);
+    throw OrthancPlugins::PluginException(OrthancPluginErrorCode_Plugin);
   }
 
   // Decode the PNG file
@@ -237,7 +236,7 @@ void WadoUriCallback(OrthancPluginRestOutput* output,
   std::string contentType = "image/jpg";  // By default, JPEG image will be returned
   if (!LocateInstance(instance, contentType, request))
   {
-    throw Orthanc::OrthancException(Orthanc::ErrorCode_UnknownResource);
+    throw OrthancPlugins::PluginException(OrthancPluginErrorCode_UnknownResource);
   }
 
   if (contentType == "application/dicom")
@@ -256,6 +255,6 @@ void WadoUriCallback(OrthancPluginRestOutput* output,
   else
   {
     OrthancPlugins::Configuration::LogError("WADO-URI: Unsupported content type: \"" + contentType + "\"");
-    throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest);
+    throw OrthancPlugins::PluginException(OrthancPluginErrorCode_BadRequest);
   }
 }

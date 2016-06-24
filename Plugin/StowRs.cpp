@@ -24,7 +24,6 @@
 #include "Configuration.h"
 #include "Dicom.h"
 #include "../Orthanc/Core/Toolbox.h"
-#include "../Orthanc/Core/OrthancException.h"
 
 #include <stdexcept>
 

@@ -119,7 +119,6 @@ set(CORE_SOURCES
   ${ORTHANC_ROOT}/Core/WebServiceParameters.cpp
   ${ORTHANC_ROOT}/Plugins/Samples/Common/OrthancPluginCppWrapper.cpp
 
-  Plugin/ChunkedBuffer.cpp
   Plugin/Configuration.cpp
   Plugin/Dicom.cpp
   Plugin/DicomResults.cpp

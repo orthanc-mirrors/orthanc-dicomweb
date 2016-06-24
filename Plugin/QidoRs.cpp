@@ -26,7 +26,6 @@
 #include "DicomResults.h"
 #include "Configuration.h"
 #include "../Orthanc/Core/Toolbox.h"
-#include "../Orthanc/Core/OrthancException.h"
 
 #include <gdcmTag.h>
 #include <list>
@@ -151,7 +150,7 @@ namespace
           break;
 
         default:
-          throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
+          throw OrthancPlugins::PluginException(OrthancPluginErrorCode_InternalError);
       }
     }
 
@@ -189,7 +188,7 @@ namespace
           else
           {
             OrthancPlugins::Configuration::LogError("Not a proper value for fuzzy matching (true or false): " + value);
-            throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest);
+            throw OrthancPlugins::PluginException(OrthancPluginErrorCode_BadRequest);
           }
         }
         else if (key == "includefield")
@@ -261,7 +260,7 @@ namespace
           break;
 
         default:
-          throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
+          throw OrthancPlugins::PluginException(OrthancPluginErrorCode_InternalError);
       }
 
       result["Expand"] = false;
@@ -507,7 +506,7 @@ static void ApplyMatcher(OrthancPluginRestOutput* output,
   if (!OrthancPlugins::RestApiPostJson(resources, OrthancPlugins::Configuration::GetContext(), "/tools/find", body) ||
       resources.type() != Json::arrayValue)
   {
-    throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
+    throw OrthancPlugins::PluginException(OrthancPluginErrorCode_InternalError);
   }
 
   typedef std::list< std::pair<std::string, std::string> > ResourcesAndInstances;

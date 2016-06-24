@@ -41,7 +41,6 @@
 const gdcm::Dict* dictionary_ = NULL;
 
 
-#include "../Orthanc/Core/OrthancException.h"
 #include <boost/lexical_cast.hpp>
 
 
@@ -146,7 +145,7 @@ static bool GetStringValue(std::string& target,
 {
   if (json.type() != Json::objectValue)
   {
-    throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
+    throw OrthancPlugins::PluginException(OrthancPluginErrorCode_BadFileFormat);
   }
   else if (!json.isMember(key))
   {
@@ -156,7 +155,7 @@ static bool GetStringValue(std::string& target,
   else if (json[key].type() != Json::stringValue)
   {
     OrthancPlugins::Configuration::LogError("The field \"" + key + "\" in a JSON object should be a string");
-    throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
+    throw OrthancPlugins::PluginException(OrthancPluginErrorCode_BadFileFormat);
   }
   else
   {

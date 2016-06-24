@@ -316,7 +316,7 @@ namespace OrthancPlugins
     if (value.type() != Json::objectValue)
     {
       OrthancPlugins::Configuration::LogError("This is not a JSON object");
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
+      throw OrthancPlugins::PluginException(OrthancPluginErrorCode_BadFileFormat);
     }
 
     if (!value.isMember(key))
@@ -330,7 +330,7 @@ namespace OrthancPlugins
     {
       OrthancPlugins::Configuration::LogError("The field \"" + key + "\" of a JSON object is "
                                               "not a JSON associative array as expected");
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
+      throw OrthancPlugins::PluginException(OrthancPluginErrorCode_BadFileFormat);
     }
 
     Json::Value::Members names = tmp.getMemberNames();
@@ -341,7 +341,7 @@ namespace OrthancPlugins
       {
         OrthancPlugins::Configuration::LogError("Some value in the associative array \"" + key + 
                                                 "\" is not a string as expected");
-        throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
+        throw OrthancPlugins::PluginException(OrthancPluginErrorCode_BadFileFormat);
       }
       else
       {

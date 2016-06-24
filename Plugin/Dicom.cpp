@@ -23,7 +23,6 @@
 #include "Plugin.h"
 #include "ChunkedBuffer.h"
 
-#include "../Orthanc/Core/OrthancException.h"
 #include "../Orthanc/Core/Toolbox.h"
 
 #include <gdcmDictEntry.h>
@@ -176,7 +175,7 @@ namespace OrthancPlugins
     {
       /* "GDCM cannot read this DICOM instance of length " +
          boost::lexical_cast<std::string>(dicom.size()) */
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
+      throw OrthancPlugins::PluginException(OrthancPluginErrorCode_BadFileFormat);
     }
   }
 
@@ -244,7 +243,7 @@ namespace OrthancPlugins
   {
     if (!GetDataSet().FindDataElement(tag))
     {
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_InexistentTag);
+      throw OrthancPlugins::PluginException(OrthancPluginErrorCode_InexistentTag);
     }
 
     const gdcm::DataElement& element = GetDataSet().GetDataElement(tag);
@@ -310,7 +309,6 @@ namespace OrthancPlugins
       return "RetrieveURL";
     }
 
-    //throw Orthanc::OrthancException("Unknown keyword for tag: " + FormatTag(tag));
     return NULL;
   }
 
@@ -694,7 +692,7 @@ namespace OrthancPlugins
     if (key.find('.') != std::string::npos)
     {
       OrthancPlugins::Configuration::LogError("This DICOMweb plugin does not support hierarchical queries: " + key);
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_NotImplemented);
+      throw OrthancPlugins::PluginException(OrthancPluginErrorCode_NotImplemented);
     }
 
     if (key.size() == 8 &&  // This is the DICOMweb convention
@@ -734,12 +732,12 @@ namespace OrthancPlugins
         if (key.find('.') != std::string::npos)
         {
           OrthancPlugins::Configuration::LogError("This QIDO-RS implementation does not support search over sequences: " + key);
-          throw Orthanc::OrthancException(Orthanc::ErrorCode_NotImplemented);
+          throw OrthancPlugins::PluginException(OrthancPluginErrorCode_NotImplemented);
         }
         else
         {
           OrthancPlugins::Configuration::LogError("Illegal tag name in QIDO-RS: " + key);
-          throw Orthanc::OrthancException(Orthanc::ErrorCode_UnknownDicomTag);
+          throw OrthancPlugins::PluginException(OrthancPluginErrorCode_UnknownDicomTag);
         }
       }
 
