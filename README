@@ -32,17 +32,12 @@ The full status about the support of these protocols can be found in
 the "./Status.txt" file.
 
 
-Install
--------
+Installation and usage
+----------------------
 
 Build instructions can be found in "./Resources/BuildInstructions.txt".
 
-
-Samples
--------
-
-Python samples to call the DICOMweb services can be found in the
-"./Samples" folder.
+Usage instructions can be found in "./Usage.txt".
 
 
 Licensing: AGPL

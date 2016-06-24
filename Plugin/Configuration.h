@@ -92,6 +92,9 @@ namespace OrthancPlugins
     bool GetBooleanValue(const std::string& key,
                          bool defaultValue);
 
+    unsigned int GetUnsignedIntegerValue(const std::string& key,
+                                         unsigned int defaultValue);
+
     std::string GetRoot();
 
     std::string GetWadoRoot();

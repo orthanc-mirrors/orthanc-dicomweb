@@ -1,0 +1,275 @@
+=============
+Configuration
+=============
+
+(1) You must change the Orthanc configuration file to tell Orthanc
+    where it can find the DICOMweb plugin. This is done by properly
+    modifying the "Plugins" configuration option of Orthanc. For
+    instance, in Linux:
+
+{
+  ...
+  "Plugins" : [
+    "/home/user/OrthancDicomWeb/Build/libOrthancDicomWeb.so"
+  ]
+  ...
+}
+
+    Or in Windows:
+
+{
+  ...
+  "Plugins" : [
+    "c:/Temp/OrthancDicomWeb.dll"
+  ]
+  ...
+}
+
+    Note that the DICOMweb server will share all the parameters of the
+    Orthanc HTTP server, notably wrt. authentication and HTTPS
+    encryption. For this reason, you will most probably have to enable
+    the remote access to the Orthanc HTTP server:
+
+{
+  ...
+  "RemoteAccessEnabled" : true
+  ...
+}
+
+
+(2) There are several configuration options that can be set to
+    fine-tune the Orthanc DICOMweb server. Here is the full list of
+    the available options, all of them must be grouped inside the
+    "DicomWeb" section of the Orthanc configuration file:
+
+{
+  ...
+  "DicomWeb" : {
+    "Enable" : true,          // Whether DICOMweb support is enabled
+    "Root" : "/dicom-web/",   // Root URI of the DICOMweb API (for QIDO-RS, STOW-RS and WADO-RS)
+    "EnableWado" : true,      // Whether WADO-URI (previously known as WADO) support is enabled
+    "WadoRoot" : "/wado",     // Root URI of the WADO-URI (aka. WADO) API
+    "Host" : "localhost",     // Hard-codes the name of the host for subsequent WADO-RS requests
+    "Ssl" : false,            // Whether HTTPS should be used for subsequent WADO-RS requests
+    "StowMaxInstances" : 10,  // For STOW-RS client, the maximum number of instances in one single HTTP query (0 = no limit)
+    "StowMaxSize" : 10        // For STOW-RS client, the maximum size of the body in one single HTTP query (in MB, 0 = no limit)
+  }
+  ...
+}
+
+
+(3) If you want to connect Orthanc as a client to remote DICOMweb
+    servers (cf. below), you need to modify the configuration file so
+    as to define each of them in the option "DicomWeb.Servers".  The
+    syntax is identical to the "OrthancPeers" parameters.
+
+    In the most simple case, here is how to instruct Orthanc about the
+    existence of a password-less DICOMweb server:
+
+{
+  ...
+  "DicomWeb" : {
+    "Servers" : [ "http://192.168.1.1/dicom-web/" ]
+  }
+  ...
+}
+
+    If the DICOMweb server is protected by a password (with HTTP Basic
+    access authentication):
+
+{
+  ...
+  "DicomWeb" : {
+    "Servers" : [ "http://192.168.1.1/dicom-web/", "username", "password" ]
+  }
+  ...
+}
+
+    If the DICOMweb server is protected with HTTPS client
+    authentication, you must provide your client certificate (in the
+    PEM format), your client private key (in the PEM format), together
+    with the password protecting the private key:
+
+{
+  ...
+  "DicomWeb" : {
+    "Servers" : [
+      {
+        "Url" : "http://192.168.1.1/dicom-web/", 
+        "CertificateFile" : "client.crt",
+        "CertificateKeyFile" : "client.key",
+        "CertificateKeyPassword" : "password"
+      }
+    ]
+  }
+  ...
+}
+
+    Finally, it is also possible to use client authentication with
+    hardware security modules and smart cards through PKCS#11:
+
+{
+  ...
+  "DicomWeb" : {
+    "Servers" : [
+      {
+        "Url" : "http://192.168.1.1/dicom-web/", 
+        "Pkcs11" : true
+      }
+    ]
+  }
+  ...
+}
+
+    Important remark: When querying a DICOMweb server, Orthanc will
+    automatically use the global configuration options "HttpProxy",
+    "HttpTimeout", "HttpsVerifyPeers", "HttpsCACertificates", and
+    "Pkcs11". Make sure to adapt them if need be.
+
+
+
+=================================
+Querying a remote DICOMweb server
+=================================
+
+Listing the available servers
+-----------------------------
+
+The list of the remote DICOMweb servers that are known to the DICOMweb
+plugin can be obtained as follows:
+
+# curl http://localhost:8042/dicom-web/servers/
+[ "sample" ]
+
+Here, a single server called "sample" is configured.
+
+
+Making a call to QIDO-RS or WADO-RS
+-----------------------------------
+
+In Orthanc, the URI "/{dicom-web}/servers/{name}/get" allows to make a
+HTTP GET call against a DICOMweb server. This can be used to issue a
+QIDO-RS or WADO-RS command. Orthanc will take care of properly
+encoding the URL and authenticating the client.
+
+For instance, here is a sample QIDO-RS search to query all the
+studies (using a bash command-line):
+
+# curl http://localhost:8042/dicom-web/servers/sample/get -d @- << EOF
+{
+  "Uri" : "/studies"
+}
+EOF
+
+You do not have to specify the base URL of the remote DICOMweb server,
+as it is encoded in the configuration file.
+
+The result of the command above is a multipart "application/dicom+xml"
+document.  It is possible to request a more human-friendly JSON answer
+by adding the "Accept" HTTP header. Here is how to search for a given
+patient name, while requesting a JSON answer and pretty-printing
+through the "json_pp" command-line tool:
+
+# curl http://localhost:8042/dicom-web/servers/sample/get -d @- << EOF | json_pp 
+{
+  "Uri" : "/studies",
+  "HttpHeaders" : {
+    "Accept" : "application/json"
+  },
+  "Arguments" : {
+    "00100010" : "*JODOGNE*"
+  }
+}
+EOF
+
+Note how all the GET arguments must be specified in the "Arguments"
+field. Orthanc will take care of properly encoding it to a URL.
+
+An user-friendly reference of the features available in QIDO-RS and
+WADO-RS can be found at http://dicomweb.hcintegrations.ca/#/home
+
+
+Sending DICOM resources to a STOW-RS server
+-------------------------------------------
+
+STOW-RS allows to send local DICOM resources to a remote DICOMweb
+server. In Orthanc, the STOW-RS client primitive is available at URI
+"/{dicom-web}/servers/{name}/stow". Here is a sample call:
+
+# curl http://localhost:8042/dicom-web/servers/sample/stow -X POST -d @- << EOF
+{
+  "Resources" : [
+    "6ca4c9f3-5e895cb3-4d82c6da-09e060fe-9c59f228"
+  ]
+}
+EOF
+
+Note that this primitive takes as its input a list of Orthanc
+identifiers corresponding to the resources (patients, studies, series
+and/or instances) to be exported:
+https://orthanc.chu.ulg.ac.be/book/faq/orthanc-ids.html
+
+Remark 1: Additional HTTP headers can be added with an optional
+"HttpHeaders" argument, as for QIDO-RS and WADO-RS. This might be
+useful e.g. for cookie-based session management.
+
+Remark 2: One call to this "/stow" primitive will possibly result in
+several HTTP requests to the DICOMweb server, in order to limit the
+size of the HTTP messages. The configuration options
+"DicomWeb.StowMaxInstances" and "DicomWeb.StowMaxSize" can be used to
+tune this behavior (set both options to 0 to send one single request).
+
+
+Retrieving DICOM resources from a WADO-RS server
+------------------------------------------------
+
+Once DICOM resources of interest have been identified through a
+QIDO-RS call to a remote DICOMweb server (cf. above), it is
+interesting to download them locally with a WADO-RS call. You could do
+it manually with a second call to the
+"/{dicom-web}/servers/{name}/get" URI, but Orthanc provides another
+primitive "/retrieve" to automate this process.
+
+Here is how you would download one study, one series and one instance
+whose StudyInstanceUID (0020,000d), SeriesInstanceUID (0020,000e) are
+SOPInstanceUID (0008,0018) have been identified through a former
+QIDO-RS call:
+
+# curl http://localhost:8042/dicom-web/servers/sample/retrieve -X POST -d @- << EOF
+{
+  "Resources" : [
+    {
+      "Study" : "1.3.51.0.1.1.192.168.29.133.1688840.1688819"
+    },
+    {
+      "Study" : "1.3.51.0.1.1.192.168.29.133.1681753.1681732",
+      "Series" : "1.3.12.2.1107.5.2.33.37097.2012041613040617636372171.0.0.0"
+    },
+    {
+      "Study" : "1.3.51.0.1.1.192.168.29.133.1681753.1681732",
+      "Series" : "1.3.12.2.1107.5.2.33.37097.2012041612474981424569674.0.0.0",
+      "Instance" : "1.3.12.2.1107.5.2.33.37097.2012041612485540185869716"
+    }
+  ]
+}
+EOF
+
+Orthanc will reply with the list of the Orthanc identifiers of all the
+DICOM instances that were downloaded from the remote server.
+
+Remark 1: Contrarily to the "/stow" URI that uses Orthanc identifiers,
+the "/retrieve" URI uses DICOM identifiers.
+
+Remark 2: The "HttpArguments" is also available.
+
+
+
+=======
+Samples
+=======
+
+Samples of how to call DICOMweb services from standalone applications
+can be found in the following folders:
+
+- In Python: see ./Resources/Samples/Python/
+- In JavaScript: see ./Resources/Samples/Python/

@@ -168,9 +168,12 @@ static void SendStowChunks(const Orthanc::WebServiceParameters& server,
                            size_t& countInstances,
                            bool force)
 {
+  unsigned int maxInstances = OrthancPlugins::Configuration::GetUnsignedIntegerValue("StowMaxInstances", 10);
+  size_t maxSize = static_cast<size_t>(OrthancPlugins::Configuration::GetUnsignedIntegerValue("StowMaxSize", 10)) * 1024 * 1024;
+
   if ((force && countInstances > 0) ||
-      countInstances > 10 /* TODO Parameter */ ||
-      chunks.GetNumBytes() > 10 * 1024 * 1024 /* TODO Parameter */)
+      (maxInstances != 0 && countInstances >= maxInstances) ||
+      (maxSize != 0 && chunks.GetNumBytes() >= maxSize))
   {
     chunks.AddChunk("\r\n--" + boundary + "--\r\n");
 
@@ -441,10 +444,10 @@ static void RetrieveFromServerInternal(std::set<std::string>& instances,
   std::string uri = "studies/" + study;
   if (!series.empty())
   {
-    uri += "/" + series;
+    uri += "/series/" + series;
     if (!instance.empty())
     {
-      uri += "/" + instance;
+      uri += "/instances/" + instance;
     }
   }
 

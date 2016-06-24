@@ -395,6 +395,13 @@ namespace OrthancPlugins
     }
 
 
+    unsigned int GetUnsignedIntegerValue(const std::string& key,
+                                         unsigned int defaultValue)
+    {
+      return configuration_.GetUnsignedIntegerValue(key, defaultValue);
+    }
+
+
     std::string GetRoot()
     {
       std::string root = configuration_.GetStringValue("Root", "/dicom-web/");
