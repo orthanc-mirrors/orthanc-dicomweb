@@ -93,7 +93,7 @@ static bool GetSequenceSize(size_t& result,
 
 
 
-static void ParseRestRequest(std::list<std::string>& instances /* out */,
+static void ParseStowRequest(std::list<std::string>& instances /* out */,
                              std::map<std::string, std::string>& httpHeaders /* out */,
                              const OrthancPluginHttpRequest* request /* in */)
 {
@@ -133,27 +133,19 @@ static void ParseRestRequest(std::list<std::string>& instances /* out */,
       throw OrthancPlugins::PluginException(OrthancPluginErrorCode_UnknownResource);
     }
 
-    // Assume that this is an instance
+    // Test whether this resource is an instance
     Json::Value tmp;
-    try
+    if (OrthancPlugins::RestApiGetJson(tmp, context, "/instances/" + resource, false))
     {
-      if (OrthancPlugins::RestApiGetJson(tmp, context, "/instances/" + resource, false))
-      {
-        AddInstance(instances, tmp);
-        continue;   // Success, go to the next item
-      }
+      AddInstance(instances, tmp);
     }
-    catch (OrthancPlugins::PluginException&)
-    {
-    }
-
-    // This was not an instance, try with series/studies/patients
-    if ((OrthancPlugins::RestApiGetJson(tmp, context, "/series/" + resource, false) &&
-         OrthancPlugins::RestApiGetJson(tmp, context, "/series/" + resource + "/instances", false)) ||
-        (OrthancPlugins::RestApiGetJson(tmp, context, "/studies/" + resource, false) &&
-         OrthancPlugins::RestApiGetJson(tmp, context, "/studies/" + resource + "/instances", false)) ||
-        (OrthancPlugins::RestApiGetJson(tmp, context, "/patients/" + resource, false) &&
-         OrthancPlugins::RestApiGetJson(tmp, context, "/patients/" + resource + "/instances", false)))
+    // This was not an instance, successively try with series/studies/patients
+    else if ((OrthancPlugins::RestApiGetJson(tmp, context, "/series/" + resource, false) &&
+              OrthancPlugins::RestApiGetJson(tmp, context, "/series/" + resource + "/instances", false)) ||
+             (OrthancPlugins::RestApiGetJson(tmp, context, "/studies/" + resource, false) &&
+              OrthancPlugins::RestApiGetJson(tmp, context, "/studies/" + resource + "/instances", false)) ||
+             (OrthancPlugins::RestApiGetJson(tmp, context, "/patients/" + resource, false) &&
+              OrthancPlugins::RestApiGetJson(tmp, context, "/patients/" + resource + "/instances", false)))
     {
       if (tmp.type() != Json::arrayValue)
       {
@@ -286,12 +278,10 @@ void StowClient(OrthancPluginRestOutput* output,
   httpHeaders["Content-Type"] = mime;
 
   std::list<std::string> instances;
-  ParseRestRequest(instances, httpHeaders, request);
+  ParseStowRequest(instances, httpHeaders, request);
 
-  {
-    OrthancPlugins::Configuration::LogInfo("Sending " + boost::lexical_cast<std::string>(instances.size()) + 
-                                           " instances using STOW-RS to DICOMweb server: " + server.GetUrl());
-  }
+  OrthancPlugins::Configuration::LogInfo("Sending " + boost::lexical_cast<std::string>(instances.size()) + 
+                                         " instances using STOW-RS to DICOMweb server: " + server.GetUrl());
 
   Orthanc::ChunkedBuffer chunks;
   size_t countInstances = 0;
