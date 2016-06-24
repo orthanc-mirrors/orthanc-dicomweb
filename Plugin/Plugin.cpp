@@ -139,6 +139,33 @@ void ListServerOperations(OrthancPluginRestOutput* output,
 }
 
 
+
+static bool GetStringValue(std::string& target,
+                           const Json::Value& json,
+                           const std::string& key)
+{
+  if (json.type() != Json::objectValue)
+  {
+    throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
+  }
+  else if (!json.isMember(key))
+  {
+    target.clear();
+    return false;
+  }
+  else if (json[key].type() != Json::stringValue)
+  {
+    OrthancPlugins::Configuration::LogError("The field \"" + key + "\" in a JSON object should be a string");
+    throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
+  }
+  else
+  {
+    target = json[key].asString();
+    return true;
+  }
+}
+
+
 void GetFromServer(OrthancPluginRestOutput* output,
                    const char* /*url*/,
                    const OrthancPluginHttpRequest* request)
@@ -155,23 +182,23 @@ void GetFromServer(OrthancPluginRestOutput* output,
 
   Orthanc::WebServiceParameters server(OrthancPlugins::DicomWebServers::GetInstance().GetServer(request->groups[0]));
 
+  std::string tmp;
   Json::Value body;
   Json::Reader reader;
   if (!reader.parse(request->body, request->body + request->bodySize, body) ||
       body.type() != Json::objectValue ||
-      !body.isMember(URI) ||
-      body[URI].type() != Json::stringValue)
+      !GetStringValue(tmp, body, URI))
   {
     OrthancPlugins::Configuration::LogError("A request to the DICOMweb STOW-RS client must provide a JSON object "
                                             "with the field \"Uri\" containing the URI of interest");
-    throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
+    throw OrthancPlugins::PluginException(OrthancPluginErrorCode_BadFileFormat);
   }
 
   std::map<std::string, std::string> getArguments;
   OrthancPlugins::ParseAssociativeArray(getArguments, body, GET_ARGUMENTS);
 
-  std::string uri; 
-  OrthancPlugins::UriEncode(uri, body[URI].asString(), getArguments);
+  std::string uri;
+  OrthancPlugins::UriEncode(uri, tmp, getArguments);
 
   std::map<std::string, std::string> httpHeaders;
   OrthancPlugins::ParseAssociativeArray(httpHeaders, body, HTTP_HEADERS);
@@ -194,7 +221,7 @@ void GetFromServer(OrthancPluginRestOutput* output,
     }
     else if (key == "transfer-encoding")
     {
-      // Do not include this header
+      // Do not forward this header
     }
     else
     {
@@ -205,6 +232,210 @@ void GetFromServer(OrthancPluginRestOutput* output,
   OrthancPluginAnswerBuffer(OrthancPlugins::Configuration::GetContext(), output, 
                             reinterpret_cast<const char*>(answerBody.GetData()),
                             answerBody.GetSize(), contentType.c_str());
+}
+
+
+
+static void RetrieveFromServerInternal(std::set<std::string>& instances,
+                                       const Orthanc::WebServiceParameters& server,
+                                       const std::map<std::string, std::string>& httpHeaders,
+                                       const Json::Value& resource)
+{
+  static const std::string STUDY = "Study";
+  static const std::string SERIES = "Series";
+  static const std::string INSTANCE = "Instance";
+  static const std::string MULTIPART_RELATED = "multipart/related";
+  static const std::string APPLICATION_DICOM = "application/dicom";
+
+  if (resource.type() != Json::objectValue)
+  {
+    OrthancPlugins::Configuration::LogError("Resources of interest for the DICOMweb WADO-RS Retrieve client "
+                                            "must be provided as a JSON object");
+    throw OrthancPlugins::PluginException(OrthancPluginErrorCode_BadFileFormat);
+  }
+
+  std::string study, series, instance;
+  if (!GetStringValue(study, resource, STUDY) ||
+      study.empty())
+  {
+    OrthancPlugins::Configuration::LogError("A non-empty \"" + STUDY + "\" field is mandatory for the "
+                                            "DICOMweb WADO-RS Retrieve client");
+    throw OrthancPlugins::PluginException(OrthancPluginErrorCode_BadFileFormat);
+  }
+
+  GetStringValue(series, resource, SERIES);
+  GetStringValue(instance, resource, INSTANCE);
+
+  if (series.empty() && 
+      !instance.empty())
+  {
+    OrthancPlugins::Configuration::LogError("When specifying a \"" + INSTANCE + "\" field in a call to DICOMweb "
+                                            "WADO-RS Retrieve client, the \"" + SERIES + "\" field is mandatory");
+    throw OrthancPlugins::PluginException(OrthancPluginErrorCode_BadFileFormat);
+  }
+
+  std::string uri = "studies/" + study;
+  if (!series.empty())
+  {
+    uri += "/" + series;
+    if (!instance.empty())
+    {
+      uri += "/" + instance;
+    }
+  }
+
+  OrthancPlugins::MemoryBuffer answerBody(OrthancPlugins::Configuration::GetContext());
+  std::map<std::string, std::string> answerHeaders;
+  OrthancPlugins::CallServer(answerBody, answerHeaders, server, OrthancPluginHttpMethod_Get, httpHeaders, uri, "");
+
+  std::vector<std::string> contentType;
+  for (std::map<std::string, std::string>::const_iterator 
+         it = answerHeaders.begin(); it != answerHeaders.end(); ++it)
+  {
+    std::string s = Orthanc::Toolbox::StripSpaces(it->first);
+    Orthanc::Toolbox::ToLowerCase(s);
+    if (s == "content-type")
+    {
+      Orthanc::Toolbox::TokenizeString(contentType, it->second, ';');
+      break;
+    }
+  }
+
+  if (contentType.empty())
+  {
+    OrthancPlugins::Configuration::LogError("No Content-Type provided by the remote WADO-RS server");
+    throw OrthancPlugins::PluginException(OrthancPluginErrorCode_NetworkProtocol);
+  }
+
+  Orthanc::Toolbox::ToLowerCase(contentType[0]);
+  if (Orthanc::Toolbox::StripSpaces(contentType[0]) != MULTIPART_RELATED)
+  {
+    OrthancPlugins::Configuration::LogError("The remote WADO-RS server answers with a \"" + contentType[0] +
+                                            "\" Content-Type, but \"" + MULTIPART_RELATED + "\" is expected");
+    throw OrthancPlugins::PluginException(OrthancPluginErrorCode_NetworkProtocol);
+  }
+
+  std::string type, boundary;
+  for (size_t i = 1; i < contentType.size(); i++)
+  {
+    std::vector<std::string> tokens;
+    Orthanc::Toolbox::TokenizeString(tokens, contentType[i], '=');
+
+    if (tokens.size() == 2)
+    {
+      std::string s = Orthanc::Toolbox::StripSpaces(tokens[0]);
+      Orthanc::Toolbox::ToLowerCase(s);
+
+      if (s == "type")
+      {
+        type = Orthanc::Toolbox::StripSpaces(tokens[1]);
+        Orthanc::Toolbox::ToLowerCase(type);
+      }
+      else if (s == "boundary")
+      {
+        boundary = Orthanc::Toolbox::StripSpaces(tokens[1]);
+      }
+    }
+  }
+
+  if (type != APPLICATION_DICOM)
+  {
+    OrthancPlugins::Configuration::LogError("The remote WADO-RS server answers with a \"" + type +
+                                            "\" multipart Content-Type, but \"" + APPLICATION_DICOM + "\" is expected");
+    throw OrthancPlugins::PluginException(OrthancPluginErrorCode_NetworkProtocol);
+  }
+
+  if (boundary.empty())
+  {
+    OrthancPlugins::Configuration::LogError("The remote WADO-RS server does not provide a boundary for its multipart answer");
+    throw OrthancPlugins::PluginException(OrthancPluginErrorCode_NetworkProtocol);
+  }
+
+  std::vector<OrthancPlugins::MultipartItem> parts;
+  OrthancPlugins::ParseMultipartBody(parts, OrthancPlugins::Configuration::GetContext(), 
+                                     reinterpret_cast<const char*>(answerBody.GetData()),
+                                     answerBody.GetSize(), boundary);
+
+  OrthancPlugins::Configuration::LogInfo("The remote WADO-RS server has provided " +
+                                         boost::lexical_cast<std::string>(parts.size()) + 
+                                         " DICOM instances");
+
+  for (size_t i = 0; i < parts.size(); i++)
+  {
+    if (parts[i].contentType_ != APPLICATION_DICOM)
+    {
+      OrthancPlugins::Configuration::LogError("The remote WADO-RS server has provided a non-DICOM file in its multipart answer");
+      throw OrthancPlugins::PluginException(OrthancPluginErrorCode_NetworkProtocol);      
+    }
+
+    OrthancPlugins::MemoryBuffer tmp(OrthancPlugins::Configuration::GetContext());
+    tmp.RestApiPost("/instances", parts[i].data_, parts[i].size_, false);
+
+    Json::Value result;
+    tmp.ToJson(result);
+
+    if (result.type() != Json::objectValue ||
+        !result.isMember("ID") ||
+        result["ID"].type() != Json::stringValue)
+    {
+      throw OrthancPlugins::PluginException(OrthancPluginErrorCode_InternalError);      
+    }
+    else
+    {
+      instances.insert(result["ID"].asString());
+    }
+  }
+}
+
+
+
+void RetrieveFromServer(OrthancPluginRestOutput* output,
+                        const char* /*url*/,
+                        const OrthancPluginHttpRequest* request)
+{
+  static const std::string RESOURCES("Resources");
+  static const char* HTTP_HEADERS = "HttpHeaders";
+
+  if (request->method != OrthancPluginHttpMethod_Post)
+  {
+    OrthancPluginSendMethodNotAllowed(OrthancPlugins::Configuration::GetContext(), output, "POST");
+    return;
+  }
+
+  Orthanc::WebServiceParameters server(OrthancPlugins::DicomWebServers::GetInstance().GetServer(request->groups[0]));
+
+  Json::Value body;
+  Json::Reader reader;
+  if (!reader.parse(request->body, request->body + request->bodySize, body) ||
+      body.type() != Json::objectValue ||
+      !body.isMember(RESOURCES) ||
+      body[RESOURCES].type() != Json::arrayValue)
+  {
+    OrthancPlugins::Configuration::LogError("A request to the DICOMweb WADO-RS Retrieve client must provide a JSON object "
+                                            "with the field \"" + RESOURCES + "\" containing an array of resources");
+    throw OrthancPlugins::PluginException(OrthancPluginErrorCode_BadFileFormat);
+  }
+
+  std::map<std::string, std::string> httpHeaders;
+  OrthancPlugins::ParseAssociativeArray(httpHeaders, body, HTTP_HEADERS);
+
+  std::set<std::string> instances;
+  for (Json::Value::ArrayIndex i = 0; i < body[RESOURCES].size(); i++)
+  {
+    RetrieveFromServerInternal(instances, server, httpHeaders, body[RESOURCES][i]);
+  }
+
+  Json::Value status = Json::objectValue;
+  status["Instances"] = Json::arrayValue;
+  
+  for (std::set<std::string>::const_iterator
+         it = instances.begin(); it != instances.end(); ++it)
+  {
+    status["Instances"].append(*it);
+  }
+
+  std::string s = status.toStyledString();
+  OrthancPluginAnswerBuffer(OrthancPlugins::Configuration::GetContext(), output, s.c_str(), s.size(), "application/json");
 }
 
 
@@ -264,6 +495,7 @@ extern "C"
         OrthancPlugins::RegisterRestCallback<ListServerOperations>(context, root + "servers/([^/]*)", true);
         OrthancPlugins::RegisterRestCallback<StowClient>(context, root + "servers/([^/]*)/stow", true);
         OrthancPlugins::RegisterRestCallback<GetFromServer>(context, root + "servers/([^/]*)/get", true);
+        OrthancPlugins::RegisterRestCallback<RetrieveFromServer>(context, root + "servers/([^/]*)/retrieve", true);
       }
       else
       {

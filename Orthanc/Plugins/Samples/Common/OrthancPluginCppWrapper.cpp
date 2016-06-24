@@ -135,7 +135,8 @@ namespace OrthancPlugins
 
   
   bool MemoryBuffer::RestApiPost(const std::string& uri,
-                                 const std::string& body,
+                                 const char* body,
+                                 size_t bodySize,
                                  bool applyPlugins)
   {
     Clear();
@@ -144,11 +145,11 @@ namespace OrthancPlugins
 
     if (applyPlugins)
     {
-      error = OrthancPluginRestApiPostAfterPlugins(context_, &buffer_, uri.c_str(), body.c_str(), body.size());
+      error = OrthancPluginRestApiPostAfterPlugins(context_, &buffer_, uri.c_str(), body, bodySize);
     }
     else
     {
-      error = OrthancPluginRestApiPost(context_, &buffer_, uri.c_str(), body.c_str(), body.size());
+      error = OrthancPluginRestApiPost(context_, &buffer_, uri.c_str(), body, bodySize);
     }
 
     if (error == OrthancPluginErrorCode_Success)
@@ -167,7 +168,8 @@ namespace OrthancPlugins
 
 
   bool MemoryBuffer::RestApiPut(const std::string& uri,
-                                const std::string& body,
+                                const char* body,
+                                size_t bodySize,
                                 bool applyPlugins)
   {
     Clear();
@@ -176,11 +178,11 @@ namespace OrthancPlugins
 
     if (applyPlugins)
     {
-      error = OrthancPluginRestApiPutAfterPlugins(context_, &buffer_, uri.c_str(), body.c_str(), body.size());
+      error = OrthancPluginRestApiPutAfterPlugins(context_, &buffer_, uri.c_str(), body, bodySize);
     }
     else
     {
-      error = OrthancPluginRestApiPut(context_, &buffer_, uri.c_str(), body.c_str(), body.size());
+      error = OrthancPluginRestApiPut(context_, &buffer_, uri.c_str(), body, bodySize);
     }
 
     if (error == OrthancPluginErrorCode_Success)

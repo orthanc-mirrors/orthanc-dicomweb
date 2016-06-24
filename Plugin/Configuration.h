@@ -33,6 +33,7 @@
 
 namespace OrthancPlugins
 {
+  // TODO MOVE THIS to DicomWebServers
   struct MultipartItem
   {
     const char*   data_;

@@ -107,11 +107,13 @@ namespace OrthancPlugins
                     bool applyPlugins);
 
     bool RestApiPost(const std::string& uri,
-                     const std::string& body,
+                     const char* body,
+                     size_t bodySize,
                      bool applyPlugins);
 
     bool RestApiPut(const std::string& uri,
-                    const std::string& body,
+                    const char* body,
+                    size_t bodySize,
                     bool applyPlugins);
   };
 

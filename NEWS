@@ -5,6 +5,7 @@ Pending changes in the mainline
 
 * STOW-RS client with URI "/{dicom-web}/servers/{id}/stow"
 * QIDO-RS and WADO-RS client with URI "/{dicom-web}/servers/{id}/get"
+* Retrieval of DICOM instances with WADO-RS through URI "/{dicom-web}/servers/{id}/retrieve"
 * Improved robustness in the STOW-RS server
 * Fix issue #13 (QIDO-RS study-level query is slow)
 * Fix issue #14 (Aggregate fields empty for QIDO-RS study/series-level queries)
