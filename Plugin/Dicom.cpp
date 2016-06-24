@@ -370,8 +370,7 @@ namespace OrthancPlugins
     const gdcm::ByteValue* data = element.GetByteValue();
     if (!data)
     {
-      // Assume Latin-1 encoding (TODO add a parameter as in Orthanc)
-      return Orthanc::Encoding_Latin1;
+      return Configuration::GetDefaultEncoding();
     }
 
     std::string tmp(data->GetPointer(), data->GetLength());
@@ -384,8 +383,7 @@ namespace OrthancPlugins
     }
     else
     {
-      // Assume Latin-1 encoding (TODO add a parameter as in Orthanc)
-      return Orthanc::Encoding_Latin1;
+      return Configuration::GetDefaultEncoding();
     }
   }
 

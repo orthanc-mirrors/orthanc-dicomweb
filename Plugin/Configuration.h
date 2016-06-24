@@ -20,6 +20,8 @@
 
 #pragma once
 
+#include "../Orthanc/Core/Enumerations.h"
+
 #include <orthanc/OrthancCPlugin.h>
 #include <json/value.h>
 
@@ -33,7 +35,6 @@
 
 namespace OrthancPlugins
 {
-  // TODO MOVE THIS to DicomWebServers
   struct MultipartItem
   {
     const char*   data_;
@@ -107,5 +108,7 @@ namespace OrthancPlugins
     void LogWarning(const std::string& message);
 
     void LogInfo(const std::string& message);
+
+    Orthanc::Encoding GetDefaultEncoding();
   }
 }

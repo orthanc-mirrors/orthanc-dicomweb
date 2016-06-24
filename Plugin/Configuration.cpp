@@ -353,6 +353,8 @@ namespace OrthancPlugins
 
   namespace Configuration
   {
+    // Assume Latin-1 encoding by default (as in the Orthanc core)
+    static Orthanc::Encoding defaultEncoding_ = Orthanc::Encoding_Latin1;
     static OrthancConfiguration configuration_;
 
 
@@ -360,6 +362,13 @@ namespace OrthancPlugins
     {      
       OrthancPlugins::OrthancConfiguration global(context);
       global.GetSection(configuration_, "DicomWeb");
+
+      std::string s;
+      if (global.LookupStringValue(s, "DefaultEncoding"))
+      {
+        defaultEncoding_ = Orthanc::StringToEncoding(s.c_str());
+        printf(">> [%s] [%d]\n", s.c_str(), defaultEncoding_);
+      }
 
       OrthancPlugins::OrthancConfiguration servers;
       configuration_.GetSection(servers, "Servers");
@@ -481,6 +490,12 @@ namespace OrthancPlugins
     void LogInfo(const std::string& message)
     {
       OrthancPluginLogInfo(GetContext(), message.c_str());
+    }
+
+
+    Orthanc::Encoding GetDefaultEncoding()
+    {
+      return defaultEncoding_;
     }
   }
 }

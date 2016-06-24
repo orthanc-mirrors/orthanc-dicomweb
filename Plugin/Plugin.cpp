@@ -520,6 +520,12 @@ extern "C"
                                               std::string(e.GetErrorDescription(context)));
       return -1;
     }
+    catch (Orthanc::OrthancException& e)
+    {
+      OrthancPlugins::Configuration::LogError("Exception while initializing the DICOMweb plugin: " + 
+                                              std::string(e.What()));
+      return -1;
+    }
     catch (...)
     {
       OrthancPlugins::Configuration::LogError("Exception while initializing the DICOMweb plugin");
