@@ -286,14 +286,14 @@ void StowClient(OrthancPluginRestOutput* output,
 
   for (std::list<std::string>::const_iterator it = instances.begin(); it != instances.end(); it++)
   {
-    std::string dicom;
-    if (OrthancPlugins::RestApiGetString(dicom, OrthancPlugins::Configuration::GetContext(), "/instances/" + *it + "/file"))
+    OrthancPlugins::MemoryBuffer dicom(OrthancPlugins::Configuration::GetContext());
+    if (dicom.RestApiGet("/instances/" + *it + "/file", false))
     {
       chunks.AddChunk("\r\n--" + boundary + "\r\n" +
                       "Content-Type: application/dicom\r\n" +
-                      "Content-Length: " + boost::lexical_cast<std::string>(dicom.size()) +
+                      "Content-Length: " + boost::lexical_cast<std::string>(dicom.GetSize()) +
                       "\r\n\r\n");
-      chunks.AddChunk(dicom);
+      chunks.AddChunk(dicom.GetData(), dicom.GetSize());
       countInstances ++;
 
       SendStowChunks(server, httpHeaders, boundary, chunks, countInstances, false);

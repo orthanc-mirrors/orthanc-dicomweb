@@ -171,10 +171,11 @@ namespace OrthancPlugins
 
     // Parse the DICOM instance using GDCM
     reader_.SetStream(stream);
+
     if (!reader_.Read())
     {
-      /* "GDCM cannot read this DICOM instance of length " +
-         boost::lexical_cast<std::string>(dicom.size()) */
+      OrthancPlugins::Configuration::LogError("GDCM cannot decode this DICOM instance of length " +
+                                              boost::lexical_cast<std::string>(dicom.size()));
       throw OrthancPlugins::PluginException(OrthancPluginErrorCode_BadFileFormat);
     }
   }
@@ -182,7 +183,16 @@ namespace OrthancPlugins
 
   ParsedDicomFile::ParsedDicomFile(const OrthancPlugins::MultipartItem& item)
   {
+    // TODO Avoid this unnecessary memcpy by defining a stream over the MultipartItem
     std::string dicom(item.data_, item.data_ + item.size_);
+    Setup(dicom);
+  }
+
+
+  ParsedDicomFile::ParsedDicomFile(const OrthancPlugins::MemoryBuffer& buffer)
+  {
+    // TODO Avoid this unnecessary memcpy by defining a stream over the MemoryBuffer
+    std::string dicom(buffer.GetData(), buffer.GetData() + buffer.GetSize());
     Setup(dicom);
   }
 

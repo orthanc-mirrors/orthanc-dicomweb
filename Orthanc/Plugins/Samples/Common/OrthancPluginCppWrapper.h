@@ -87,9 +87,16 @@ namespace OrthancPlugins
       return &buffer_;
     }
 
-    const void* GetData() const
+    const char* GetData() const
     {
-      return buffer_.data;
+      if (buffer_.size > 0)
+      {
+        return reinterpret_cast<const char*>(buffer_.data);
+      }
+      else
+      {
+        return NULL;
+      }
     }
 
     size_t GetSize() const
@@ -115,6 +122,20 @@ namespace OrthancPlugins
                     const char* body,
                     size_t bodySize,
                     bool applyPlugins);
+
+    bool RestApiPost(const std::string& uri,
+                     const std::string& body,
+                     bool applyPlugins)
+    {
+      return RestApiPost(uri, body.empty() ? NULL : body.c_str(), body.size(), applyPlugins);
+    }
+
+    bool RestApiPut(const std::string& uri,
+                    const std::string& body,
+                    bool applyPlugins)
+    {
+      return RestApiPut(uri, body.empty() ? NULL : body.c_str(), body.size(), applyPlugins);
+    }
   };
 
 
@@ -204,12 +225,52 @@ namespace OrthancPlugins
   };
 
 
+  bool RestApiGetJson(Json::Value& result,
+                      OrthancPluginContext* context,
+                      const std::string& uri,
+                      bool applyPlugins);
 
+  bool RestApiPostJson(Json::Value& result,
+                       OrthancPluginContext* context,
+                       const std::string& uri,
+                       const char* body,
+                       size_t bodySize,
+                       bool applyPlugins);
+
+  bool RestApiPutJson(Json::Value& result,
+                      OrthancPluginContext* context,
+                      const std::string& uri,
+                      const char* body,
+                      size_t bodySize,
+                      bool applyPlugins);
+
+  inline bool RestApiPostJson(Json::Value& result,
+                              OrthancPluginContext* context,
+                              const std::string& uri,
+                              const std::string& body,
+                              bool applyPlugins)
+  {
+    return RestApiPostJson(result, context, uri, body.empty() ? NULL : body.c_str(), 
+                           body.size(), applyPlugins);
+  }
 
   bool RestApiDelete(OrthancPluginContext* context,
                      const std::string& uri,
                      bool applyPlugins);
 
+  inline bool RestApiPutJson(Json::Value& result,
+                             OrthancPluginContext* context,
+                             const std::string& uri,
+                             const std::string& body,
+                             bool applyPlugins)
+  {
+    return RestApiPutJson(result, context, uri, body.empty() ? NULL : body.c_str(), 
+                          body.size(), applyPlugins);
+  }
+
+  bool RestApiDelete(OrthancPluginContext* context,
+                     const std::string& uri,
+                     bool applyPlugins);
 
 
   namespace Internals

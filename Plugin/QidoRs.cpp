@@ -279,6 +279,8 @@ namespace
                             QueryLevel level,
                             const std::string& resource) const
     {
+      OrthancPluginContext* context = OrthancPlugins::Configuration::GetContext();
+
       target.clear();
 
       switch (level)
@@ -286,8 +288,8 @@ namespace
         case QueryLevel_Study:
         {
           Json::Value series, instances;
-          if (OrthancPlugins::RestApiGetJson(series, OrthancPlugins::Configuration::GetContext(), "/studies/" + resource + "/series?expand") &&
-              OrthancPlugins::RestApiGetJson(instances, OrthancPlugins::Configuration::GetContext(), "/studies/" + resource + "/instances"))
+          if (OrthancPlugins::RestApiGetJson(series, context, "/studies/" + resource + "/series?expand", false) &&
+              OrthancPlugins::RestApiGetJson(instances, context, "/studies/" + resource + "/instances", false))
           {
             // Number of Study Related Series
             target[gdcm::Tag(0x0020, 0x1206)] = boost::lexical_cast<std::string>(series.size());
@@ -333,7 +335,7 @@ namespace
         case QueryLevel_Series:
         {
           Json::Value instances;
-          if (OrthancPlugins::RestApiGetJson(instances, OrthancPlugins::Configuration::GetContext(), "/series/" + resource + "/instances"))
+          if (OrthancPlugins::RestApiGetJson(instances, context, "/series/" + resource + "/instances", false))
           {
             // Number of Series Related Instances
             target[gdcm::Tag(0x0020, 0x1209)] = boost::lexical_cast<std::string>(instances.size());
@@ -496,6 +498,8 @@ static void ApplyMatcher(OrthancPluginRestOutput* output,
                          const ModuleMatcher& matcher,
                          QueryLevel level)
 {
+  OrthancPluginContext* context = OrthancPlugins::Configuration::GetContext();
+
   Json::Value find;
   matcher.ConvertToOrthanc(find, level);
 
@@ -503,7 +507,7 @@ static void ApplyMatcher(OrthancPluginRestOutput* output,
   std::string body = writer.write(find);
   
   Json::Value resources;
-  if (!OrthancPlugins::RestApiPostJson(resources, OrthancPlugins::Configuration::GetContext(), "/tools/find", body) ||
+  if (!OrthancPlugins::RestApiPostJson(resources, context, "/tools/find", body, false) ||
       resources.type() != Json::arrayValue)
   {
     throw OrthancPlugins::PluginException(OrthancPluginErrorCode_InternalError);
@@ -523,7 +527,7 @@ static void ApplyMatcher(OrthancPluginRestOutput* output,
     {
       // Find one child instance of this resource
       Json::Value tmp;
-      if (OrthancPlugins::RestApiGetJson(tmp, OrthancPlugins::Configuration::GetContext(), root + resource + "/instances") &&
+      if (OrthancPlugins::RestApiGetJson(tmp, context, root + resource + "/instances", false) &&
           tmp.type() == Json::arrayValue &&
           tmp.size() > 0)
       {
@@ -538,7 +542,7 @@ static void ApplyMatcher(OrthancPluginRestOutput* output,
   
   std::string wadoBase = OrthancPlugins::Configuration::GetBaseUrl(request);
 
-  OrthancPlugins::DicomResults results(OrthancPlugins::Configuration::GetContext(), output, wadoBase, *dictionary_, IsXmlExpected(request), true);
+  OrthancPlugins::DicomResults results(context, output, wadoBase, *dictionary_, IsXmlExpected(request), true);
 
 #if 0
   // Implementation up to version 0.2 of the plugin. Each instance is
@@ -552,7 +556,7 @@ static void ApplyMatcher(OrthancPluginRestOutput* output,
     matcher.ComputeDerivedTags(derivedTags, level, it->first);
 
     std::string file;
-    if (OrthancPlugins::RestApiGetString(file, OrthancPlugins::Configuration::GetContext(), "/instances/" + it->second + "/file"))
+    if (OrthancPlugins::RestApiGetString(file, context, "/instances/" + it->second + "/file", false))
     {
       OrthancPlugins::ParsedDicomFile dicom(file);
 
@@ -581,7 +585,7 @@ static void ApplyMatcher(OrthancPluginRestOutput* output,
          it = resourcesAndInstances.begin(); it != resourcesAndInstances.end(); ++it)
   {
     Json::Value tags;
-    if (OrthancPlugins::RestApiGetJson(tags, OrthancPlugins::Configuration::GetContext(), "/instances/" + it->second + "/tags"))
+    if (OrthancPlugins::RestApiGetJson(tags, context, "/instances/" + it->second + "/tags", false))
     {
       std::string wadoUrl = OrthancPlugins::Configuration::GetWadoUrl(
         wadoBase, 

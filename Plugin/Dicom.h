@@ -24,6 +24,7 @@
 
 #include "../Orthanc/Core/ChunkedBuffer.h"
 #include "../Orthanc/Core/Enumerations.h"
+#include "../Orthanc/Plugins/Samples/Common/OrthancPluginCppWrapper.h"
 
 #include <gdcmReader.h>
 #include <gdcmDataSet.h>
@@ -61,6 +62,8 @@ namespace OrthancPlugins
 
   public:
     ParsedDicomFile(const OrthancPlugins::MultipartItem& item);
+
+    ParsedDicomFile(const OrthancPlugins::MemoryBuffer& item);
 
     ParsedDicomFile(const std::string& dicom)
     {

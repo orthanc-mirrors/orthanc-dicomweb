@@ -400,16 +400,19 @@ void RetrieveFrames(OrthancPluginRestOutput* output,
                     const char* url,
                     const OrthancPluginHttpRequest* request)
 {
+  OrthancPluginContext* context = OrthancPlugins::Configuration::GetContext();
+
   gdcm::TransferSyntax targetSyntax(ParseTransferSyntax(request));
 
   std::list<unsigned int> frames;
   ParseFrameList(frames, request);
 
   Json::Value header;
-  std::string uri, content;
+  std::string uri;
+  OrthancPlugins::MemoryBuffer content(context);
   if (LocateInstance(output, uri, request) &&
-      OrthancPlugins::RestApiGetString(content, OrthancPlugins::Configuration::GetContext(), uri + "/file") &&
-      OrthancPlugins::RestApiGetJson(header, OrthancPlugins::Configuration::GetContext(), uri + "/header?simplify"))
+      content.RestApiGet(uri + "/file", false) &&
+      OrthancPlugins::RestApiGetJson(header, context, uri + "/header?simplify", false))
   {
     {
       std::string s = "DICOMweb RetrieveFrames on " + uri + ", frames: ";
@@ -463,7 +466,9 @@ void RetrieveFrames(OrthancPluginRestOutput* output,
       gdcm::ImageChangeTransferSyntax change;
       change.SetTransferSyntax(targetSyntax);
 
-      std::stringstream stream(content);
+      // TODO Avoid this unnecessary memcpy by defining a stream over the MemoryBuffer
+      std::string dicom(content.GetData(), content.GetData() + content.GetSize());
+      std::stringstream stream(dicom);
 
       gdcm::ImageReader reader;
       reader.SetStream(stream);

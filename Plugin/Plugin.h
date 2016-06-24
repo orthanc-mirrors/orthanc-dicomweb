@@ -24,5 +24,7 @@
 
 #include <gdcmDict.h>
 
+// TODO Remove this file
+
 // Global state
 extern const gdcm::Dict* dictionary_;

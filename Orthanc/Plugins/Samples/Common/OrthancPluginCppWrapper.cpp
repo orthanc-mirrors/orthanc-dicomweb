@@ -123,7 +123,8 @@ namespace OrthancPlugins
     {
       return true;
     }
-    else if (error == OrthancPluginErrorCode_UnknownResource)
+    else if (error == OrthancPluginErrorCode_UnknownResource ||
+             error == OrthancPluginErrorCode_InexistentItem)
     {
       return false;
     }
@@ -156,7 +157,8 @@ namespace OrthancPlugins
     {
       return true;
     }
-    else if (error == OrthancPluginErrorCode_UnknownResource)
+    else if (error == OrthancPluginErrorCode_UnknownResource ||
+             error == OrthancPluginErrorCode_InexistentItem)
     {
       return false;
     }
@@ -189,7 +191,8 @@ namespace OrthancPlugins
     {
       return true;
     }
-    else if (error == OrthancPluginErrorCode_UnknownResource)
+    else if (error == OrthancPluginErrorCode_UnknownResource ||
+             error == OrthancPluginErrorCode_InexistentItem)
     {
       return false;
     }
@@ -547,6 +550,64 @@ namespace OrthancPlugins
   }
 
 
+  bool RestApiGetJson(Json::Value& result,
+                      OrthancPluginContext* context,
+                      const std::string& uri,
+                      bool applyPlugins)
+  {
+    MemoryBuffer answer(context);
+    if (!answer.RestApiGet(uri, applyPlugins))
+    {
+      return false;
+    }
+    else
+    {
+      answer.ToJson(result);
+      return true;
+    }
+  }
+
+
+  bool RestApiPostJson(Json::Value& result,
+                       OrthancPluginContext* context,
+                       const std::string& uri,
+                       const char* body,
+                       size_t bodySize,
+                       bool applyPlugins)
+  {
+    MemoryBuffer answer(context);
+    if (!answer.RestApiPost(uri, body, bodySize, applyPlugins))
+    {
+      return false;
+    }
+    else
+    {
+      answer.ToJson(result);
+      return true;
+    }
+  }
+
+
+  bool RestApiPutJson(Json::Value& result,
+                      OrthancPluginContext* context,
+                      const std::string& uri,
+                      const char* body,
+                      size_t bodySize,
+                      bool applyPlugins)
+  {
+    MemoryBuffer answer(context);
+    if (!answer.RestApiPut(uri, body, bodySize, applyPlugins))
+    {
+      return false;
+    }
+    else
+    {
+      answer.ToJson(result);
+      return true;
+    }
+  }
+
+
   bool RestApiDelete(OrthancPluginContext* context,
                      const std::string& uri,
                      bool applyPlugins)
@@ -566,7 +627,8 @@ namespace OrthancPlugins
     {
       return true;
     }
-    else if (error == OrthancPluginErrorCode_UnknownResource)
+    else if (error == OrthancPluginErrorCode_UnknownResource ||
+             error == OrthancPluginErrorCode_InexistentItem)
     {
       return false;
     }

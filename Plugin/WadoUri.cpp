@@ -48,6 +48,8 @@ static bool LocateInstance(std::string& instance,
                            std::string& contentType,
                            const OrthancPluginHttpRequest* request)
 {
+  OrthancPluginContext* context = OrthancPlugins::Configuration::GetContext();
+
   std::string requestType, studyUid, seriesUid, objectUid;
 
   for (uint32_t i = 0; i < request->getCount; i++)
@@ -111,7 +113,7 @@ static bool LocateInstance(std::string& instance,
     else
     {
       Json::Value info;
-      if (!OrthancPlugins::RestApiGetJson(info, OrthancPlugins::Configuration::GetContext(), "/instances/" + instance + "/series") ||
+      if (!OrthancPlugins::RestApiGetJson(info, context, "/instances/" + instance + "/series", false) ||
           info["MainDicomTags"]["SeriesInstanceUID"] != seriesUid)
       {
         OrthancPlugins::Configuration::LogError("WADO-URI: Instance " + objectUid + " does not belong to series " + seriesUid);
@@ -131,7 +133,7 @@ static bool LocateInstance(std::string& instance,
     else
     {
       Json::Value info;
-      if (!OrthancPlugins::RestApiGetJson(info, OrthancPlugins::Configuration::GetContext(), "/instances/" + instance + "/study") ||
+      if (!OrthancPlugins::RestApiGetJson(info, context, "/instances/" + instance + "/study", false) ||
           info["MainDicomTags"]["StudyInstanceUID"] != studyUid)
       {
         OrthancPlugins::Configuration::LogError("WADO-URI: Instance " + objectUid + " does not belong to study " + studyUid);
@@ -149,10 +151,11 @@ static void AnswerDicom(OrthancPluginRestOutput* output,
 {
   std::string uri = "/instances/" + instance + "/file";
 
-  std::string dicom;
-  if (OrthancPlugins::RestApiGetString(dicom, OrthancPlugins::Configuration::GetContext(), uri))
+  OrthancPlugins::MemoryBuffer dicom(OrthancPlugins::Configuration::GetContext());
+  if (dicom.RestApiGet(uri, false))
   {
-    OrthancPluginAnswerBuffer(OrthancPlugins::Configuration::GetContext(), output, dicom.c_str(), dicom.size(), "application/dicom");
+    OrthancPluginAnswerBuffer(OrthancPlugins::Configuration::GetContext(), output, 
+                              dicom.GetData(), dicom.GetSize(), "application/dicom");
   }
   else
   {
@@ -162,12 +165,12 @@ static void AnswerDicom(OrthancPluginRestOutput* output,
 }
 
 
-static bool RetrievePngPreview(std::string& png,
+static bool RetrievePngPreview(OrthancPlugins::MemoryBuffer& png,
                                const std::string& instance)
 {
   std::string uri = "/instances/" + instance + "/preview";
 
-  if (OrthancPlugins::RestApiGetString(png, OrthancPlugins::Configuration::GetContext(), uri, true))
+  if (png.RestApiGet(uri, true))
   {
     return true;
   }
@@ -182,10 +185,11 @@ static bool RetrievePngPreview(std::string& png,
 static void AnswerPngPreview(OrthancPluginRestOutput* output,
                              const std::string& instance)
 {
-  std::string png;
+  OrthancPlugins::MemoryBuffer png(OrthancPlugins::Configuration::GetContext());
   if (RetrievePngPreview(png, instance))
   {
-    OrthancPluginAnswerBuffer(OrthancPlugins::Configuration::GetContext(), output, png.c_str(), png.size(), "image/png");
+    OrthancPluginAnswerBuffer(OrthancPlugins::Configuration::GetContext(), output, 
+                              png.GetData(), png.GetSize(), "image/png");
   }
   else
   {
@@ -197,28 +201,36 @@ static void AnswerPngPreview(OrthancPluginRestOutput* output,
 static void AnswerJpegPreview(OrthancPluginRestOutput* output,
                               const std::string& instance)
 {
+  OrthancPluginContext* context = OrthancPlugins::Configuration::GetContext();
+
   // Retrieve the preview in the PNG format
-  std::string png;
+  OrthancPlugins::MemoryBuffer png(context);
   if (!RetrievePngPreview(png, instance))
   {
     throw OrthancPlugins::PluginException(OrthancPluginErrorCode_Plugin);
   }
 
+  // TODO RAII
   // Decode the PNG file
   OrthancPluginImage* image = OrthancPluginUncompressImage(
-    OrthancPlugins::Configuration::GetContext(), png.c_str(), png.size(), OrthancPluginImageFormat_Png);
+    context, png.GetData(), png.GetSize(), OrthancPluginImageFormat_Png);
+  if (image == NULL)
+  {
+    OrthancPlugins::Configuration::LogError("Cannot decode this DICOM image");
+    throw OrthancPlugins::PluginException(OrthancPluginErrorCode_NotImplemented);
+  }
 
   // Convert to JPEG
   OrthancPluginCompressAndAnswerJpegImage(
-    OrthancPlugins::Configuration::GetContext(), output, 
-    OrthancPluginGetImagePixelFormat(OrthancPlugins::Configuration::GetContext(), image),
-    OrthancPluginGetImageWidth(OrthancPlugins::Configuration::GetContext(), image),
-    OrthancPluginGetImageHeight(OrthancPlugins::Configuration::GetContext(), image),
-    OrthancPluginGetImagePitch(OrthancPlugins::Configuration::GetContext(), image),
-    OrthancPluginGetImageBuffer(OrthancPlugins::Configuration::GetContext(), image), 
+    context, output, 
+    OrthancPluginGetImagePixelFormat(context, image),
+    OrthancPluginGetImageWidth(context, image),
+    OrthancPluginGetImageHeight(context, image),
+    OrthancPluginGetImagePitch(context, image),
+    OrthancPluginGetImageBuffer(context, image), 
     90 /*quality*/);
 
-  OrthancPluginFreeImage(OrthancPlugins::Configuration::GetContext(), image);
+  OrthancPluginFreeImage(context, image);
 }
 
 

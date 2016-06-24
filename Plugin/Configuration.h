@@ -56,26 +56,6 @@ namespace OrthancPlugins
                           const uint64_t bodySize,
                           const std::string& boundary);
 
-  bool RestApiGetString(std::string& result,
-                        OrthancPluginContext* context,
-                        const std::string& uri,
-                        bool applyPlugins = false);
-
-  bool RestApiGetJson(Json::Value& result,
-                      OrthancPluginContext* context,
-                      const std::string& uri,
-                      bool applyPlugins = false);
-
-  bool RestApiPostString(std::string& result,
-                         OrthancPluginContext* context,
-                         const std::string& uri,
-                         const std::string& body);
-
-  bool RestApiPostJson(Json::Value& result,
-                       OrthancPluginContext* context,
-                       const std::string& uri,
-                       const std::string& body);
-
   void ParseAssociativeArray(std::map<std::string, std::string>& target,
                              const Json::Value& value,
                              const std::string& key);
