@@ -3,7 +3,8 @@ Pending changes in the mainline
 
 => Minimum SDK version: 1.0.1 <=
 
-* STOW-RS client
+* STOW-RS client with URI "/{dicom-web}/servers/{id}/stow"
+* QIDO-RS and WADO-RS client with URI "/{dicom-web}/servers/{id}/get"
 * Improved robustness in the STOW-RS server
 * Fix issue #13 (QIDO-RS study-level query is slow)
 * Fix issue #14 (Aggregate fields empty for QIDO-RS study/series-level queries)

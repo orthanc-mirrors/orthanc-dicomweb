@@ -58,9 +58,16 @@ namespace OrthancPlugins
     void ListServers(std::list<std::string>& servers);
   };
 
-  void QueryServer(std::string& result,
-                   const Orthanc::WebServiceParameters& server,
-                   const std::map<std::string, std::string>& httpHeaders,
-                   const std::string& uri,
-                   const std::string& body);
+
+  void CallServer(OrthancPlugins::MemoryBuffer& answerBody /* out */,
+                  std::map<std::string, std::string>& answerHeaders /* out */,
+                  const Orthanc::WebServiceParameters& server,
+                  OrthancPluginHttpMethod method,
+                  const std::map<std::string, std::string>& httpHeaders,
+                  const std::string& uri,
+                  const std::string& body);
+
+  void UriEncode(std::string& uri,
+                 const std::string& resource,
+                 const std::map<std::string, std::string>& getArguments);
 }

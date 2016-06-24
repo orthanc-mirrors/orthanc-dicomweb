@@ -93,114 +93,6 @@ static bool GetSequenceSize(size_t& result,
 
 
 
-static const char* ConvertToCString(const std::string& s)
-{
-  if (s.empty())
-  {
-    return NULL;
-  }
-  else
-  {
-    return s.c_str();
-  }
-}
-
-
-
-static void SendStowRequest(const Orthanc::WebServiceParameters& server,
-                            const std::map<std::string, std::string>& httpHeaders,
-                            const std::string& body,
-                            size_t countInstances)
-{
-  std::vector<const char*> httpHeadersKeys(httpHeaders.size());
-  std::vector<const char*> httpHeadersValues(httpHeaders.size());
-
-  {
-    size_t pos = 0;
-    for (std::map<std::string, std::string>::const_iterator
-           it = httpHeaders.begin(); it != httpHeaders.end(); ++it)
-    {
-      httpHeadersKeys[pos] = it->first.c_str();
-      httpHeadersValues[pos] = it->second.c_str();
-      pos += 1;
-    }
-  }
-
-  std::string url = server.GetUrl() + "studies";
-
-  uint16_t status = 0;
-  OrthancPluginMemoryBuffer answerBody;
-  OrthancPluginErrorCode code = OrthancPluginHttpClient(
-    OrthancPlugins::Configuration::GetContext(), &answerBody, 
-    NULL,                                   /* No interest in the HTTP headers of the answer */
-    &status, 
-    OrthancPluginHttpMethod_Post,
-    url.c_str(), 
-    /* HTTP headers*/
-    httpHeaders.size(),
-    httpHeadersKeys.empty() ? NULL : &httpHeadersKeys[0],
-    httpHeadersValues.empty() ? NULL : &httpHeadersValues[0],
-    body.c_str(), body.size(),              /* POST body */
-    ConvertToCString(server.GetUsername()), /* Authentication */
-    ConvertToCString(server.GetPassword()), 
-    0,                                      /* Timeout */
-    ConvertToCString(server.GetCertificateFile()),
-    ConvertToCString(server.GetCertificateKeyFile()),
-    ConvertToCString(server.GetCertificateKeyPassword()),
-    server.IsPkcs11Enabled() ? 1 : 0);
-
-  if (code != OrthancPluginErrorCode_Success ||
-      (status != 200 && status != 202))
-  {
-    OrthancPlugins::Configuration::LogError("Cannot send DICOM images through STOW-RS to DICOMweb server " + server.GetUrl() + 
-                                            " (HTTP status: " + boost::lexical_cast<std::string>(status) + ")");
-    throw Orthanc::OrthancException(static_cast<Orthanc::ErrorCode>(code));
-  }
-
-  Json::Value response;
-  Json::Reader reader;
-  bool success = reader.parse(reinterpret_cast<const char*>(answerBody.data),
-                              reinterpret_cast<const char*>(answerBody.data) + answerBody.size, response);
-  OrthancPluginFreeMemoryBuffer(OrthancPlugins::Configuration::GetContext(), &answerBody);
-
-  if (!success ||
-      response.type() != Json::objectValue ||
-      !response.isMember("00081199"))
-  {
-    OrthancPlugins::Configuration::LogError("Unable to parse STOW-RS JSON response from DICOMweb server " + server.GetUrl());
-    throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);
-  }
-
-  size_t size;
-  if (!GetSequenceSize(size, response, "00081199", true, server.GetUrl()) ||
-      size != countInstances)
-  {
-    OrthancPlugins::Configuration::LogError("The STOW-RS server was only able to receive " + 
-                                            boost::lexical_cast<std::string>(size) + " instances out of " +
-                                            boost::lexical_cast<std::string>(countInstances));
-    throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);
-  }
-
-  if (GetSequenceSize(size, response, "00081198", false, server.GetUrl()) &&
-      size != 0)
-  {
-    OrthancPlugins::Configuration::LogError("The response from the STOW-RS server contains " + 
-                                            boost::lexical_cast<std::string>(size) + 
-                                            " items in its Failed SOP Sequence (0008,1198) tag");
-    throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);    
-  }
-
-  if (GetSequenceSize(size, response, "0008119A", false, server.GetUrl()) &&
-      size != 0)
-  {
-    OrthancPlugins::Configuration::LogError("The response from the STOW-RS server contains " + 
-                                            boost::lexical_cast<std::string>(size) + 
-                                            " items in its Other Failures Sequence (0008,119A) tag");
-    throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);    
-  }
-}
-
-
 static void ParseRestRequest(std::list<std::string>& instances /* out */,
                              std::map<std::string, std::string>& httpHeaders /* out */,
                              const OrthancPluginHttpRequest* request /* in */)
@@ -285,7 +177,53 @@ static void SendStowChunks(const Orthanc::WebServiceParameters& server,
     std::string body;
     chunks.Flatten(body);
 
-    SendStowRequest(server, httpHeaders, body, countInstances);
+    OrthancPlugins::MemoryBuffer answerBody(OrthancPlugins::Configuration::GetContext());
+    std::map<std::string, std::string> answerHeaders;
+    OrthancPlugins::CallServer(answerBody, answerHeaders, server, OrthancPluginHttpMethod_Post,
+                               httpHeaders, "studies", body);
+
+    Json::Value response;
+    Json::Reader reader;
+    bool success = reader.parse(reinterpret_cast<const char*>((*answerBody)->data),
+                                reinterpret_cast<const char*>((*answerBody)->data) + (*answerBody)->size, response);
+    answerBody.Clear();
+
+    if (!success ||
+        response.type() != Json::objectValue ||
+        !response.isMember("00081199"))
+    {
+      OrthancPlugins::Configuration::LogError("Unable to parse STOW-RS JSON response from DICOMweb server " + server.GetUrl());
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);
+    }
+
+    size_t size;
+    if (!GetSequenceSize(size, response, "00081199", true, server.GetUrl()) ||
+        size != countInstances)
+    {
+      OrthancPlugins::Configuration::LogError("The STOW-RS server was only able to receive " + 
+                                              boost::lexical_cast<std::string>(size) + " instances out of " +
+                                              boost::lexical_cast<std::string>(countInstances));
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);
+    }
+
+    if (GetSequenceSize(size, response, "00081198", false, server.GetUrl()) &&
+        size != 0)
+    {
+      OrthancPlugins::Configuration::LogError("The response from the STOW-RS server contains " + 
+                                              boost::lexical_cast<std::string>(size) + 
+                                              " items in its Failed SOP Sequence (0008,1198) tag");
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);    
+    }
+
+    if (GetSequenceSize(size, response, "0008119A", false, server.GetUrl()) &&
+        size != 0)
+    {
+      OrthancPlugins::Configuration::LogError("The response from the STOW-RS server contains " + 
+                                              boost::lexical_cast<std::string>(size) + 
+                                              " items in its Other Failures Sequence (0008,119A) tag");
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);    
+    }
+
     countInstances = 0;
   }
 }

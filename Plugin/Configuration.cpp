@@ -313,8 +313,6 @@ namespace OrthancPlugins
                              const Json::Value& value,
                              const std::string& key)
   {
-    target.clear();
-
     if (value.type() != Json::objectValue)
     {
       OrthancPlugins::Configuration::LogError("This is not a JSON object");

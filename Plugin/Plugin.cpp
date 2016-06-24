@@ -139,72 +139,14 @@ void ListServerOperations(OrthancPluginRestOutput* output,
 }
 
 
-
-static const char* GET_ARGUMENTS = "Arguments";
-
-
-static void UrlEncode(std::string& url,
-                      const Orthanc::WebServiceParameters& server,
-                      const std::string& uri,
-                      const std::map<std::string, std::string>& getArguments)
-{
-  url = server.GetUrl();
-  assert(!url.empty() && url[url.size() - 1] == '/');
-
-  if (uri.find('?') != std::string::npos)
-  {
-    OrthancPlugins::Configuration::LogError("The GET arguments must be provided in the \"" + 
-                                            std::string(GET_ARGUMENTS) + "\" field (\"?\" is disallowed): " + uri);
-    throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
-  }
-
-  // Remove the leading "/" in the URI if need be
-  std::string tmp;
-  if (!uri.empty() &&
-      uri[0] == '/')
-  {
-    url += uri.substr(1);
-  }
-  else
-  {
-    url += uri;
-  }
-
-  bool isFirst = true;
-  for (std::map<std::string, std::string>::const_iterator
-         it = getArguments.begin(); it != getArguments.end(); ++it)
-  {
-    if (isFirst)
-    {
-      url += '?';
-      isFirst = false;
-    }
-    else
-    {
-      url += '&';
-    }
-
-    std::string key, value;
-    Orthanc::Toolbox::UriEncode(key, it->first);
-    Orthanc::Toolbox::UriEncode(value, it->second);
-
-    if (value.empty())
-    {
-      url += key;
-    }
-    else
-    {
-      url += key + "=" + value;
-    }
-  }
-}
-                      
-
-
 void GetFromServer(OrthancPluginRestOutput* output,
                    const char* /*url*/,
                    const OrthancPluginHttpRequest* request)
 {
+  static const char* URI = "Uri";
+  static const char* HTTP_HEADERS = "HttpHeaders";
+  static const char* GET_ARGUMENTS = "Arguments";
+
   if (request->method != OrthancPluginHttpMethod_Post)
   {
     OrthancPluginSendMethodNotAllowed(OrthancPlugins::Configuration::GetContext(), output, "POST");
@@ -212,9 +154,6 @@ void GetFromServer(OrthancPluginRestOutput* output,
   }
 
   Orthanc::WebServiceParameters server(OrthancPlugins::DicomWebServers::GetInstance().GetServer(request->groups[0]));
-
-  static const char* URI = "Uri";
-  static const char* HTTP_HEADERS = "HttpHeaders";
 
   Json::Value body;
   Json::Reader reader;
@@ -228,14 +167,44 @@ void GetFromServer(OrthancPluginRestOutput* output,
     throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
   }
 
-  std::map<std::string, std::string> httpHeaders, getArguments;
-  OrthancPlugins::ParseAssociativeArray(httpHeaders, body, HTTP_HEADERS);
+  std::map<std::string, std::string> getArguments;
   OrthancPlugins::ParseAssociativeArray(getArguments, body, GET_ARGUMENTS);
 
-  std::string url; 
-  UrlEncode(url, server, body[URI].asString(), getArguments);
+  std::string uri; 
+  OrthancPlugins::UriEncode(uri, body[URI].asString(), getArguments);
 
-  printf("URL: [%s]\n", url.c_str());
+  std::map<std::string, std::string> httpHeaders;
+  OrthancPlugins::ParseAssociativeArray(httpHeaders, body, HTTP_HEADERS);
+
+  OrthancPlugins::MemoryBuffer answerBody(OrthancPlugins::Configuration::GetContext());
+  std::map<std::string, std::string> answerHeaders;
+  OrthancPlugins::CallServer(answerBody, answerHeaders, server, OrthancPluginHttpMethod_Get, httpHeaders, uri, "");
+
+  std::string contentType = "application/octet-stream";
+
+  for (std::map<std::string, std::string>::const_iterator
+         it = answerHeaders.begin(); it != answerHeaders.end(); ++it)
+  {
+    std::string key = it->first;
+    Orthanc::Toolbox::ToLowerCase(key);
+
+    if (key == "content-type")
+    {
+      contentType = it->second;
+    }
+    else if (key == "transfer-encoding")
+    {
+      // Do not include this header
+    }
+    else
+    {
+      OrthancPluginSetHttpHeader(OrthancPlugins::Configuration::GetContext(), output, it->first.c_str(), it->second.c_str());
+    }
+  }
+
+  OrthancPluginAnswerBuffer(OrthancPlugins::Configuration::GetContext(), output, 
+                            reinterpret_cast<const char*>(answerBody.GetData()),
+                            answerBody.GetSize(), contentType.c_str());
 }
 
 
