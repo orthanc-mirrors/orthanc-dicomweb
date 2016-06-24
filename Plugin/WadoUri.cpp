@@ -209,28 +209,10 @@ static void AnswerJpegPreview(OrthancPluginRestOutput* output,
   {
     throw OrthancPlugins::PluginException(OrthancPluginErrorCode_Plugin);
   }
-
-  // TODO RAII
-  // Decode the PNG file
-  OrthancPluginImage* image = OrthancPluginUncompressImage(
-    context, png.GetData(), png.GetSize(), OrthancPluginImageFormat_Png);
-  if (image == NULL)
-  {
-    OrthancPlugins::Configuration::LogError("Cannot decode this DICOM image");
-    throw OrthancPlugins::PluginException(OrthancPluginErrorCode_NotImplemented);
-  }
-
-  // Convert to JPEG
-  OrthancPluginCompressAndAnswerJpegImage(
-    context, output, 
-    OrthancPluginGetImagePixelFormat(context, image),
-    OrthancPluginGetImageWidth(context, image),
-    OrthancPluginGetImageHeight(context, image),
-    OrthancPluginGetImagePitch(context, image),
-    OrthancPluginGetImageBuffer(context, image), 
-    90 /*quality*/);
-
-  OrthancPluginFreeImage(context, image);
+  
+  OrthancPlugins::Image image(context);
+  image.UncompressPngImage(png.GetData(), png.GetSize());
+  image.AnswerJpegImage(output, 90 /* quality */);
 }
 
 

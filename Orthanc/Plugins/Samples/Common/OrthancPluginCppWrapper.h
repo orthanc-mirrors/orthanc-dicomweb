@@ -87,6 +87,9 @@ namespace OrthancPlugins
       return &buffer_;
     }
 
+    // This transfers ownership
+    void Assign(OrthancPluginMemoryBuffer& other);
+
     const char* GetData() const
     {
       if (buffer_.size > 0)
@@ -222,6 +225,63 @@ namespace OrthancPlugins
 
     float GetFloatValue(const std::string& key,
                         float defaultValue) const;
+  };
+
+  class Image
+  {
+  private:
+    OrthancPluginContext*  context_;
+    OrthancPluginImage*    image_;
+
+    void Clear();
+
+    void CheckImageAvailable();
+
+  public:
+    Image(OrthancPluginContext*  context);
+
+    Image(OrthancPluginContext*  context,
+          OrthancPluginImage*    image);
+
+    Image(OrthancPluginContext*     context,
+          OrthancPluginPixelFormat  format,
+          uint32_t                  width,
+          uint32_t                  height);
+
+    ~Image()
+    {
+      Clear();
+    }
+
+    void UncompressPngImage(const void* data,
+                            size_t size);
+
+    void UncompressJpegImage(const void* data,
+                             size_t size);
+
+    void DecodeDicomImage(const void* data,
+                          size_t size,
+                          unsigned int frame);
+
+    OrthancPluginPixelFormat GetPixelFormat();
+
+    unsigned int GetWidth();
+
+    unsigned int GetHeight();
+
+    unsigned int GetPitch();
+    
+    const void* GetBuffer();
+
+    void CompressPngImage(MemoryBuffer& target);
+
+    void CompressJpegImage(MemoryBuffer& target,
+                           uint8_t quality);
+
+    void AnswerPngImage(OrthancPluginRestOutput* output);
+
+    void AnswerJpegImage(OrthancPluginRestOutput* output,
+                         uint8_t quality);
   };
 
 

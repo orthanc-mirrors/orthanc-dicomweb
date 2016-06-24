@@ -70,6 +70,18 @@ namespace OrthancPlugins
   }
 
 
+  void MemoryBuffer::Assign(OrthancPluginMemoryBuffer& other)
+  {
+    Clear();
+
+    buffer_.data = other.data;
+    buffer_.size = other.size;
+
+    other.data = NULL;
+    other.size = 0;
+  }
+
+
   void MemoryBuffer::ToString(std::string& target) const
   {
     if (buffer_.size == 0)
@@ -546,6 +558,183 @@ namespace OrthancPlugins
     {
       return defaultValue;
     }
+  }
+
+
+  void Image::Clear()
+  {
+    if (image_ != NULL)
+    {
+      OrthancPluginFreeImage(context_, image_);
+      image_ = NULL;
+    }
+  }
+
+
+  void Image::CheckImageAvailable()
+  {
+    if (image_ == NULL)
+    {
+      OrthancPluginLogError(context_, "Trying to access a NULL image");
+      throw PluginException(OrthancPluginErrorCode_ParameterOutOfRange);
+    }
+  }
+
+
+  Image::Image(OrthancPluginContext*  context) :
+    context_(context),
+    image_(NULL)
+  {
+    if (context == NULL)
+    {
+      throw PluginException(OrthancPluginErrorCode_ParameterOutOfRange);
+    }
+  }
+
+
+  Image::Image(OrthancPluginContext*  context,
+               OrthancPluginImage*    image) :
+    context_(context),
+    image_(image)
+  {
+    if (context == NULL)
+    {
+      throw PluginException(OrthancPluginErrorCode_ParameterOutOfRange);
+    }
+  }
+  
+
+  Image::Image(OrthancPluginContext*     context,
+               OrthancPluginPixelFormat  format,
+               uint32_t                  width,
+               uint32_t                  height) :
+    context_(context)
+  {
+    if (context == NULL)
+    {
+      throw PluginException(OrthancPluginErrorCode_ParameterOutOfRange);
+    }
+    else
+    {
+      image_ = OrthancPluginCreateImage(context, format, width, height);
+    }
+  }
+
+
+  void Image::UncompressPngImage(const void* data,
+                                 size_t size)
+  {
+    Clear();
+    image_ = OrthancPluginUncompressImage(context_, data, size, OrthancPluginImageFormat_Png);
+    if (image_ == NULL)
+    {
+      OrthancPluginLogError(context_, "Cannot uncompress a PNG image");
+      throw PluginException(OrthancPluginErrorCode_ParameterOutOfRange);
+    }
+  }
+
+
+  void Image::UncompressJpegImage(const void* data,
+                                  size_t size)
+  {
+    Clear();
+    image_ = OrthancPluginUncompressImage(context_, data, size, OrthancPluginImageFormat_Jpeg);
+    if (image_ == NULL)
+    {
+      OrthancPluginLogError(context_, "Cannot uncompress a JPEG image");
+      throw PluginException(OrthancPluginErrorCode_ParameterOutOfRange);
+    }
+  }
+
+
+  void Image::DecodeDicomImage(const void* data,
+                               size_t size,
+                               unsigned int frame)
+  {
+    Clear();
+    image_ = OrthancPluginDecodeDicomImage(context_, data, size, frame);
+    if (image_ == NULL)
+    {
+      OrthancPluginLogError(context_, "Cannot uncompress a DICOM image");
+      throw PluginException(OrthancPluginErrorCode_ParameterOutOfRange);
+    }
+  }
+
+
+  OrthancPluginPixelFormat Image::GetPixelFormat()
+  {
+    CheckImageAvailable();
+    return OrthancPluginGetImagePixelFormat(context_, image_);
+  }
+
+
+  unsigned int Image::GetWidth()
+  {
+    CheckImageAvailable();
+    return OrthancPluginGetImageWidth(context_, image_);
+  }
+
+
+  unsigned int Image::GetHeight()
+  {
+    CheckImageAvailable();
+    return OrthancPluginGetImageHeight(context_, image_);
+  }
+
+
+  unsigned int Image::GetPitch()
+  {
+    CheckImageAvailable();
+    return OrthancPluginGetImagePitch(context_, image_);
+  }
+
+    
+  const void* Image::GetBuffer()
+  {
+    CheckImageAvailable();
+    return OrthancPluginGetImageBuffer(context_, image_);
+  }
+
+
+  void Image::CompressPngImage(MemoryBuffer& target)
+  {
+    CheckImageAvailable();
+    
+    OrthancPluginMemoryBuffer tmp;
+    OrthancPluginCompressPngImage(context_, &tmp, GetPixelFormat(), 
+                                  GetWidth(), GetHeight(), GetPitch(), GetBuffer());
+
+    target.Assign(tmp);
+  }
+
+
+  void Image::CompressJpegImage(MemoryBuffer& target,
+                                uint8_t quality)
+  {
+    CheckImageAvailable();
+    
+    OrthancPluginMemoryBuffer tmp;
+    OrthancPluginCompressJpegImage(context_, &tmp, GetPixelFormat(), 
+                                   GetWidth(), GetHeight(), GetPitch(), GetBuffer(), quality);
+    
+    target.Assign(tmp);
+  }
+
+
+  void Image::AnswerPngImage(OrthancPluginRestOutput* output)
+  {
+    CheckImageAvailable();
+    OrthancPluginCompressAndAnswerPngImage(context_, output, GetPixelFormat(),
+                                           GetWidth(), GetHeight(), GetPitch(), GetBuffer());
+  }
+
+
+  void Image::AnswerJpegImage(OrthancPluginRestOutput* output,
+                              uint8_t quality)
+  {
+    CheckImageAvailable();
+    OrthancPluginCompressAndAnswerJpegImage(context_, output, GetPixelFormat(),
+                                            GetWidth(), GetHeight(), GetPitch(), GetBuffer(), quality);
   }
 
 
