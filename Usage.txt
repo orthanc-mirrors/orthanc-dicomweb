@@ -64,23 +64,29 @@ Configuration
     syntax is identical to the "OrthancPeers" parameters.
 
     In the most simple case, here is how to instruct Orthanc about the
-    existence of a password-less DICOMweb server:
+    existence of a password-less DICOMweb server that will be refered
+    to as "sample" in Orthanc:
 
 {
   ...
   "DicomWeb" : {
-    "Servers" : [ "http://192.168.1.1/dicom-web/" ]
+    "Servers" : {
+      "sample" : [ "http://192.168.1.1/dicom-web/" ]
+    }
   }
   ...
 }
 
-    If the DICOMweb server is protected by a password (with HTTP Basic
-    access authentication):
+    You are of course free to add as many DICOMweb servers as you
+    need. If the DICOMweb server is protected by a password (with HTTP
+    Basic access authentication):
 
 {
   ...
   "DicomWeb" : {
-    "Servers" : [ "http://192.168.1.1/dicom-web/", "username", "password" ]
+    "Servers" : {
+      "sample" : [ "http://192.168.1.1/dicom-web/", "username", "password" ]
+    }
   }
   ...
 }
@@ -93,30 +99,33 @@ Configuration
 {
   ...
   "DicomWeb" : {
-    "Servers" : [
-      {
+    "Servers" : {
+      "sample" : {
         "Url" : "http://192.168.1.1/dicom-web/", 
         "CertificateFile" : "client.crt",
         "CertificateKeyFile" : "client.key",
         "CertificateKeyPassword" : "password"
       }
-    ]
+    }
   }
   ...
 }
 
     Finally, it is also possible to use client authentication with
-    hardware security modules and smart cards through PKCS#11:
+    hardware security modules and smart cards through PKCS#11 (this
+    feature is only available is the core of Orthanc was compiled with
+    the "-DENABLE_PKCS11=ON" option in CMake, and if the Orthanc
+    configuration file has a proper "Pkcs11" section):
 
 {
   ...
   "DicomWeb" : {
-    "Servers" : [
-      {
+    "Servers" : {
+      "sample" : {
         "Url" : "http://192.168.1.1/dicom-web/", 
         "Pkcs11" : true
       }
-    ]
+    }
   }
   ...
 }
