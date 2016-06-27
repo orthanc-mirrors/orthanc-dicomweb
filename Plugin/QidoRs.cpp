@@ -26,7 +26,6 @@
 #include "DicomResults.h"
 #include "Configuration.h"
 #include "../Orthanc/Core/Toolbox.h"
-#include "../Orthanc/Core/OrthancException.h"
 
 #include <gdcmTag.h>
 #include <list>
@@ -151,7 +150,7 @@ namespace
           break;
 
         default:
-          throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
+          throw OrthancPlugins::PluginException(OrthancPluginErrorCode_InternalError);
       }
     }
 
@@ -188,9 +187,8 @@ namespace
           }
           else
           {
-            std::string s = "Not a proper value for fuzzy matching (true or false): " + value;
-            OrthancPluginLogError(context_, s.c_str());
-            throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest);
+            OrthancPlugins::Configuration::LogError("Not a proper value for fuzzy matching (true or false): " + value);
+            throw OrthancPlugins::PluginException(OrthancPluginErrorCode_BadRequest);
           }
         }
         else if (key == "includefield")
@@ -262,7 +260,7 @@ namespace
           break;
 
         default:
-          throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
+          throw OrthancPlugins::PluginException(OrthancPluginErrorCode_InternalError);
       }
 
       result["Expand"] = false;
@@ -281,6 +279,8 @@ namespace
                             QueryLevel level,
                             const std::string& resource) const
     {
+      OrthancPluginContext* context = OrthancPlugins::Configuration::GetContext();
+
       target.clear();
 
       switch (level)
@@ -288,8 +288,8 @@ namespace
         case QueryLevel_Study:
         {
           Json::Value series, instances;
-          if (OrthancPlugins::RestApiGetJson(series, context_, "/studies/" + resource + "/series?expand") &&
-              OrthancPlugins::RestApiGetJson(instances, context_, "/studies/" + resource + "/instances"))
+          if (OrthancPlugins::RestApiGetJson(series, context, "/studies/" + resource + "/series?expand", false) &&
+              OrthancPlugins::RestApiGetJson(instances, context, "/studies/" + resource + "/instances", false))
           {
             // Number of Study Related Series
             target[gdcm::Tag(0x0020, 0x1206)] = boost::lexical_cast<std::string>(series.size());
@@ -335,7 +335,7 @@ namespace
         case QueryLevel_Series:
         {
           Json::Value instances;
-          if (OrthancPlugins::RestApiGetJson(instances, context_, "/series/" + resource + "/instances"))
+          if (OrthancPlugins::RestApiGetJson(instances, context, "/series/" + resource + "/instances", false))
           {
             // Number of Series Related Instances
             target[gdcm::Tag(0x0020, 0x1209)] = boost::lexical_cast<std::string>(instances.size());
@@ -498,6 +498,8 @@ static void ApplyMatcher(OrthancPluginRestOutput* output,
                          const ModuleMatcher& matcher,
                          QueryLevel level)
 {
+  OrthancPluginContext* context = OrthancPlugins::Configuration::GetContext();
+
   Json::Value find;
   matcher.ConvertToOrthanc(find, level);
 
@@ -505,10 +507,10 @@ static void ApplyMatcher(OrthancPluginRestOutput* output,
   std::string body = writer.write(find);
   
   Json::Value resources;
-  if (!OrthancPlugins::RestApiPostJson(resources, context_, "/tools/find", body) ||
+  if (!OrthancPlugins::RestApiPostJson(resources, context, "/tools/find", body, false) ||
       resources.type() != Json::arrayValue)
   {
-    throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
+    throw OrthancPlugins::PluginException(OrthancPluginErrorCode_InternalError);
   }
 
   typedef std::list< std::pair<std::string, std::string> > ResourcesAndInstances;
@@ -525,7 +527,7 @@ static void ApplyMatcher(OrthancPluginRestOutput* output,
     {
       // Find one child instance of this resource
       Json::Value tmp;
-      if (OrthancPlugins::RestApiGetJson(tmp, context_, root + resource + "/instances") &&
+      if (OrthancPlugins::RestApiGetJson(tmp, context, root + resource + "/instances", false) &&
           tmp.type() == Json::arrayValue &&
           tmp.size() > 0)
       {
@@ -538,9 +540,9 @@ static void ApplyMatcher(OrthancPluginRestOutput* output,
     }
   }
   
-  std::string wadoBase = OrthancPlugins::Configuration::GetBaseUrl(configuration_, request);
+  std::string wadoBase = OrthancPlugins::Configuration::GetBaseUrl(request);
 
-  OrthancPlugins::DicomResults results(context_, output, wadoBase, *dictionary_, IsXmlExpected(request), true);
+  OrthancPlugins::DicomResults results(context, output, wadoBase, *dictionary_, IsXmlExpected(request), true);
 
 #if 0
   // Implementation up to version 0.2 of the plugin. Each instance is
@@ -554,7 +556,7 @@ static void ApplyMatcher(OrthancPluginRestOutput* output,
     matcher.ComputeDerivedTags(derivedTags, level, it->first);
 
     std::string file;
-    if (OrthancPlugins::RestApiGetString(file, context_, "/instances/" + it->second + "/file"))
+    if (OrthancPlugins::RestApiGetString(file, context, "/instances/" + it->second + "/file", false))
     {
       OrthancPlugins::ParsedDicomFile dicom(file);
 
@@ -583,7 +585,7 @@ static void ApplyMatcher(OrthancPluginRestOutput* output,
          it = resourcesAndInstances.begin(); it != resourcesAndInstances.end(); ++it)
   {
     Json::Value tags;
-    if (OrthancPlugins::RestApiGetJson(tags, context_, "/instances/" + it->second + "/tags"))
+    if (OrthancPlugins::RestApiGetJson(tags, context, "/instances/" + it->second + "/tags", false))
     {
       std::string wadoUrl = OrthancPlugins::Configuration::GetWadoUrl(
         wadoBase, 
@@ -624,7 +626,7 @@ void SearchForStudies(OrthancPluginRestOutput* output,
 {
   if (request->method != OrthancPluginHttpMethod_Get)
   {
-    OrthancPluginSendMethodNotAllowed(context_, output, "GET");
+    OrthancPluginSendMethodNotAllowed(OrthancPlugins::Configuration::GetContext(), output, "GET");
   }
   else
   {
@@ -640,7 +642,7 @@ void SearchForSeries(OrthancPluginRestOutput* output,
 {
   if (request->method != OrthancPluginHttpMethod_Get)
   {
-    OrthancPluginSendMethodNotAllowed(context_, output, "GET");
+    OrthancPluginSendMethodNotAllowed(OrthancPlugins::Configuration::GetContext(), output, "GET");
   }
   else
   {
@@ -663,7 +665,7 @@ void SearchForInstances(OrthancPluginRestOutput* output,
 {
   if (request->method != OrthancPluginHttpMethod_Get)
   {
-    OrthancPluginSendMethodNotAllowed(context_, output, "GET");
+    OrthancPluginSendMethodNotAllowed(OrthancPlugins::Configuration::GetContext(), output, "GET");
   }
   else
   {

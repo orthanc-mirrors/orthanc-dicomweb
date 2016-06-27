@@ -23,7 +23,6 @@
 #include "Plugin.h"
 #include "ChunkedBuffer.h"
 
-#include "../Orthanc/Core/OrthancException.h"
 #include "../Orthanc/Core/Toolbox.h"
 
 #include <gdcmDictEntry.h>
@@ -172,18 +171,28 @@ namespace OrthancPlugins
 
     // Parse the DICOM instance using GDCM
     reader_.SetStream(stream);
+
     if (!reader_.Read())
     {
-      /* "GDCM cannot read this DICOM instance of length " +
-         boost::lexical_cast<std::string>(dicom.size()) */
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
+      OrthancPlugins::Configuration::LogError("GDCM cannot decode this DICOM instance of length " +
+                                              boost::lexical_cast<std::string>(dicom.size()));
+      throw OrthancPlugins::PluginException(OrthancPluginErrorCode_BadFileFormat);
     }
   }
 
 
   ParsedDicomFile::ParsedDicomFile(const OrthancPlugins::MultipartItem& item)
   {
+    // TODO Avoid this unnecessary memcpy by defining a stream over the MultipartItem
     std::string dicom(item.data_, item.data_ + item.size_);
+    Setup(dicom);
+  }
+
+
+  ParsedDicomFile::ParsedDicomFile(const OrthancPlugins::MemoryBuffer& buffer)
+  {
+    // TODO Avoid this unnecessary memcpy by defining a stream over the MemoryBuffer
+    std::string dicom(buffer.GetData(), buffer.GetData() + buffer.GetSize());
     Setup(dicom);
   }
 
@@ -244,7 +253,7 @@ namespace OrthancPlugins
   {
     if (!GetDataSet().FindDataElement(tag))
     {
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_InexistentTag);
+      throw OrthancPlugins::PluginException(OrthancPluginErrorCode_InexistentTag);
     }
 
     const gdcm::DataElement& element = GetDataSet().GetDataElement(tag);
@@ -310,7 +319,6 @@ namespace OrthancPlugins
       return "RetrieveURL";
     }
 
-    //throw Orthanc::OrthancException("Unknown keyword for tag: " + FormatTag(tag));
     return NULL;
   }
 
@@ -372,8 +380,7 @@ namespace OrthancPlugins
     const gdcm::ByteValue* data = element.GetByteValue();
     if (!data)
     {
-      // Assume Latin-1 encoding (TODO add a parameter as in Orthanc)
-      return Orthanc::Encoding_Latin1;
+      return Configuration::GetDefaultEncoding();
     }
 
     std::string tmp(data->GetPointer(), data->GetLength());
@@ -386,8 +393,7 @@ namespace OrthancPlugins
     }
     else
     {
-      // Assume Latin-1 encoding (TODO add a parameter as in Orthanc)
-      return Orthanc::Encoding_Latin1;
+      return Configuration::GetDefaultEncoding();
     }
   }
 
@@ -662,7 +668,7 @@ namespace OrthancPlugins
 
   std::string ParsedDicomFile::GetWadoUrl(const OrthancPluginHttpRequest* request) const
   {
-    const std::string base = OrthancPlugins::Configuration::GetBaseUrl(configuration_, request);
+    const std::string base = OrthancPlugins::Configuration::GetBaseUrl(request);
     return OrthancPlugins::GetWadoUrl(base, GetDataSet());
   }
 
@@ -693,9 +699,8 @@ namespace OrthancPlugins
   {
     if (key.find('.') != std::string::npos)
     {
-      std::string s = "This DICOMweb plugin does not support hierarchical queries: " + key;
-      OrthancPluginLogError(context_, s.c_str());
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_NotImplemented);
+      OrthancPlugins::Configuration::LogError("This DICOMweb plugin does not support hierarchical queries: " + key);
+      throw OrthancPlugins::PluginException(OrthancPluginErrorCode_NotImplemented);
     }
 
     if (key.size() == 8 &&  // This is the DICOMweb convention
@@ -734,15 +739,13 @@ namespace OrthancPlugins
       {
         if (key.find('.') != std::string::npos)
         {
-          std::string s = "This QIDO-RS implementation does not support search over sequences: " + key;
-          OrthancPluginLogError(context_, s.c_str());
-          throw Orthanc::OrthancException(Orthanc::ErrorCode_NotImplemented);
+          OrthancPlugins::Configuration::LogError("This QIDO-RS implementation does not support search over sequences: " + key);
+          throw OrthancPlugins::PluginException(OrthancPluginErrorCode_NotImplemented);
         }
         else
         {
-          std::string s = "Illegal tag name in QIDO-RS: " + key;
-          OrthancPluginLogError(context_, s.c_str());
-          throw Orthanc::OrthancException(Orthanc::ErrorCode_UnknownDicomTag);
+          OrthancPlugins::Configuration::LogError("Illegal tag name in QIDO-RS: " + key);
+          throw OrthancPlugins::PluginException(OrthancPluginErrorCode_UnknownDicomTag);
         }
       }
 

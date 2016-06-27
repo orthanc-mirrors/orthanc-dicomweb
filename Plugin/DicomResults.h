@@ -37,7 +37,7 @@ namespace OrthancPlugins
     OrthancPluginRestOutput*  output_;
     std::string               wadoBase_;
     const gdcm::Dict&         dictionary_;
-    ChunkedBuffer             jsonWriter_;  // Used for JSON output
+    Orthanc::ChunkedBuffer    jsonWriter_;  // Used for JSON output
     bool                      isFirst_; 
     bool                      isXml_;
     bool                      isBulkAccessible_;

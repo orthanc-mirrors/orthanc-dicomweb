@@ -9,9 +9,10 @@ import multiprocessing
 import os
 import stat
 import urllib2
+import uuid
 
 TARGET = os.path.join(os.path.dirname(__file__), '..', 'Orthanc')
-PLUGIN_SDK_VERSION = '0.9.5'
+PLUGIN_SDK_VERSION = 'mainline'
 REPOSITORY = 'https://bitbucket.org/sjodogne/orthanc/raw'
 
 FILES = [
@@ -24,7 +25,11 @@ FILES = [
     'Core/PrecompiledHeaders.h',
     'Core/Toolbox.cpp',
     'Core/Toolbox.h',
+    'Core/WebServiceParameters.cpp',
+    'Core/WebServiceParameters.h',
     'Plugins/Samples/Common/ExportedSymbols.list',
+    'Plugins/Samples/Common/OrthancPluginCppWrapper.h',
+    'Plugins/Samples/Common/OrthancPluginCppWrapper.cpp',
     'Plugins/Samples/Common/VersionScript.map',
     'Resources/CMake/BoostConfiguration.cmake',
     'Resources/CMake/Compiler.cmake',
@@ -63,10 +68,14 @@ def Download(x):
     except:
         pass
 
-    url = '%s/%s/%s' % (REPOSITORY, branch, source)
+    url = '%s/%s/%s?force=%s' % (REPOSITORY, branch, source, uuid.uuid4())
 
     with open(target, 'w') as f:
-        f.write(urllib2.urlopen(url).read())
+        try:
+            f.write(urllib2.urlopen(url).read())
+        except:
+            print('Cannot download %s' % url)
+            raise
 
 
 commands = []
@@ -75,7 +84,12 @@ for f in FILES:
     commands.append([ 'default', f, f ])
 
 for f in SDK:
-    commands.append([ 'Orthanc-%s' % PLUGIN_SDK_VERSION, 
+    if PLUGIN_SDK_VERSION == 'mainline':
+        branch = 'default'
+    else:
+        branch = 'Orthanc-%s' % PLUGIN_SDK_VERSION
+
+    commands.append([ branch, 
                       'Plugins/Include/%s' % f,
                       'Sdk-%s/%s' % (PLUGIN_SDK_VERSION, f) ])
 

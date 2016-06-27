@@ -32,40 +32,93 @@
 
 #pragma once
 
-#include <list>
 #include <string>
+#include <json/json.h>
 
 namespace Orthanc
 {
-  class ChunkedBuffer
+  class WebServiceParameters
   {
   private:
-    typedef std::list<std::string*>  Chunks;
-    size_t numBytes_;
-    Chunks chunks_;
-  
-    void Clear();
+    bool        advancedFormat_;
+    std::string url_;
+    std::string username_;
+    std::string password_;
+    std::string certificateFile_;
+    std::string certificateKeyFile_;
+    std::string certificateKeyPassword_;
+    bool        pkcs11Enabled_;
+
+    void FromJsonArray(const Json::Value& peer);
+
+    void FromJsonObject(const Json::Value& peer);
 
   public:
-    ChunkedBuffer() : numBytes_(0)
+    WebServiceParameters();
+
+    const std::string& GetUrl() const
     {
+      return url_;
     }
 
-    ~ChunkedBuffer()
+    void SetUrl(const std::string& url)
     {
-      Clear();
+      url_ = url;
     }
 
-    size_t GetNumBytes() const
+    const std::string& GetUsername() const
     {
-      return numBytes_;
+      return username_;
     }
 
-    void AddChunk(const void* chunkData,
-                  size_t chunkSize);
+    void SetUsername(const std::string& username)
+    {
+      username_ = username;
+    }
+    
+    const std::string& GetPassword() const
+    {
+      return password_;
+    }
 
-    void AddChunk(const std::string& chunk);
+    void SetPassword(const std::string& password)
+    {
+      password_ = password;
+    }
 
-    void Flatten(std::string& result);
+    void ClearClientCertificate();
+
+    void SetClientCertificate(const std::string& certificateFile,
+                              const std::string& certificateKeyFile,
+                              const std::string& certificateKeyPassword);
+
+    const std::string& GetCertificateFile() const
+    {
+      return certificateFile_;
+    }
+
+    const std::string& GetCertificateKeyFile() const
+    {
+      return certificateKeyFile_;
+    }
+
+    const std::string& GetCertificateKeyPassword() const
+    {
+      return certificateKeyPassword_;
+    }
+
+    void SetPkcs11Enabled(bool pkcs11Enabled)
+    {
+      pkcs11Enabled_ = pkcs11Enabled;
+    }
+
+    bool IsPkcs11Enabled() const
+    {
+      return pkcs11Enabled_;
+    }
+
+    void FromJson(const Json::Value& peer);
+
+    void ToJson(Json::Value& value) const;
   };
 }

@@ -1,5 +1,5 @@
-DICOM Web plugin for Orthanc
-============================
+DICOMweb plugin for Orthanc
+===========================
 
 
 General Information
@@ -10,8 +10,8 @@ lightweight Vendor Neutral Archive for medical imaging. This plugin
 extends the RESTful API of Orthanc with WADO and DICOMweb support.
 
 
-DICOM Web Support
------------------
+DICOMweb Support
+----------------
 
 Currently, a basic support of the following protocols is provided:
 
@@ -32,23 +32,18 @@ The full status about the support of these protocols can be found in
 the "./Status.txt" file.
 
 
-Install
--------
+Installation and usage
+----------------------
 
 Build instructions can be found in "./Resources/BuildInstructions.txt".
 
-
-Samples
--------
-
-Python samples to call the DICOM Web services can be found in the
-"./Samples" folder.
+Usage instructions can be found in "./Usage.txt".
 
 
 Licensing: AGPL
 ---------------
 
-The DICOM Web plugin for Orthanc is licensed under the Affero General
+The DICOMweb plugin for Orthanc is licensed under the Affero General
 Public License (AGPL) license. Pay attention to the fact that this
 license is more restrictive than the license of the Orthanc core.
 

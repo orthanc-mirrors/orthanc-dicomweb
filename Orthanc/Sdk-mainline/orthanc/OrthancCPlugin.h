@@ -18,8 +18,11 @@
  *    - Possibly register its callback for changes to the DICOM store using ::OrthancPluginRegisterOnChangeCallback().
  *    - Possibly register a custom storage area using ::OrthancPluginRegisterStorageArea().
  *    - Possibly register a custom database back-end area using OrthancPluginRegisterDatabaseBackendV2().
+ *    - Possibly register a handler for C-Find SCP using OrthancPluginRegisterFindCallback().
  *    - Possibly register a handler for C-Find SCP against DICOM worklists using OrthancPluginRegisterWorklistCallback().
+ *    - Possibly register a handler for C-Move SCP using OrthancPluginRegisterMoveCallback().
  *    - Possibly register a custom decoder for DICOM images using OrthancPluginRegisterDecodeImageCallback().
+ *    - Possibly register a callback to filter incoming HTTP requests using OrthancPluginRegisterIncomingHttpRequestFilter().
  * -# <tt>void OrthancPluginFinalize()</tt>:
  *    This function is invoked by Orthanc during its shutdown. The plugin
  *    must free all its memory.
@@ -51,8 +54,8 @@
  * @defgroup Callbacks Callbacks
  * @brief Functions to register and manage callbacks by the plugins.
  *
- * @defgroup Worklists Worklists
- * @brief Functions to register and manage worklists.
+ * @defgroup DicomCallbaks DicomCallbaks
+ * @brief Functions to register and manage DICOM callbacks (worklists, C-Find, C-MOVE).
  *
  * @defgroup Orthanc Orthanc
  * @brief Functions to access the content of the Orthanc server.
@@ -69,7 +72,7 @@
 
 /**
  * Orthanc - A Lightweight, RESTful DICOM Store
- * Copyright (C) 2012-2015 Sebastien Jodogne, Medical Physics
+ * Copyright (C) 2012-2016 Sebastien Jodogne, Medical Physics
  * Department, University Hospital of Liege, Belgium
  *
  * This program is free software: you can redistribute it and/or
@@ -112,9 +115,9 @@
 #define ORTHANC_PLUGINS_API
 #endif
 
-#define ORTHANC_PLUGINS_MINIMAL_MAJOR_NUMBER     0
-#define ORTHANC_PLUGINS_MINIMAL_MINOR_NUMBER     9
-#define ORTHANC_PLUGINS_MINIMAL_REVISION_NUMBER  5
+#define ORTHANC_PLUGINS_MINIMAL_MAJOR_NUMBER     1
+#define ORTHANC_PLUGINS_MINIMAL_MINOR_NUMBER     0
+#define ORTHANC_PLUGINS_MINIMAL_REVISION_NUMBER  1
 
 
 
@@ -238,8 +241,8 @@ extern "C"
     OrthancPluginErrorCode_DirectoryOverFile = 2000    /*!< The directory to be created is already occupied by a regular file */,
     OrthancPluginErrorCode_FileStorageCannotWrite = 2001    /*!< Unable to create a subdirectory or a file in the file storage */,
     OrthancPluginErrorCode_DirectoryExpected = 2002    /*!< The specified path does not point to a directory */,
-    OrthancPluginErrorCode_HttpPortInUse = 2003    /*!< The TCP port of the HTTP server is already in use */,
-    OrthancPluginErrorCode_DicomPortInUse = 2004    /*!< The TCP port of the DICOM server is already in use */,
+    OrthancPluginErrorCode_HttpPortInUse = 2003    /*!< The TCP port of the HTTP server is privileged or already in use */,
+    OrthancPluginErrorCode_DicomPortInUse = 2004    /*!< The TCP port of the DICOM server is privileged or already in use */,
     OrthancPluginErrorCode_BadHttpStatusInRest = 2005    /*!< This HTTP status is not allowed in a REST API */,
     OrthancPluginErrorCode_RegularFileExpected = 2006    /*!< The specified path does not point to a regular file */,
     OrthancPluginErrorCode_PathToExecutable = 2007    /*!< Unable to get the path to the executable */,
@@ -277,6 +280,7 @@ extern "C"
     OrthancPluginErrorCode_SslDisabled = 2039    /*!< Orthanc has been built without SSL support */,
     OrthancPluginErrorCode_CannotOrderSlices = 2040    /*!< Unable to order the slices of the series */,
     OrthancPluginErrorCode_NoWorklistHandler = 2041    /*!< No request handler factory for DICOM C-Find Modality SCP */,
+    OrthancPluginErrorCode_AlreadyExistingTag = 2042    /*!< Cannot override the value of a tag that already exists */,
 
     _OrthancPluginErrorCode_INTERNAL = 0x7fffffff
   } OrthancPluginErrorCode;
@@ -401,6 +405,8 @@ extern "C"
     _OrthancPluginService_ComputeMd5 = 24,
     _OrthancPluginService_ComputeSha1 = 25,
     _OrthancPluginService_LookupDictionary = 26,
+    _OrthancPluginService_CallHttpClient2 = 27,
+    _OrthancPluginService_GenerateUuid = 28,
 
     /* Registration of callbacks */
     _OrthancPluginService_RegisterRestCallback = 1000,
@@ -410,6 +416,9 @@ extern "C"
     _OrthancPluginService_RegisterRestCallbackNoLock = 1004,
     _OrthancPluginService_RegisterWorklistCallback = 1005,
     _OrthancPluginService_RegisterDecodeImageCallback = 1006,
+    _OrthancPluginService_RegisterIncomingHttpRequestFilter = 1007,
+    _OrthancPluginService_RegisterFindCallback = 1008,
+    _OrthancPluginService_RegisterMoveCallback = 1009,
 
     /* Sending answers to REST calls */
     _OrthancPluginService_AnswerBuffer = 2000,
@@ -424,6 +433,7 @@ extern "C"
     _OrthancPluginService_SendMultipartItem = 2009,
     _OrthancPluginService_SendHttpStatus = 2010,
     _OrthancPluginService_CompressAndAnswerImage = 2011,
+    _OrthancPluginService_SendMultipartItem2 = 2012,
 
     /* Access to the Orthanc database and API */
     _OrthancPluginService_GetDicomForInstance = 3000,
@@ -478,11 +488,17 @@ extern "C"
     _OrthancPluginService_CreateImageAccessor = 6013,
     _OrthancPluginService_DecodeDicomImage = 6014,
 
-    /* Primitives for handling worklists */
+    /* Primitives for handling C-Find, C-Move and worklists */
     _OrthancPluginService_WorklistAddAnswer = 7000,
     _OrthancPluginService_WorklistMarkIncomplete = 7001,
     _OrthancPluginService_WorklistIsMatch = 7002,
     _OrthancPluginService_WorklistGetDicomQuery = 7003,
+    _OrthancPluginService_FindAddAnswer = 7004,
+    _OrthancPluginService_FindMarkIncomplete = 7005,
+    _OrthancPluginService_GetFindQuerySize = 7006,
+    _OrthancPluginService_GetFindQueryTag = 7007,
+    _OrthancPluginService_GetFindQueryTagName = 7008,
+    _OrthancPluginService_GetFindQueryValue = 7009,
 
     _OrthancPluginService_INTERNAL = 0x7fffffff
   } _OrthancPluginService;
@@ -806,18 +822,34 @@ extern "C"
 
 
   /**
-   * @brief Opaque structure to an object that represents a C-Find query.
-   * @ingroup Worklists
+   * @brief Opaque structure to an object that represents a C-Find query for worklists.
+   * @ingroup DicomCallbacks
    **/
   typedef struct _OrthancPluginWorklistQuery_t OrthancPluginWorklistQuery;
 
 
 
   /**
-   * @brief Opaque structure to an object that represents the answers to a C-Find query.
-   * @ingroup Worklists
+   * @brief Opaque structure to an object that represents the answers to a C-Find query for worklists.
+   * @ingroup DicomCallbacks
    **/
   typedef struct _OrthancPluginWorklistAnswers_t OrthancPluginWorklistAnswers;
+
+
+
+  /**
+   * @brief Opaque structure to an object that represents a C-Find query.
+   * @ingroup DicomCallbacks
+   **/
+  typedef struct _OrthancPluginFindQuery_t OrthancPluginFindQuery;
+
+
+
+  /**
+   * @brief Opaque structure to an object that represents the answers to a C-Find query for worklists.
+   * @ingroup DicomCallbacks
+   **/
+  typedef struct _OrthancPluginFindAnswers_t OrthancPluginFindAnswers;
 
 
 
@@ -929,23 +961,161 @@ extern "C"
 
 
   /**
-   * @brief Callback to handle the C-Find SCP requests received by Orthanc.
+   * @brief Callback to handle the C-Find SCP requests for worklists.
    *
    * Signature of a callback function that is triggered when Orthanc
    * receives a C-Find SCP request against modality worklists.
    *
    * @param answers The target structure where answers must be stored.
    * @param query The worklist query.
-   * @param remoteAet The Application Entity Title (AET) of the modality from which the request originates.
+   * @param issuerAet The Application Entity Title (AET) of the modality from which the request originates.
    * @param calledAet The Application Entity Title (AET) of the modality that is called by the request.
    * @return 0 if success, other value if error.
-   * @ingroup Worklists
+   * @ingroup DicomCallbacks
    **/
   typedef OrthancPluginErrorCode (*OrthancPluginWorklistCallback) (
     OrthancPluginWorklistAnswers*     answers,
     const OrthancPluginWorklistQuery* query,
-    const char*                       remoteAet,
+    const char*                       issuerAet,
     const char*                       calledAet);
+
+
+
+  /**
+   * @brief Callback to filter incoming HTTP requests received by Orthanc.
+   *
+   * Signature of a callback function that is triggered whenever
+   * Orthanc receives an HTTP/REST request, and that answers whether
+   * this request should be allowed. If the callback returns "0"
+   * ("false"), the server answers with HTTP status code 403
+   * (Forbidden).
+   *
+   * @param method The HTTP method used by the request.
+   * @param uri The URI of interest.
+   * @param ip The IP address of the HTTP client.
+   * @param headersCount The number of HTTP headers.
+   * @param headersKeys The keys of the HTTP headers (always converted to low-case).
+   * @param headersValues The values of the HTTP headers.
+   * @return 0 if forbidden access, 1 if allowed access, -1 if error.
+   * @ingroup Callback
+   **/
+  typedef int32_t (*OrthancPluginIncomingHttpRequestFilter) (
+    OrthancPluginHttpMethod  method,
+    const char*              uri,
+    const char*              ip,
+    uint32_t                 headersCount,
+    const char* const*       headersKeys,
+    const char* const*       headersValues);
+
+
+
+  /**
+   * @brief Callback to handle incoming C-Find SCP requests.
+   *
+   * Signature of a callback function that is triggered whenever
+   * Orthanc receives a C-Find SCP request not concerning modality
+   * worklists.
+   *
+   * @param answers The target structure where answers must be stored.
+   * @param query The worklist query.
+   * @param issuerAet The Application Entity Title (AET) of the modality from which the request originates.
+   * @param calledAet The Application Entity Title (AET) of the modality that is called by the request.
+   * @return 0 if success, other value if error.
+   * @ingroup DicomCallbacks
+   **/
+  typedef OrthancPluginErrorCode (*OrthancPluginFindCallback) (
+    OrthancPluginFindAnswers*     answers,
+    const OrthancPluginFindQuery* query,
+    const char*                   issuerAet,
+    const char*                   calledAet);
+
+
+
+  /**
+   * @brief Callback to handle incoming C-Move SCP requests.
+   *
+   * Signature of a callback function that is triggered whenever
+   * Orthanc receives a C-Move SCP request. The callback receives the
+   * type of the resource of interest (study, series, instance...)
+   * together with the DICOM tags containing its identifiers. In turn,
+   * the plugin must create a driver object that will be responsible
+   * for driving the successive move suboperations.
+   *
+   * @param resourceType The type of the resource of interest. Note
+   * that this might be set to ResourceType_None if the
+   * QueryRetrieveLevel (0008,0052) tag was not provided by the
+   * issuer.
+   * @param patientId Content of the PatientID (0x0010, 0x0020) tag of the resource of interest. Might be NULL.
+   * @param accessionNumber Content of the AccessionNumber (0x0008, 0x0050) tag. Might be NULL.
+   * @param studyInstanceUid Content of the StudyInstanceUID (0x0020, 0x000d) tag. Might be NULL.
+   * @param seriesInstanceUid Content of the SeriesInstanceUID (0x0020, 0x000e) tag. Might be NULL.
+   * @param sopInstanceUid Content of the SOPInstanceUID (0x0008, 0x0018) tag. Might be NULL.
+   * @param issuerAet The Application Entity Title (AET) of the
+   * modality from which the request originates.
+   * @param sourceAet The Application Entity Title (AET) of the
+   * modality that should send its DICOM files to another modality.
+   * @param targetAet The Application Entity Title (AET) of the
+   * modality that should receive the DICOM files.
+   *
+   * @return The NULL value if the plugin cannot deal with this query,
+   * or a pointer to the driver object that is responsible for
+   * handling the successive move suboperations.
+   * 
+   * @note If targetAet equals sourceAet, this is actually a query/retrieve operation.
+   * @ingroup DicomCallbacks
+   **/
+  typedef void* (*OrthancPluginMoveCallback) (
+    OrthancPluginResourceType  resourceType,
+    const char*                patientId,
+    const char*                accessionNumber,
+    const char*                studyInstanceUid,
+    const char*                seriesInstanceUid,
+    const char*                sopInstanceUid,
+    const char*                issuerAet,
+    const char*                sourceAet,
+    const char*                targetAet,
+    uint16_t                   moveOriginatorId);
+    
+
+  /**
+   * @brief Callback to read the size of a C-Move driver.
+   * 
+   * Signature of a callback function that returns the number of
+   * C-Move suboperations that are to be achieved by the given C-Move
+   * driver. This driver is the return value of a previous call to the
+   * OrthancPluginMoveCallback() callback.
+   *
+   * @param moveDriver The C-Move driver of interest.
+   * @return The number of suboperations. 
+   **/
+  typedef uint32_t (*OrthancPluginGetMoveSize) (void* moveDriver);
+
+
+  /**
+   * @brief Callback to apply one C-Move suboperation.
+   * 
+   * Signature of a callback function that applies the next C-Move
+   * suboperation that os to be achieved by the given C-Move
+   * driver. This driver is the return value of a previous call to the
+   * OrthancPluginMoveCallback() callback.
+   *
+   * @param moveDriver The C-Move driver of interest.
+   * @return 0 if success, or the error code if failure.
+   **/
+  typedef OrthancPluginErrorCode (*OrthancPluginApplyMove) (void* moveDriver);
+
+
+  /**
+   * @brief Callback to free one C-Move driver.
+   * 
+   * Signature of a callback function that releases the resources
+   * allocated by the given C-Move driver. This driver is the return
+   * value of a previous call to the OrthancPluginMoveCallback()
+   * callback.
+   *
+   * @param moveDriver The C-Move driver of interest.
+   **/
+  typedef void (*OrthancPluginFreeMove) (void* moveDriver);
 
 
 
@@ -1399,6 +1569,7 @@ extern "C"
    * @param target The target memory buffer. It must be freed with OrthancPluginFreeMemoryBuffer().
    * @param uri The URI in the built-in Orthanc API.
    * @return 0 if success, or the error code if failure.
+   * @note If the resource is not existing (error 404), the error code will be OrthancPluginErrorCode_UnknownResource.
    * @see OrthancPluginRestApiGetAfterPlugins
    * @ingroup Orthanc
    **/
@@ -1428,6 +1599,7 @@ extern "C"
    * @param target The target memory buffer. It must be freed with OrthancPluginFreeMemoryBuffer().
    * @param uri The URI in the built-in Orthanc API.
    * @return 0 if success, or the error code if failure.
+   * @note If the resource is not existing (error 404), the error code will be OrthancPluginErrorCode_UnknownResource.
    * @see OrthancPluginRestApiGet
    * @ingroup Orthanc
    **/
@@ -1464,6 +1636,7 @@ extern "C"
    * @param body The body of the POST request.
    * @param bodySize The size of the body.
    * @return 0 if success, or the error code if failure.
+   * @note If the resource is not existing (error 404), the error code will be OrthancPluginErrorCode_UnknownResource.
    * @see OrthancPluginRestApiPostAfterPlugins
    * @ingroup Orthanc
    **/
@@ -1498,6 +1671,7 @@ extern "C"
    * @param body The body of the POST request.
    * @param bodySize The size of the body.
    * @return 0 if success, or the error code if failure.
+   * @note If the resource is not existing (error 404), the error code will be OrthancPluginErrorCode_UnknownResource.
    * @see OrthancPluginRestApiPost
    * @ingroup Orthanc
    **/
@@ -1526,6 +1700,7 @@ extern "C"
    * @param context The Orthanc plugin context, as received by OrthancPluginInitialize().
    * @param uri The URI to delete in the built-in Orthanc API.
    * @return 0 if success, or the error code if failure.
+   * @note If the resource is not existing (error 404), the error code will be OrthancPluginErrorCode_UnknownResource.
    * @see OrthancPluginRestApiDeleteAfterPlugins
    * @ingroup Orthanc
    **/
@@ -1548,6 +1723,7 @@ extern "C"
    * @param context The Orthanc plugin context, as received by OrthancPluginInitialize().
    * @param uri The URI to delete in the built-in Orthanc API.
    * @return 0 if success, or the error code if failure.
+   * @note If the resource is not existing (error 404), the error code will be OrthancPluginErrorCode_UnknownResource.
    * @see OrthancPluginRestApiDelete
    * @ingroup Orthanc
    **/
@@ -1572,6 +1748,7 @@ extern "C"
    * @param body The body of the PUT request.
    * @param bodySize The size of the body.
    * @return 0 if success, or the error code if failure.
+   * @note If the resource is not existing (error 404), the error code will be OrthancPluginErrorCode_UnknownResource.
    * @see OrthancPluginRestApiPutAfterPlugins
    * @ingroup Orthanc
    **/
@@ -1607,6 +1784,7 @@ extern "C"
    * @param body The body of the PUT request.
    * @param bodySize The size of the body.
    * @return 0 if success, or the error code if failure.
+   * @note If the resource is not existing (error 404), the error code will be OrthancPluginErrorCode_UnknownResource.
    * @see OrthancPluginRestApiPut
    * @ingroup Orthanc
    **/
@@ -2396,7 +2574,7 @@ extern "C"
    * Orthanc, you should make these calls in a separate thread (with
    * the events passing through a message queue). Otherwise, this
    * could result in deadlocks in the presence of other plugins or Lua
-   * script.
+   * scripts.
    * 
    * @param context The Orthanc plugin context, as received by OrthancPluginInitialize().
    * @param callback The callback function.
@@ -2719,7 +2897,7 @@ extern "C"
    * @param subType The sub-type of the multipart answer ("mixed" or "related").
    * @param contentType The MIME type of the items in the multipart answer.
    * @return 0 if success, or the error code if failure.
-   * @see OrthancPluginSendMultipartItem()
+   * @see OrthancPluginSendMultipartItem(), OrthancPluginSendMultipartItem2()
    * @ingroup REST
    **/
   ORTHANC_PLUGIN_INLINE OrthancPluginErrorCode OrthancPluginStartMultipartAnswer(
@@ -2748,6 +2926,7 @@ extern "C"
    * @param answerSize Number of bytes of the item.
    * @return 0 if success, or the error code if failure (this notably happens
    * if the connection is closed by the client).
+   * @see OrthancPluginSendMultipartItem2()
    * @ingroup REST
    **/
   ORTHANC_PLUGIN_INLINE OrthancPluginErrorCode OrthancPluginSendMultipartItem(
@@ -3989,7 +4168,7 @@ extern "C"
   {
     char**                          result;
     const char*                     instanceId;
-    const char*                     buffer;
+    const void*                     buffer;
     uint32_t                        size;
     OrthancPluginDicomToJsonFormat  format;
     OrthancPluginDicomToJsonFlags   flags;
@@ -4018,7 +4197,7 @@ extern "C"
    **/
   ORTHANC_PLUGIN_INLINE char* OrthancPluginDicomBufferToJson(
     OrthancPluginContext*           context,
-    const char*                     buffer,
+    const void*                     buffer,
     uint32_t                        size,
     OrthancPluginDicomToJsonFormat  format,
     OrthancPluginDicomToJsonFlags   flags, 
@@ -4115,8 +4294,8 @@ extern "C"
    * @param target The target memory buffer. It must be freed with OrthancPluginFreeMemoryBuffer().
    * @param uri The URI in the built-in Orthanc API.
    * @param headersCount The number of HTTP headers.
-   * @param headersKeys Array containing the keys of the HTTP headers.
-   * @param headersValues Array containing the values of the HTTP headers.
+   * @param headersKeys Array containing the keys of the HTTP headers (can be <tt>NULL</tt> if no header).
+   * @param headersValues Array containing the values of the HTTP headers (can be <tt>NULL</tt> if no header).
    * @param afterPlugins If 0, the built-in API of Orthanc is used.
    * If 1, the API is tainted by the plugins.
    * @return 0 if success, or the error code if failure.
@@ -4159,7 +4338,7 @@ extern "C"
    * @param context The Orthanc plugin context, as received by OrthancPluginInitialize().
    * @param callback The callback.
    * @return 0 if success, other value if error.
-   * @ingroup Worklists
+   * @ingroup DicomCallbacks
    **/
   ORTHANC_PLUGIN_INLINE OrthancPluginErrorCode OrthancPluginRegisterWorklistCallback(
     OrthancPluginContext*          context,
@@ -4194,7 +4373,8 @@ extern "C"
    * @param dicom The worklist to answer, encoded as a DICOM file.
    * @param size The size of the DICOM file.
    * @return 0 if success, other value if error.
-   * @ingroup Worklists
+   * @ingroup DicomCallbacks
+   * @see OrthancPluginCreateDicom()
    **/
   ORTHANC_PLUGIN_INLINE OrthancPluginErrorCode  OrthancPluginWorklistAddAnswer(
     OrthancPluginContext*             context,
@@ -4224,7 +4404,7 @@ extern "C"
    * @param context The Orthanc plugin context, as received by OrthancPluginInitialize().
    * @param answers The set of answers.
    * @return 0 if success, other value if error.
-   * @ingroup Worklists
+   * @ingroup DicomCallbacks
    **/
   ORTHANC_PLUGIN_INLINE OrthancPluginErrorCode  OrthancPluginWorklistMarkIncomplete(
     OrthancPluginContext*          context,
@@ -4262,7 +4442,7 @@ extern "C"
    * @param dicom The worklist to answer, encoded as a DICOM file.
    * @param size The size of the DICOM file.
    * @return 1 if the worklist matches the query, 0 otherwise.
-   * @ingroup Worklists
+   * @ingroup DicomCallbacks
    **/
   ORTHANC_PLUGIN_INLINE int32_t  OrthancPluginWorklistIsMatch(
     OrthancPluginContext*              context,
@@ -4301,7 +4481,7 @@ extern "C"
    * @param target Memory buffer where to store the DICOM file. It must be freed with OrthancPluginFreeMemoryBuffer().
    * @param query The worklist query, as received by the callback.
    * @return 0 if success, other value if error.
-   * @ingroup Worklists
+   * @ingroup DicomCallbacks
    **/
   ORTHANC_PLUGIN_INLINE OrthancPluginErrorCode  OrthancPluginWorklistGetDicomQuery(
     OrthancPluginContext*              context,
@@ -4675,6 +4855,505 @@ extern "C"
     params.name = name;
     return context->InvokeService(context, _OrthancPluginService_LookupDictionary, &params);
   }
+
+
+
+  typedef struct
+  {
+    OrthancPluginRestOutput* output;
+    const char*              answer;
+    uint32_t                 answerSize;
+    uint32_t                 headersCount;
+    const char* const*       headersKeys;
+    const char* const*       headersValues;
+  } _OrthancPluginSendMultipartItem2;
+
+  /**
+   * @brief Send an item as a part of some HTTP multipart answer, with custom headers.
+   *
+   * This function sends an item as a part of some HTTP multipart
+   * answer that was initiated by OrthancPluginStartMultipartAnswer(). In addition to
+   * OrthancPluginSendMultipartItem(), this function will set HTTP header associated
+   * with the item.
+   * 
+   * @param context The Orthanc plugin context, as received by OrthancPluginInitialize().
+   * @param output The HTTP connection to the client application.
+   * @param answer Pointer to the memory buffer containing the item.
+   * @param answerSize Number of bytes of the item.
+   * @param headersCount The number of HTTP headers.
+   * @param headersKeys Array containing the keys of the HTTP headers.
+   * @param headersValues Array containing the values of the HTTP headers.
+   * @return 0 if success, or the error code if failure (this notably happens
+   * if the connection is closed by the client).
+   * @see OrthancPluginSendMultipartItem()
+   * @ingroup REST
+   **/
+  ORTHANC_PLUGIN_INLINE OrthancPluginErrorCode OrthancPluginSendMultipartItem2(
+    OrthancPluginContext*    context,
+    OrthancPluginRestOutput* output,
+    const char*              answer,
+    uint32_t                 answerSize,
+    uint32_t                 headersCount,
+    const char* const*       headersKeys,
+    const char* const*       headersValues)
+  {
+    _OrthancPluginSendMultipartItem2 params;
+    params.output = output;
+    params.answer = answer;
+    params.answerSize = answerSize;
+    params.headersCount = headersCount;
+    params.headersKeys = headersKeys;
+    params.headersValues = headersValues;    
+
+    return context->InvokeService(context, _OrthancPluginService_SendMultipartItem2, &params);
+  }
+
+
+  typedef struct
+  {
+    OrthancPluginIncomingHttpRequestFilter callback;
+  } _OrthancPluginIncomingHttpRequestFilter;
+
+  /**
+   * @brief Register a callback to filter incoming HTTP requests.
+   *
+   * This function registers a custom callback to filter incoming HTTP/REST
+   * requests received by the HTTP server of Orthanc.
+   *
+   * @param context The Orthanc plugin context, as received by OrthancPluginInitialize().
+   * @param callback The callback.
+   * @return 0 if success, other value if error.
+   * @ingroup Callbacks
+   **/
+  ORTHANC_PLUGIN_INLINE OrthancPluginErrorCode OrthancPluginRegisterIncomingHttpRequestFilter(
+    OrthancPluginContext*                   context,
+    OrthancPluginIncomingHttpRequestFilter  callback)
+  {
+    _OrthancPluginIncomingHttpRequestFilter params;
+    params.callback = callback;
+
+    return context->InvokeService(context, _OrthancPluginService_RegisterIncomingHttpRequestFilter, &params);
+  }
+  
+
+
+  typedef struct
+  {
+    OrthancPluginMemoryBuffer*  answerBody;
+    OrthancPluginMemoryBuffer*  answerHeaders;
+    uint16_t*                   httpStatus;
+    OrthancPluginHttpMethod     method;
+    const char*                 url;
+    uint32_t                    headersCount;
+    const char* const*          headersKeys;
+    const char* const*          headersValues;
+    const char*                 body;
+    uint32_t                    bodySize;
+    const char*                 username;
+    const char*                 password;
+    uint32_t                    timeout;
+    const char*                 certificateFile;
+    const char*                 certificateKeyFile;
+    const char*                 certificateKeyPassword;
+    uint8_t                     pkcs11;
+  } _OrthancPluginCallHttpClient2;
+
+
+
+  /**
+   * @brief Issue a HTTP call with full flexibility.
+   * 
+   * Make a HTTP call to the given URL. The result to the query is
+   * stored into a newly allocated memory buffer. The HTTP request
+   * will be done accordingly to the global configuration of Orthanc
+   * (in particular, the options "HttpProxy", "HttpTimeout",
+   * "HttpsVerifyPeers", "HttpsCACertificates", and "Pkcs11" will be
+   * taken into account).
+   * 
+   * @param context The Orthanc plugin context, as received by OrthancPluginInitialize().
+   * @param answerBody The target memory buffer (out argument).
+   *        It must be freed with OrthancPluginFreeMemoryBuffer().
+   * @param answerHeaders The target memory buffer for the HTTP headers in the answers (out argument). 
+   *        The answer headers are formatted as a JSON object (associative array).
+   *        The buffer must be freed with OrthancPluginFreeMemoryBuffer().
+   *        This argument can be set to NULL if the plugin has no interest in the HTTP headers.
+   * @param httpStatus The HTTP status after the execution of the request (out argument).
+   * @param method HTTP method to be used.
+   * @param url The URL of interest.
+   * @param headersCount The number of HTTP headers.
+   * @param headersKeys Array containing the keys of the HTTP headers (can be <tt>NULL</tt> if no header).
+   * @param headersValues Array containing the values of the HTTP headers (can be <tt>NULL</tt> if no header).
+   * @param username The username (can be <tt>NULL</tt> if no password protection).
+   * @param password The password (can be <tt>NULL</tt> if no password protection).
+   * @param body The body of the POST request.
+   * @param bodySize The size of the body.
+   * @param timeout Timeout in seconds (0 for default timeout).
+   * @param certificateFile Path to the client certificate for HTTPS, in PEM format
+   * (can be <tt>NULL</tt> if no client certificate or if not using HTTPS).
+   * @param certificateKeyFile Path to the key of the client certificate for HTTPS, in PEM format
+   * (can be <tt>NULL</tt> if no client certificate or if not using HTTPS).
+   * @param certificateKeyPassword Password to unlock the key of the client certificate 
+   * (can be <tt>NULL</tt> if no client certificate or if not using HTTPS).
+   * @param pkcs11 Enable PKCS#11 client authentication for hardware security modules and smart cards.
+   * @return 0 if success, or the error code if failure.
+   **/
+  ORTHANC_PLUGIN_INLINE OrthancPluginErrorCode  OrthancPluginHttpClient(
+    OrthancPluginContext*       context,
+    OrthancPluginMemoryBuffer*  answerBody,
+    OrthancPluginMemoryBuffer*  answerHeaders,
+    uint16_t*                   httpStatus,
+    OrthancPluginHttpMethod     method,
+    const char*                 url,
+    uint32_t                    headersCount,
+    const char* const*          headersKeys,
+    const char* const*          headersValues,
+    const char*                 body,
+    uint32_t                    bodySize,
+    const char*                 username,
+    const char*                 password,
+    uint32_t                    timeout,
+    const char*                 certificateFile,
+    const char*                 certificateKeyFile,
+    const char*                 certificateKeyPassword,
+    uint8_t                     pkcs11)
+  {
+    _OrthancPluginCallHttpClient2 params;
+    memset(&params, 0, sizeof(params));
+
+    params.answerBody = answerBody;
+    params.answerHeaders = answerHeaders;
+    params.httpStatus = httpStatus;
+    params.method = method;
+    params.url = url;
+    params.headersCount = headersCount;
+    params.headersKeys = headersKeys;
+    params.headersValues = headersValues;
+    params.body = body;
+    params.bodySize = bodySize;
+    params.username = username;
+    params.password = password;
+    params.timeout = timeout;
+    params.certificateFile = certificateFile;
+    params.certificateKeyFile = certificateKeyFile;
+    params.certificateKeyPassword = certificateKeyPassword;
+    params.pkcs11 = pkcs11;
+
+    return context->InvokeService(context, _OrthancPluginService_CallHttpClient2, &params);
+  }
+
+
+  /**
+   * @brief Generate an UUID.
+   *
+   * Generate a random GUID/UUID (globally unique identifier).
+   * 
+   * @param context The Orthanc plugin context, as received by OrthancPluginInitialize().
+   * @return NULL in the case of an error, or a newly allocated string
+   * containing the UUID. This string must be freed by OrthancPluginFreeString().
+   * @ingroup Toolbox
+   **/
+  ORTHANC_PLUGIN_INLINE char* OrthancPluginGenerateUuid(
+    OrthancPluginContext*  context)
+  {
+    char* result;
+
+    _OrthancPluginRetrieveDynamicString params;
+    params.result = &result;
+    params.argument = NULL;
+
+    if (context->InvokeService(context, _OrthancPluginService_GenerateUuid, &params) != OrthancPluginErrorCode_Success)
+    {
+      /* Error */
+      return NULL;
+    }
+    else
+    {
+      return result;
+    }
+  }
+
+
+
+
+  typedef struct
+  {
+    OrthancPluginFindCallback callback;
+  } _OrthancPluginFindCallback;
+
+  /**
+   * @brief Register a callback to handle C-Find requests.
+   *
+   * This function registers a callback to handle C-Find SCP requests
+   * that are not related to modality worklists.
+   *
+   * @param context The Orthanc plugin context, as received by OrthancPluginInitialize().
+   * @param callback The callback.
+   * @return 0 if success, other value if error.
+   * @ingroup DicomCallbacks
+   **/
+  ORTHANC_PLUGIN_INLINE OrthancPluginErrorCode OrthancPluginRegisterFindCallback(
+    OrthancPluginContext*      context,
+    OrthancPluginFindCallback  callback)
+  {
+    _OrthancPluginFindCallback params;
+    params.callback = callback;
+
+    return context->InvokeService(context, _OrthancPluginService_RegisterFindCallback, &params);
+  }
+
+
+  typedef struct
+  {
+    OrthancPluginFindAnswers      *answers;
+    const OrthancPluginFindQuery  *query;
+    const void                    *dicom;
+    uint32_t                       size;
+    uint32_t                       index;
+    uint32_t                      *resultUint32;
+    uint16_t                      *resultGroup;
+    uint16_t                      *resultElement;
+    char                         **resultString;
+  } _OrthancPluginFindOperation;
+
+  /**
+   * @brief Add one answer to some C-Find request.
+   *
+   * This function adds one answer (encoded as a DICOM file) to the
+   * set of answers corresponding to some C-Find SCP request that is
+   * not related to modality worklists.
+   *
+   * @param context The Orthanc plugin context, as received by OrthancPluginInitialize().
+   * @param answers The set of answers.
+   * @param dicom The answer to be added, encoded as a DICOM file.
+   * @param size The size of the DICOM file.
+   * @return 0 if success, other value if error.
+   * @ingroup DicomCallbacks
+   * @see OrthancPluginCreateDicom()
+   **/
+  ORTHANC_PLUGIN_INLINE OrthancPluginErrorCode  OrthancPluginFindAddAnswer(
+    OrthancPluginContext*      context,
+    OrthancPluginFindAnswers*  answers,
+    const void*                dicom,
+    uint32_t                   size)
+  {
+    _OrthancPluginFindOperation params;
+    memset(&params, 0, sizeof(params));
+    params.answers = answers;
+    params.dicom = dicom;
+    params.size = size;
+
+    return context->InvokeService(context, _OrthancPluginService_FindAddAnswer, &params);
+  }
+
+
+  /**
+   * @brief Mark the set of C-Find answers as incomplete.
+   *
+   * This function marks as incomplete the set of answers
+   * corresponding to some C-Find SCP request that is not related to
+   * modality worklists. This must be used if canceling the handling
+   * of a request when too many answers are to be returned.
+   *
+   * @param context The Orthanc plugin context, as received by OrthancPluginInitialize().
+   * @param answers The set of answers.
+   * @return 0 if success, other value if error.
+   * @ingroup DicomCallbacks
+   **/
+  ORTHANC_PLUGIN_INLINE OrthancPluginErrorCode  OrthancPluginFindMarkIncomplete(
+    OrthancPluginContext*      context,
+    OrthancPluginFindAnswers*  answers)
+  {
+    _OrthancPluginFindOperation params;
+    memset(&params, 0, sizeof(params));
+    params.answers = answers;
+
+    return context->InvokeService(context, _OrthancPluginService_FindMarkIncomplete, &params);
+  }
+
+
+
+  /**
+   * @brief Get the number of tags in a C-Find query.
+   *
+   * This function returns the number of tags that are contained in
+   * the given C-Find query.
+   *
+   * @param context The Orthanc plugin context, as received by OrthancPluginInitialize().
+   * @param query The C-Find query.
+   * @return The number of tags.
+   * @ingroup DicomCallbacks
+   **/
+  ORTHANC_PLUGIN_INLINE uint32_t  OrthancPluginGetFindQuerySize(
+    OrthancPluginContext*          context,
+    const OrthancPluginFindQuery*  query)
+  {
+    uint32_t count = 0;
+
+    _OrthancPluginFindOperation params;
+    memset(&params, 0, sizeof(params));
+    params.query = query;
+    params.resultUint32 = &count;
+
+    if (context->InvokeService(context, _OrthancPluginService_GetFindQuerySize, &params) != OrthancPluginErrorCode_Success)
+    {
+      /* Error */
+      return 0;
+    }
+    else
+    {
+      return count;
+    }
+  }
+
+
+  /**
+   * @brief Get one tag in a C-Find query.
+   *
+   * This function returns the group and the element of one DICOM tag
+   * in the given C-Find query.
+   *
+   * @param context The Orthanc plugin context, as received by OrthancPluginInitialize().
+   * @param group The group of the tag (output).
+   * @param element The element of the tag (output).
+   * @param query The C-Find query.
+   * @param index The index of the tag of interest.
+   * @return 0 if success, other value if error.
+   * @ingroup DicomCallbacks
+   **/
+  ORTHANC_PLUGIN_INLINE OrthancPluginErrorCode  OrthancPluginGetFindQueryTag(
+    OrthancPluginContext*          context,
+    uint16_t*                      group,
+    uint16_t*                      element,
+    const OrthancPluginFindQuery*  query,
+    uint32_t                       index)
+  {
+    _OrthancPluginFindOperation params;
+    memset(&params, 0, sizeof(params));
+    params.query = query;
+    params.index = index;
+    params.resultGroup = group;
+    params.resultElement = element;
+
+    return context->InvokeService(context, _OrthancPluginService_GetFindQueryTag, &params);
+  }
+
+
+  /**
+   * @brief Get the symbolic name of one tag in a C-Find query.
+   *
+   * This function returns the symbolic name of one DICOM tag in the
+   * given C-Find query.
+   *
+   * @param context The Orthanc plugin context, as received by OrthancPluginInitialize().
+   * @param query The C-Find query.
+   * @param index The index of the tag of interest.
+   * @return The NULL value in case of error, or a string containing the name of the tag.
+   * @return 0 if success, other value if error.
+   * @ingroup DicomCallbacks
+   **/
+  ORTHANC_PLUGIN_INLINE char*  OrthancPluginGetFindQueryTagName(
+    OrthancPluginContext*          context,
+    const OrthancPluginFindQuery*  query,
+    uint32_t                       index)
+  {
+    char* result;
+
+    _OrthancPluginFindOperation params;
+    memset(&params, 0, sizeof(params));
+    params.query = query;
+    params.index = index;
+    params.resultString = &result;
+
+    if (context->InvokeService(context, _OrthancPluginService_GetFindQueryTagName, &params) != OrthancPluginErrorCode_Success)
+    {
+      /* Error */
+      return NULL;
+    }
+    else
+    {
+      return result;
+    }
+  }
+
+
+  /**
+   * @brief Get the value associated with one tag in a C-Find query.
+   *
+   * This function returns the value associated with one tag in the
+   * given C-Find query.
+   *
+   * @param context The Orthanc plugin context, as received by OrthancPluginInitialize().
+   * @param query The C-Find query.
+   * @param index The index of the tag of interest.
+   * @return The NULL value in case of error, or a string containing the value of the tag.
+   * @return 0 if success, other value if error.
+   * @ingroup DicomCallbacks
+   **/
+  ORTHANC_PLUGIN_INLINE char*  OrthancPluginGetFindQueryValue(
+    OrthancPluginContext*          context,
+    const OrthancPluginFindQuery*  query,
+    uint32_t                       index)
+  {
+    char* result;
+
+    _OrthancPluginFindOperation params;
+    memset(&params, 0, sizeof(params));
+    params.query = query;
+    params.index = index;
+    params.resultString = &result;
+
+    if (context->InvokeService(context, _OrthancPluginService_GetFindQueryValue, &params) != OrthancPluginErrorCode_Success)
+    {
+      /* Error */
+      return NULL;
+    }
+    else
+    {
+      return result;
+    }
+  }
+ 
+
+
+
+  typedef struct
+  {
+    OrthancPluginMoveCallback   callback;
+    OrthancPluginGetMoveSize    getMoveSize;
+    OrthancPluginApplyMove      applyMove;
+    OrthancPluginFreeMove       freeMove;
+  } _OrthancPluginMoveCallback;
+
+  /**
+   * @brief Register a callback to handle C-Move requests.
+   *
+   * This function registers a callback to handle C-Move SCP requests.
+   *
+   * @param context The Orthanc plugin context, as received by OrthancPluginInitialize().
+   * @param callback The main callback.
+   * @param getMoveSize Callback to read the number of C-Move suboperations.
+   * @param applyMove Callback to apply one C-Move suboperations.
+   * @param freeMove Callback to free the C-Move driver.
+   * @return 0 if success, other value if error.
+   * @ingroup DicomCallbacks
+   **/
+  ORTHANC_PLUGIN_INLINE OrthancPluginErrorCode OrthancPluginRegisterMoveCallback(
+    OrthancPluginContext*       context,
+    OrthancPluginMoveCallback   callback,
+    OrthancPluginGetMoveSize    getMoveSize,
+    OrthancPluginApplyMove      applyMove,
+    OrthancPluginFreeMove       freeMove)
+  {
+    _OrthancPluginMoveCallback params;
+    params.callback = callback;
+    params.getMoveSize = getMoveSize;
+    params.applyMove = applyMove;
+    params.freeMove = freeMove;
+
+    return context->InvokeService(context, _OrthancPluginService_RegisterMoveCallback, &params);
+  }
+
+
 
 
 #ifdef  __cplusplus

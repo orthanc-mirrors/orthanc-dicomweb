@@ -20,40 +20,17 @@
 
 #pragma once
 
-#include <list>
-#include <string>
+#include "Configuration.h"
 
-namespace OrthancPlugins
-{
-  class ChunkedBuffer
-  {
-  private:
-    typedef std::list<std::string*>  Chunks;
-    size_t numBytes_;
-    Chunks chunks_;
-  
-    void Clear();
 
-  public:
-    ChunkedBuffer() : numBytes_(0)
-    {
-    }
+void StowClient(OrthancPluginRestOutput* output,
+                const char* url,
+                const OrthancPluginHttpRequest* request);
 
-    ~ChunkedBuffer()
-    {
-      Clear();
-    }
+void GetFromServer(OrthancPluginRestOutput* output,
+                   const char* /*url*/,
+                   const OrthancPluginHttpRequest* request);
 
-    size_t GetNumBytes() const
-    {
-      return numBytes_;
-    }
-
-    void AddChunk(const char* chunkData,
-                  size_t chunkSize);
-
-    void AddChunk(const std::string& chunk);
-
-    void Flatten(std::string& result);
-  };
-}
+void RetrieveFromServer(OrthancPluginRestOutput* output,
+                        const char* /*url*/,
+                        const OrthancPluginHttpRequest* request);

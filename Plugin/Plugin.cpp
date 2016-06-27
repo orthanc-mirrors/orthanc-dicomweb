@@ -22,10 +22,14 @@
 
 #include "QidoRs.h"
 #include "StowRs.h"
+#include "DicomWebClient.h"
 #include "WadoRs.h"
 #include "WadoUri.h"
 #include "Configuration.h"
+#include "DicomWebServers.h"
 
+#include "../Orthanc/Plugins/Samples/Common/OrthancPluginCppWrapper.h"
+#include "../Orthanc/Core/Toolbox.h"
 
 #include <gdcmDictEntry.h>
 #include <gdcmDict.h>
@@ -34,46 +38,7 @@
 
 
 // Global state
-OrthancPluginContext* context_ = NULL;
-Json::Value configuration_;
 const gdcm::Dict* dictionary_ = NULL;
-
-#include "../Orthanc/Core/OrthancException.h"
-#include <boost/lexical_cast.hpp>
-
-
-typedef void (*RestCallback) (OrthancPluginRestOutput* output,
-                              const char* url,
-                              const OrthancPluginHttpRequest* request);
-
-
-template <RestCallback Callback>
-OrthancPluginErrorCode Protect(OrthancPluginRestOutput* output,
-                               const char* url,
-                               const OrthancPluginHttpRequest* request)
-{
-  try
-  {
-    Callback(output, url, request);
-    return OrthancPluginErrorCode_Success;
-  }
-  catch (Orthanc::OrthancException& e)
-  {
-    OrthancPluginLogError(context_, e.What());
-    return OrthancPluginErrorCode_Plugin;
-  }
-  catch (boost::bad_lexical_cast& e)
-  {
-    OrthancPluginLogError(context_, e.what());
-    return OrthancPluginErrorCode_Plugin;
-  }
-  catch (std::runtime_error& e)
-  {
-    OrthancPluginLogError(context_, e.what());
-    return OrthancPluginErrorCode_Plugin;
-  }
-}
-
 
 
 void SwitchStudies(OrthancPluginRestOutput* output,
@@ -93,7 +58,7 @@ void SwitchStudies(OrthancPluginRestOutput* output,
       break;
 
     default:
-      OrthancPluginSendMethodNotAllowed(context_, output, "GET,POST");
+      OrthancPluginSendMethodNotAllowed(OrthancPlugins::Configuration::GetContext(), output, "GET,POST");
       break;
   }
 }
@@ -116,117 +81,156 @@ void SwitchStudy(OrthancPluginRestOutput* output,
       break;
 
     default:
-      OrthancPluginSendMethodNotAllowed(context_, output, "GET,POST");
+      OrthancPluginSendMethodNotAllowed(OrthancPlugins::Configuration::GetContext(), output, "GET,POST");
       break;
   }
 }
 
 
-static void Register(const std::string& root,
-                     const std::string& uri,
-                     OrthancPluginRestCallback callback)
+void ListServers(OrthancPluginRestOutput* output,
+                 const char* url,
+                 const OrthancPluginHttpRequest* request)
 {
-  assert(!uri.empty() && uri[0] != '/');
-  std::string s = root + uri;
-  OrthancPluginRegisterRestCallback(context_, s.c_str(), callback);
+  OrthancPluginContext* context = OrthancPlugins::Configuration::GetContext();
+
+  if (request->method != OrthancPluginHttpMethod_Get)
+  {
+    OrthancPluginSendMethodNotAllowed(context, output, "GET");
+  }
+  else
+  {
+    std::list<std::string> servers;
+    OrthancPlugins::DicomWebServers::GetInstance().ListServers(servers);
+
+    Json::Value json = Json::arrayValue;
+    for (std::list<std::string>::const_iterator it = servers.begin(); it != servers.end(); ++it)
+    {
+      json.append(*it);
+    }
+
+    std::string answer = json.toStyledString(); 
+    OrthancPluginAnswerBuffer(context, output, answer.c_str(), answer.size(), "application/json");
+  }
 }
 
+
+void ListServerOperations(OrthancPluginRestOutput* output,
+                          const char* /*url*/,
+                          const OrthancPluginHttpRequest* request)
+{
+  OrthancPluginContext* context = OrthancPlugins::Configuration::GetContext();
+
+  if (request->method != OrthancPluginHttpMethod_Get)
+  {
+    OrthancPluginSendMethodNotAllowed(context, output, "GET");
+  }
+  else
+  {
+    // Make sure the server does exist
+    OrthancPlugins::DicomWebServers::GetInstance().GetServer(request->groups[0]);
+
+    Json::Value json = Json::arrayValue;
+    json.append("get");
+    json.append("retrieve");
+    json.append("stow");
+
+    std::string answer = json.toStyledString(); 
+    OrthancPluginAnswerBuffer(context, output, answer.c_str(), answer.size(), "application/json");
+  }
+}
 
 
 extern "C"
 {
   ORTHANC_PLUGINS_API int32_t OrthancPluginInitialize(OrthancPluginContext* context)
   {
-    context_ = context;
-
     /* Check the version of the Orthanc core */
-    if (OrthancPluginCheckVersion(context_) == 0)
+    if (OrthancPluginCheckVersion(context) == 0)
     {
       char info[1024];
       sprintf(info, "Your version of Orthanc (%s) must be above %d.%d.%d to run this plugin",
-              context_->orthancVersion,
+              context->orthancVersion,
               ORTHANC_PLUGINS_MINIMAL_MAJOR_NUMBER,
               ORTHANC_PLUGINS_MINIMAL_MINOR_NUMBER,
               ORTHANC_PLUGINS_MINIMAL_REVISION_NUMBER);
-      OrthancPluginLogError(context_, info);
+      OrthancPluginLogError(context, info);
       return -1;
     }
 
+    OrthancPluginSetDescription(context, "Implementation of DICOMweb (QIDO-RS, STOW-RS and WADO-RS) and WADO-URI.");
+
+    try
     {
-      std::string version(context_->orthancVersion);
-      if (version == "0.9.1")
+      // Read the configuration
+      OrthancPlugins::Configuration::Initialize(context);
+
+      // Initialize GDCM
+      dictionary_ = &gdcm::Global::GetInstance().GetDicts().GetPublicDict();
+
+      // Configure the DICOMweb callbacks
+      if (OrthancPlugins::Configuration::GetBooleanValue("Enable", true))
       {
-        OrthancPluginLogWarning(context_, "If using STOW-RS, the DICOMweb plugin can lead to "
-                                "deadlocks in Orthanc version 0.9.1. Please upgrade Orthanc!");
+        std::string root = OrthancPlugins::Configuration::GetRoot();
+        assert(!root.empty() && root[root.size() - 1] == '/');
+
+        OrthancPlugins::Configuration::LogWarning("URI to the DICOMweb REST API: " + root);
+
+        OrthancPlugins::RegisterRestCallback<SearchForInstances>(context, root + "instances", true);
+        OrthancPlugins::RegisterRestCallback<SearchForSeries>(context, root + "series", true);    
+        OrthancPlugins::RegisterRestCallback<SwitchStudies>(context, root + "studies", true);
+        OrthancPlugins::RegisterRestCallback<SwitchStudy>(context, root + "studies/([^/]*)", true);
+        OrthancPlugins::RegisterRestCallback<SearchForInstances>(context, root + "studies/([^/]*)/instances", true);    
+        OrthancPlugins::RegisterRestCallback<RetrieveStudyMetadata>(context, root + "studies/([^/]*)/metadata", true);
+        OrthancPlugins::RegisterRestCallback<SearchForSeries>(context, root + "studies/([^/]*)/series", true);    
+        OrthancPlugins::RegisterRestCallback<RetrieveDicomSeries>(context, root + "studies/([^/]*)/series/([^/]*)", true);
+        OrthancPlugins::RegisterRestCallback<SearchForInstances>(context, root + "studies/([^/]*)/series/([^/]*)/instances", true);    
+        OrthancPlugins::RegisterRestCallback<RetrieveDicomInstance>(context, root + "studies/([^/]*)/series/([^/]*)/instances/([^/]*)", true);
+        OrthancPlugins::RegisterRestCallback<RetrieveBulkData>(context, root + "studies/([^/]*)/series/([^/]*)/instances/([^/]*)/bulk/(.*)", true);
+        OrthancPlugins::RegisterRestCallback<RetrieveInstanceMetadata>(context, root + "studies/([^/]*)/series/([^/]*)/instances/([^/]*)/metadata", true);
+        OrthancPlugins::RegisterRestCallback<RetrieveSeriesMetadata>(context, root + "studies/([^/]*)/series/([^/]*)/metadata", true);
+        OrthancPlugins::RegisterRestCallback<RetrieveFrames>(context, root + "studies/([^/]*)/series/([^/]*)/instances/([^/]*)/frames", true);
+        OrthancPlugins::RegisterRestCallback<RetrieveFrames>(context, root + "studies/([^/]*)/series/([^/]*)/instances/([^/]*)/frames/([^/]*)", true);
+
+        OrthancPlugins::RegisterRestCallback<ListServers>(context, root + "servers", true);
+        OrthancPlugins::RegisterRestCallback<ListServerOperations>(context, root + "servers/([^/]*)", true);
+        OrthancPlugins::RegisterRestCallback<StowClient>(context, root + "servers/([^/]*)/stow", true);
+        OrthancPlugins::RegisterRestCallback<GetFromServer>(context, root + "servers/([^/]*)/get", true);
+        OrthancPlugins::RegisterRestCallback<RetrieveFromServer>(context, root + "servers/([^/]*)/retrieve", true);
+      }
+      else
+      {
+        OrthancPlugins::Configuration::LogWarning("DICOMweb support is disabled");
+      }
+
+      // Configure the WADO callback
+      if (OrthancPlugins::Configuration::GetBooleanValue("EnableWado", true))
+      {
+        std::string wado = OrthancPlugins::Configuration::GetWadoRoot();
+        OrthancPlugins::Configuration::LogWarning("URI to the WADO-URI API: " + wado);
+
+        OrthancPlugins::RegisterRestCallback<WadoUriCallback>(context, wado, true);
+      }
+      else
+      {
+        OrthancPlugins::Configuration::LogWarning("WADO-URI support is disabled");
       }
     }
-
-
-    OrthancPluginSetDescription(context_, "Implementation of DICOM Web (QIDO-RS, STOW-RS and WADO-RS) and WADO.");
-
-    // Read the configuration
-    dictionary_ = &gdcm::Global::GetInstance().GetDicts().GetPublicDict();
-
-    configuration_ = Json::objectValue;
-
+    catch (OrthancPlugins::PluginException& e)
     {
-      Json::Value tmp;
-      if (!OrthancPlugins::Configuration::Read(tmp, context) ||
-          tmp.type() != Json::objectValue)
-      {
-        OrthancPluginLogError(context_, "Unable to read the configuration file");
-        return -1;
-      }
-
-      if (tmp.isMember("DicomWeb") &&
-          tmp["DicomWeb"].type() == Json::objectValue)
-      {
-        configuration_ = tmp["DicomWeb"];
-      }
+      OrthancPlugins::Configuration::LogError("Exception while initializing the DICOMweb plugin: " + 
+                                              std::string(e.GetErrorDescription(context)));
+      return -1;
     }
-
-    // Configure the DICOMweb callbacks
-    if (OrthancPlugins::Configuration::GetBoolValue(configuration_, "Enable", true))
+    catch (Orthanc::OrthancException& e)
     {
-      std::string root = OrthancPlugins::Configuration::GetRoot(configuration_);
-
-      std::string message = "URI to the DICOMweb REST API: " + root;
-      OrthancPluginLogWarning(context_, message.c_str());
-
-      Register(root, "instances", Protect<SearchForInstances>);
-      Register(root, "series", Protect<SearchForSeries>);    
-      Register(root, "studies", Protect<SwitchStudies>);
-      Register(root, "studies/([^/]*)", Protect<SwitchStudy>);
-      Register(root, "studies/([^/]*)/instances", Protect<SearchForInstances>);    
-      Register(root, "studies/([^/]*)/metadata", Protect<RetrieveStudyMetadata>);
-      Register(root, "studies/([^/]*)/series", Protect<SearchForSeries>);    
-      Register(root, "studies/([^/]*)/series/([^/]*)", Protect<RetrieveDicomSeries>);
-      Register(root, "studies/([^/]*)/series/([^/]*)/instances", Protect<SearchForInstances>);    
-      Register(root, "studies/([^/]*)/series/([^/]*)/instances/([^/]*)", Protect<RetrieveDicomInstance>);
-      Register(root, "studies/([^/]*)/series/([^/]*)/instances/([^/]*)/bulk/(.*)", Protect<RetrieveBulkData>);
-      Register(root, "studies/([^/]*)/series/([^/]*)/instances/([^/]*)/metadata", Protect<RetrieveInstanceMetadata>);
-      Register(root, "studies/([^/]*)/series/([^/]*)/metadata", Protect<RetrieveSeriesMetadata>);
-      Register(root, "studies/([^/]*)/series/([^/]*)/instances/([^/]*)/frames", Protect<RetrieveFrames>);
-      Register(root, "studies/([^/]*)/series/([^/]*)/instances/([^/]*)/frames/([^/]*)", Protect<RetrieveFrames>);
+      OrthancPlugins::Configuration::LogError("Exception while initializing the DICOMweb plugin: " + 
+                                              std::string(e.What()));
+      return -1;
     }
-    else
+    catch (...)
     {
-      OrthancPluginLogWarning(context_, "DICOMweb support is disabled");
-    }
-
-    // Configure the WADO callback
-    if (OrthancPlugins::Configuration::GetBoolValue(configuration_, "EnableWado", true))
-    {
-      std::string wado = OrthancPlugins::Configuration::GetWadoRoot(configuration_);
-
-      std::string message = "URI to the WADO API: " + wado;
-      OrthancPluginLogWarning(context_, message.c_str());
-
-      OrthancPluginRegisterRestCallback(context_, wado.c_str(), Protect<WadoUriCallback>);
-    }
-    else
-    {
-      OrthancPluginLogWarning(context_, "WADO support is disabled");
+      OrthancPlugins::Configuration::LogError("Exception while initializing the DICOMweb plugin");
+      return -1;
     }
 
     return 0;

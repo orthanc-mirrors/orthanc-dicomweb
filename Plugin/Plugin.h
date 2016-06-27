@@ -20,11 +20,11 @@
 
 #pragma once
 
-#include <orthanc/OrthancCPlugin.h>
-#include <json/value.h>
+#include "../Orthanc/Plugins/Samples/Common/OrthancPluginCppWrapper.h"
+
 #include <gdcmDict.h>
 
+// TODO Remove this file
+
 // Global state
-extern OrthancPluginContext* context_;
-extern Json::Value configuration_;
 extern const gdcm::Dict* dictionary_;

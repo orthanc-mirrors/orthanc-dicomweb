@@ -26,7 +26,6 @@
 
 using namespace OrthancPlugins;
 
-Json::Value configuration_ = Json::objectValue;
 OrthancPluginContext* context_ = NULL;
 
 

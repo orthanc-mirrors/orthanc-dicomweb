@@ -20,6 +20,8 @@
 
 #pragma once
 
+#include "../Orthanc/Core/Enumerations.h"
+
 #include <orthanc/OrthancCPlugin.h>
 #include <json/value.h>
 
@@ -49,53 +51,47 @@ namespace OrthancPlugins
                         const std::string& header);
 
   void ParseMultipartBody(std::vector<MultipartItem>& result,
+                          OrthancPluginContext* context,
                           const char* body,
                           const uint64_t bodySize,
                           const std::string& boundary);
 
-  bool RestApiGetString(std::string& result,
-                        OrthancPluginContext* context,
-                        const std::string& uri,
-                        bool applyPlugins = false);
-
-  bool RestApiGetJson(Json::Value& result,
-                      OrthancPluginContext* context,
-                      const std::string& uri,
-                      bool applyPlugins = false);
-
-  bool RestApiPostString(std::string& result,
-                         OrthancPluginContext* context,
-                         const std::string& uri,
-                         const std::string& body);
-
-  bool RestApiPostJson(Json::Value& result,
-                       OrthancPluginContext* context,
-                       const std::string& uri,
-                       const std::string& body);
+  void ParseAssociativeArray(std::map<std::string, std::string>& target,
+                             const Json::Value& value,
+                             const std::string& key);
 
   namespace Configuration
   {
-    bool Read(Json::Value& configuration,
-              OrthancPluginContext* context);
+    void Initialize(OrthancPluginContext* context);
 
-    std::string GetStringValue(const Json::Value& configuration,
-                               const std::string& key,
-                               const std::string& defaultValue);
+    OrthancPluginContext* GetContext();
     
-    bool GetBoolValue(const Json::Value& configuration,
-                      const std::string& key,
-                      bool defaultValue);
+    std::string GetStringValue(const std::string& key,
+                               const std::string& defaultValue);
 
-    std::string GetRoot(const Json::Value& configuration);
+    bool GetBooleanValue(const std::string& key,
+                         bool defaultValue);
 
-    std::string GetWadoRoot(const Json::Value& configuration);
+    unsigned int GetUnsignedIntegerValue(const std::string& key,
+                                         unsigned int defaultValue);
+
+    std::string GetRoot();
+
+    std::string GetWadoRoot();
       
-    std::string GetBaseUrl(const Json::Value& configuration,
-                           const OrthancPluginHttpRequest* request);
+    std::string GetBaseUrl(const OrthancPluginHttpRequest* request);
 
     std::string GetWadoUrl(const std::string& wadoBase,
                            const std::string& studyInstanceUid,
                            const std::string& seriesInstanceUid,
                            const std::string& sopInstanceUid);
+
+    void LogError(const std::string& message);
+
+    void LogWarning(const std::string& message);
+
+    void LogInfo(const std::string& message);
+
+    Orthanc::Encoding GetDefaultEncoding();
   }
 }

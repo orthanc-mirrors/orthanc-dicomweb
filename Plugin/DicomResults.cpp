@@ -21,8 +21,8 @@
 #include "DicomResults.h"
 
 #include "Dicom.h"
-#include "../Orthanc/Core/OrthancException.h"
 #include "../Orthanc/Core/Toolbox.h"
+#include "../Orthanc/Plugins/Samples/Common/OrthancPluginCppWrapper.h"
 
 #include <boost/lexical_cast.hpp>
 #include <boost/noncopyable.hpp>
@@ -46,8 +46,8 @@ namespace OrthancPlugins
     if (isXml_ &&
         OrthancPluginStartMultipartAnswer(context_, output_, "related", "application/dicom+xml") != 0)
     {
-      OrthancPluginLogError(context_, "Unable to create a multipart stream of DICOM+XML answers");
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);
+      OrthancPlugins::Configuration::LogError("Unable to create a multipart stream of DICOM+XML answers");
+      throw OrthancPlugins::PluginException(OrthancPluginErrorCode_NetworkProtocol);
     }
 
     jsonWriter_.AddChunk("[\n");
@@ -60,8 +60,8 @@ namespace OrthancPlugins
     {
       if (OrthancPluginSendMultipartItem(context_, output_, item.c_str(), item.size()) != 0)
       {
-        OrthancPluginLogError(context_, "Unable to create a multipart stream of DICOM+XML answers");
-        throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);
+        OrthancPlugins::Configuration::LogError("Unable to create a multipart stream of DICOM+XML answers");
+        throw OrthancPlugins::PluginException(OrthancPluginErrorCode_NetworkProtocol);
       }
     }
     else
@@ -120,7 +120,7 @@ namespace OrthancPlugins
       {
         if (source.type() != Json::objectValue)
         {
-          throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
+          throw OrthancPlugins::PluginException(OrthancPluginErrorCode_InternalError);
         }
 
         Json::Value::Members members = source.getMemberNames();
@@ -133,7 +133,7 @@ namespace OrthancPlugins
               !source[members[i]].isMember("Type") ||
               source[members[i]]["Type"].type() != Json::stringValue)
           {
-            throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
+            throw OrthancPlugins::PluginException(OrthancPluginErrorCode_InternalError);
           }        
 
           const Json::Value& value = source[members[i]]["Value"];
@@ -213,7 +213,7 @@ namespace OrthancPlugins
           if (type != "Sequence" ||
               value.type() != Json::arrayValue)
           {
-            throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
+            throw OrthancPlugins::PluginException(OrthancPluginErrorCode_InternalError);
           }
 
           node["Value"] = Json::arrayValue;
@@ -222,7 +222,7 @@ namespace OrthancPlugins
           {
             if (value[i].type() != Json::objectValue)
             {
-              throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
+              throw OrthancPlugins::PluginException(OrthancPluginErrorCode_InternalError);
             }
 
             Json::Value child;
@@ -307,14 +307,14 @@ namespace OrthancPlugins
           if (type != "Sequence" ||
               value.type() != Json::arrayValue)
           {
-            throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
+            throw OrthancPlugins::PluginException(OrthancPluginErrorCode_InternalError);
           }
 
           for (Json::Value::ArrayIndex i = 0; i < value.size(); i++)
           {
             if (value[i].type() != Json::objectValue)
             {
-              throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
+              throw OrthancPlugins::PluginException(OrthancPluginErrorCode_InternalError);
             }
 
             pugi::xml_node child = node.append_child("Item");
