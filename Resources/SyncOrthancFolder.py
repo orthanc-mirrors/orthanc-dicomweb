@@ -12,7 +12,7 @@ import urllib2
 import uuid
 
 TARGET = os.path.join(os.path.dirname(__file__), '..', 'Orthanc')
-PLUGIN_SDK_VERSION = 'mainline'
+PLUGIN_SDK_VERSION = '1.1.0'
 REPOSITORY = 'https://bitbucket.org/sjodogne/orthanc/raw'
 
 FILES = [
