@@ -1,6 +1,10 @@
 Pending changes in the mainline
 ===============================
 
+
+Version 0.3 (2016/06/28)
+========================
+
 => Minimum SDK version: 1.1.0 <=
 
 * STOW-RS client with URI "/{dicom-web}/servers/{id}/stow"
