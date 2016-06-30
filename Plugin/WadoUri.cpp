@@ -116,7 +116,7 @@ static bool LocateInstance(std::string& instance,
     else
     {
       Json::Value info;
-      if (!OrthancPlugins::RestApiGetJson(info, context, "/instances/" + instance + "/series", false) ||
+      if (!OrthancPlugins::RestApiGet(info, context, "/instances/" + instance + "/series", false) ||
           info["MainDicomTags"]["SeriesInstanceUID"] != seriesUid)
       {
         OrthancPlugins::Configuration::LogError("WADO-URI: Instance " + objectUid + " does not belong to series " + seriesUid);
@@ -136,7 +136,7 @@ static bool LocateInstance(std::string& instance,
     else
     {
       Json::Value info;
-      if (!OrthancPlugins::RestApiGetJson(info, context, "/instances/" + instance + "/study", false) ||
+      if (!OrthancPlugins::RestApiGet(info, context, "/instances/" + instance + "/study", false) ||
           info["MainDicomTags"]["StudyInstanceUID"] != studyUid)
       {
         OrthancPlugins::Configuration::LogError("WADO-URI: Instance " + objectUid + " does not belong to study " + studyUid);

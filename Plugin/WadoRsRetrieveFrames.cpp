@@ -413,7 +413,7 @@ void RetrieveFrames(OrthancPluginRestOutput* output,
   OrthancPlugins::MemoryBuffer content(context);
   if (LocateInstance(output, uri, request) &&
       content.RestApiGet(uri + "/file", false) &&
-      OrthancPlugins::RestApiGetJson(header, context, uri + "/header?simplify", false))
+      OrthancPlugins::RestApiGet(header, context, uri + "/header?simplify", false))
   {
     {
       std::string s = "DICOMweb RetrieveFrames on " + uri + ", frames: ";
