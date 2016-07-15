@@ -33,6 +33,7 @@
 #include "OrthancPluginCppWrapper.h"
 
 #include <json/reader.h>
+#include <json/writer.h>
 
 
 namespace OrthancPlugins
@@ -47,6 +48,27 @@ namespace OrthancPlugins
     else
     {
       return "No description available";
+    }
+  }
+
+  
+  void PluginException::Check(OrthancPluginErrorCode code)
+  {
+    if (code != OrthancPluginErrorCode_Success)
+    {
+      throw PluginException(code);
+    }
+  }
+
+
+  void MemoryBuffer::Check(OrthancPluginErrorCode code)
+  {
+    if (code != OrthancPluginErrorCode_Success)
+    {
+      // Prevent using garbage information
+      buffer_.data = NULL;
+      buffer_.size = 0;
+      throw PluginException(code);
     }
   }
 
@@ -211,6 +233,43 @@ namespace OrthancPlugins
     {
       throw PluginException(error);
     }
+  }
+
+
+  bool MemoryBuffer::RestApiPost(const std::string& uri,
+                                 const Json::Value& body,
+                                 bool applyPlugins)
+  {
+    Json::FastWriter writer;
+    return RestApiPost(uri, writer.write(body), applyPlugins);
+  }
+
+
+  bool MemoryBuffer::RestApiPut(const std::string& uri,
+                                const Json::Value& body,
+                                bool applyPlugins)
+  {
+    Json::FastWriter writer;
+    return RestApiPut(uri, writer.write(body), applyPlugins);
+  }
+
+
+  void MemoryBuffer::CreateDicom(const Json::Value& tags,
+                                 OrthancPluginCreateDicomFlags flags)
+  {
+    Clear();
+
+    Json::FastWriter writer;
+    std::string s = writer.write(tags);
+    
+    Check(OrthancPluginCreateDicom(context_, &buffer_, s.c_str(), NULL, flags));
+  }
+
+
+  void MemoryBuffer::ReadFile(const std::string& path)
+  {
+    Clear();
+    Check(OrthancPluginReadFile(context_, &buffer_, path.c_str()));
   }
 
 
@@ -738,10 +797,10 @@ namespace OrthancPlugins
   }
 
 
-  bool RestApiGetJson(Json::Value& result,
-                      OrthancPluginContext* context,
-                      const std::string& uri,
-                      bool applyPlugins)
+  bool RestApiGet(Json::Value& result,
+                  OrthancPluginContext* context,
+                  const std::string& uri,
+                  bool applyPlugins)
   {
     MemoryBuffer answer(context);
     if (!answer.RestApiGet(uri, applyPlugins))
@@ -756,12 +815,12 @@ namespace OrthancPlugins
   }
 
 
-  bool RestApiPostJson(Json::Value& result,
-                       OrthancPluginContext* context,
-                       const std::string& uri,
-                       const char* body,
-                       size_t bodySize,
-                       bool applyPlugins)
+  bool RestApiPost(Json::Value& result,
+                   OrthancPluginContext* context,
+                   const std::string& uri,
+                   const char* body,
+                   size_t bodySize,
+                   bool applyPlugins)
   {
     MemoryBuffer answer(context);
     if (!answer.RestApiPost(uri, body, bodySize, applyPlugins))
@@ -776,12 +835,23 @@ namespace OrthancPlugins
   }
 
 
-  bool RestApiPutJson(Json::Value& result,
-                      OrthancPluginContext* context,
-                      const std::string& uri,
-                      const char* body,
-                      size_t bodySize,
-                      bool applyPlugins)
+  bool RestApiPost(Json::Value& result,
+                   OrthancPluginContext* context,
+                   const std::string& uri,
+                   const Json::Value& body,
+                   bool applyPlugins)
+  {
+    Json::FastWriter writer;
+    return RestApiPost(result, context, uri, writer.write(body), applyPlugins);
+  }
+
+
+  bool RestApiPut(Json::Value& result,
+                  OrthancPluginContext* context,
+                  const std::string& uri,
+                  const char* body,
+                  size_t bodySize,
+                  bool applyPlugins)
   {
     MemoryBuffer answer(context);
     if (!answer.RestApiPut(uri, body, bodySize, applyPlugins))
@@ -793,6 +863,17 @@ namespace OrthancPlugins
       answer.ToJson(result);
       return true;
     }
+  }
+
+
+  bool RestApiPut(Json::Value& result,
+                   OrthancPluginContext* context,
+                   const std::string& uri,
+                   const Json::Value& body,
+                   bool applyPlugins)
+  {
+    Json::FastWriter writer;
+    return RestApiPut(result, context, uri, writer.write(body), applyPlugins);
   }
 
 

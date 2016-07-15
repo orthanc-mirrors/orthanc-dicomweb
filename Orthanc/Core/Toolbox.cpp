@@ -111,6 +111,7 @@ extern "C"
 
 namespace Orthanc
 {
+#if !defined(ORTHANC_SANDBOXED) || ORTHANC_SANDBOXED != 1
   static bool finish_;
   static ServerBarrierEvent barrierEvent_;
 
@@ -188,6 +189,7 @@ namespace Orthanc
     const bool stopFlag = false;
     return ServerBarrierInternal(&stopFlag);
   }
+#endif  /* ORTHANC_SANDBOXED */
 
 
   void Toolbox::ToUpperCase(std::string& s)
@@ -228,6 +230,7 @@ namespace Orthanc
   }
 
 
+#if !defined(ORTHANC_SANDBOXED) || ORTHANC_SANDBOXED != 1
   void Toolbox::ReadFile(std::string& content,
                          const std::string& path) 
   {
@@ -253,8 +256,10 @@ namespace Orthanc
 
     f.close();
   }
+#endif
 
 
+#if !defined(ORTHANC_SANDBOXED) || ORTHANC_SANDBOXED != 1
   bool Toolbox::ReadHeader(std::string& header,
                            const std::string& path,
                            size_t headerSize)
@@ -298,8 +303,10 @@ namespace Orthanc
 
     return full;
   }
+#endif
 
 
+#if !defined(ORTHANC_SANDBOXED) || ORTHANC_SANDBOXED != 1
   void Toolbox::WriteFile(const void* content,
                           size_t size,
                           const std::string& path)
@@ -318,16 +325,20 @@ namespace Orthanc
 
     f.close();
   }
+#endif
 
 
+#if !defined(ORTHANC_SANDBOXED) || ORTHANC_SANDBOXED != 1
   void Toolbox::WriteFile(const std::string& content,
                           const std::string& path)
   {
     WriteFile(content.size() > 0 ? content.c_str() : NULL,
               content.size(), path);
   }
+#endif
 
 
+#if !defined(ORTHANC_SANDBOXED) || ORTHANC_SANDBOXED != 1
   void Toolbox::RemoveFile(const std::string& path)
   {
     if (boost::filesystem::exists(path))
@@ -342,7 +353,7 @@ namespace Orthanc
       }
     }
   }
-
+#endif
 
 
   void Toolbox::SplitUriComponents(UriComponents& components,
@@ -513,6 +524,7 @@ namespace Orthanc
 
 
 
+#if !defined(ORTHANC_SANDBOXED) || ORTHANC_SANDBOXED != 1
   uint64_t Toolbox::GetFileSize(const std::string& path)
   {
     try
@@ -524,6 +536,7 @@ namespace Orthanc
       throw OrthancException(ErrorCode_InexistentFile);
     }
   }
+#endif
 
 
 #if !defined(ORTHANC_ENABLE_MD5) || ORTHANC_ENABLE_MD5 == 1
@@ -677,11 +690,15 @@ namespace Orthanc
     return std::string(pathbuf);
   }
 
+#elif defined(ORTHANC_SANDBOXED) && ORTHANC_SANDBOXED == 1
+  // Sandboxed Orthanc, no access to the executable
+
 #else
 #error Support your platform here
 #endif
 
 
+#if !defined(ORTHANC_SANDBOXED) || ORTHANC_SANDBOXED != 1
   std::string Toolbox::GetPathToExecutable()
   {
     boost::filesystem::path p(GetPathToExecutableInternal());
@@ -694,6 +711,7 @@ namespace Orthanc
     boost::filesystem::path p(GetPathToExecutableInternal());
     return boost::filesystem::absolute(p.parent_path()).string();
   }
+#endif
 
 
   static const char* GetBoostLocaleEncoding(const Encoding sourceEncoding)
@@ -1137,6 +1155,7 @@ namespace Orthanc
   }
 
 
+#if !defined(ORTHANC_SANDBOXED) || ORTHANC_SANDBOXED != 1
   void Toolbox::MakeDirectory(const std::string& path)
   {
     if (boost::filesystem::exists(path))
@@ -1154,12 +1173,15 @@ namespace Orthanc
       }
     }
   }
+#endif
 
 
+#if !defined(ORTHANC_SANDBOXED) || ORTHANC_SANDBOXED != 1
   bool Toolbox::IsExistingFile(const std::string& path)
   {
     return boost::filesystem::exists(path);
   }
+#endif
 
 
 #if ORTHANC_PUGIXML_ENABLED == 1
@@ -1284,6 +1306,7 @@ namespace Orthanc
 #endif
 
 
+#if !defined(ORTHANC_SANDBOXED) || ORTHANC_SANDBOXED != 1
   void Toolbox::ExecuteSystemCommand(const std::string& command,
                                      const std::vector<std::string>& arguments)
   {
@@ -1341,6 +1364,7 @@ namespace Orthanc
       throw OrthancException(ErrorCode_SystemCommand);
     }
   }
+#endif
 
   
   bool Toolbox::IsInteger(const std::string& str)
@@ -1461,6 +1485,7 @@ namespace Orthanc
   }
 
 
+#if !defined(ORTHANC_SANDBOXED) || ORTHANC_SANDBOXED != 1
   bool Toolbox::IsRegularFile(const std::string& path)
   {
     namespace fs = boost::filesystem;
@@ -1480,6 +1505,7 @@ namespace Orthanc
 
     return false;
   }
+#endif
 
 
   FILE* Toolbox::OpenFile(const std::string& path,
@@ -1564,5 +1590,87 @@ namespace Orthanc
         target.push_back(b < 10 ? b + '0' : b - 10 + 'A');
       }
     }
-  }  
+  }
+
+
+  static bool HasField(const Json::Value& json,
+                       const std::string& key,
+                       Json::ValueType expectedType)
+  {
+    if (json.type() != Json::objectValue ||
+        !json.isMember(key))
+    {
+      return false;
+    }
+    else if (json[key].type() == expectedType)
+    {
+      return true;
+    }
+    else
+    {
+      throw OrthancException(ErrorCode_BadParameterType);
+    }
+  }
+
+
+  std::string Toolbox::GetJsonStringField(const Json::Value& json,
+                                          const std::string& key,
+                                          const std::string& defaultValue)
+  {
+    if (HasField(json, key, Json::stringValue))
+    {
+      return json[key].asString();
+    }
+    else
+    {
+      return defaultValue;
+    }
+  }
+
+
+  bool Toolbox::GetJsonBooleanField(const ::Json::Value& json,
+                                    const std::string& key,
+                                    bool defaultValue)
+  {
+    if (HasField(json, key, Json::booleanValue))
+    {
+      return json[key].asBool();
+    }
+    else
+    {
+      return defaultValue;
+    }
+  }
+
+
+  int Toolbox::GetJsonIntegerField(const ::Json::Value& json,
+                                   const std::string& key,
+                                   int defaultValue)
+  {
+    if (HasField(json, key, Json::intValue))
+    {
+      return json[key].asInt();
+    }
+    else
+    {
+      return defaultValue;
+    }
+  }
+
+
+  unsigned int Toolbox::GetJsonUnsignedIntegerField(const ::Json::Value& json,
+                                                    const std::string& key,
+                                                    unsigned int defaultValue)
+  {
+    int v = GetJsonIntegerField(json, key, defaultValue);
+
+    if (v < 0)
+    {
+      throw OrthancException(ErrorCode_ParameterOutOfRange);
+    }
+    else
+    {
+      return static_cast<unsigned int>(v);
+    }
+  }
 }

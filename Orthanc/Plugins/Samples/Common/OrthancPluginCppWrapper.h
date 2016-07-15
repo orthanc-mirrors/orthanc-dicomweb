@@ -38,7 +38,7 @@
 #include <json/value.h>
 
 #if HAS_ORTHANC_EXCEPTION == 1
-#  include <OrthancException.h>
+#  include "../../../Core/OrthancException.h"
 #endif
 
 
@@ -65,6 +65,8 @@ namespace OrthancPlugins
     }
 
     const char* GetErrorDescription(OrthancPluginContext* context) const;
+
+    static void Check(OrthancPluginErrorCode code);
   };
 
 
@@ -73,6 +75,8 @@ namespace OrthancPlugins
   private:
     OrthancPluginContext*      context_;
     OrthancPluginMemoryBuffer  buffer_;
+
+    void Check(OrthancPluginErrorCode code);
 
   public:
     MemoryBuffer(OrthancPluginContext* context);
@@ -127,6 +131,14 @@ namespace OrthancPlugins
                     bool applyPlugins);
 
     bool RestApiPost(const std::string& uri,
+                     const Json::Value& body,
+                     bool applyPlugins);
+
+    bool RestApiPut(const std::string& uri,
+                    const Json::Value& body,
+                    bool applyPlugins);
+
+    bool RestApiPost(const std::string& uri,
                      const std::string& body,
                      bool applyPlugins)
     {
@@ -139,6 +151,11 @@ namespace OrthancPlugins
     {
       return RestApiPut(uri, body.empty() ? NULL : body.c_str(), body.size(), applyPlugins);
     }
+
+    void CreateDicom(const Json::Value& tags,
+                     OrthancPluginCreateDicomFlags flags);
+
+    void ReadFile(const std::string& path);
   };
 
 
@@ -285,52 +302,91 @@ namespace OrthancPlugins
   };
 
 
-  bool RestApiGetJson(Json::Value& result,
-                      OrthancPluginContext* context,
-                      const std::string& uri,
-                      bool applyPlugins);
+  bool RestApiGet(Json::Value& result,
+                  OrthancPluginContext* context,
+                  const std::string& uri,
+                  bool applyPlugins);
 
-  bool RestApiPostJson(Json::Value& result,
-                       OrthancPluginContext* context,
-                       const std::string& uri,
-                       const char* body,
-                       size_t bodySize,
-                       bool applyPlugins);
+  bool RestApiPost(Json::Value& result,
+                   OrthancPluginContext* context,
+                   const std::string& uri,
+                   const char* body,
+                   size_t bodySize,
+                   bool applyPlugins);
 
-  bool RestApiPutJson(Json::Value& result,
-                      OrthancPluginContext* context,
-                      const std::string& uri,
-                      const char* body,
-                      size_t bodySize,
-                      bool applyPlugins);
+  bool RestApiPost(Json::Value& result,
+                   OrthancPluginContext* context,
+                   const std::string& uri,
+                   const Json::Value& body,
+                   bool applyPlugins);
 
-  inline bool RestApiPostJson(Json::Value& result,
-                              OrthancPluginContext* context,
-                              const std::string& uri,
-                              const std::string& body,
-                              bool applyPlugins)
+  inline bool RestApiPost(Json::Value& result,
+                          OrthancPluginContext* context,
+                          const std::string& uri,
+                          const std::string& body,
+                          bool applyPlugins)
   {
-    return RestApiPostJson(result, context, uri, body.empty() ? NULL : body.c_str(), 
-                           body.size(), applyPlugins);
+    return RestApiPost(result, context, uri, body.empty() ? NULL : body.c_str(), 
+                       body.size(), applyPlugins);
+  }
+
+  bool RestApiPut(Json::Value& result,
+                  OrthancPluginContext* context,
+                  const std::string& uri,
+                  const char* body,
+                  size_t bodySize,
+                  bool applyPlugins);
+
+  bool RestApiPut(Json::Value& result,
+                  OrthancPluginContext* context,
+                  const std::string& uri,
+                  const Json::Value& body,
+                  bool applyPlugins);
+
+  inline bool RestApiPut(Json::Value& result,
+                         OrthancPluginContext* context,
+                         const std::string& uri,
+                         const std::string& body,
+                         bool applyPlugins)
+  {
+    return RestApiPut(result, context, uri, body.empty() ? NULL : body.c_str(), 
+                      body.size(), applyPlugins);
   }
 
   bool RestApiDelete(OrthancPluginContext* context,
                      const std::string& uri,
                      bool applyPlugins);
 
-  inline bool RestApiPutJson(Json::Value& result,
-                             OrthancPluginContext* context,
-                             const std::string& uri,
-                             const std::string& body,
-                             bool applyPlugins)
-  {
-    return RestApiPutJson(result, context, uri, body.empty() ? NULL : body.c_str(), 
-                          body.size(), applyPlugins);
-  }
-
   bool RestApiDelete(OrthancPluginContext* context,
                      const std::string& uri,
                      bool applyPlugins);
+
+  inline void LogError(OrthancPluginContext* context,
+                       const std::string& message)
+  {
+    if (context != NULL)
+    {
+      OrthancPluginLogError(context, message.c_str());
+    }
+  }
+
+  inline void LogWarning(OrthancPluginContext* context,
+                         const std::string& message)
+  {
+    if (context != NULL)
+    {
+      OrthancPluginLogWarning(context, message.c_str());
+    }
+  }
+
+  inline void LogInfo(OrthancPluginContext* context,
+                      const std::string& message)
+  {
+    if (context != NULL)
+    {
+      OrthancPluginLogInfo(context, message.c_str());
+    }
+  }
 
 
   namespace Internals
