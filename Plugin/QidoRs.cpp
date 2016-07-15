@@ -288,8 +288,8 @@ namespace
         case QueryLevel_Study:
         {
           Json::Value series, instances;
-          if (OrthancPlugins::RestApiGetJson(series, context, "/studies/" + resource + "/series?expand", false) &&
-              OrthancPlugins::RestApiGetJson(instances, context, "/studies/" + resource + "/instances", false))
+          if (OrthancPlugins::RestApiGet(series, context, "/studies/" + resource + "/series?expand", false) &&
+              OrthancPlugins::RestApiGet(instances, context, "/studies/" + resource + "/instances", false))
           {
             // Number of Study Related Series
             target[gdcm::Tag(0x0020, 0x1206)] = boost::lexical_cast<std::string>(series.size());
@@ -335,7 +335,7 @@ namespace
         case QueryLevel_Series:
         {
           Json::Value instances;
-          if (OrthancPlugins::RestApiGetJson(instances, context, "/series/" + resource + "/instances", false))
+          if (OrthancPlugins::RestApiGet(instances, context, "/series/" + resource + "/instances", false))
           {
             // Number of Series Related Instances
             target[gdcm::Tag(0x0020, 0x1209)] = boost::lexical_cast<std::string>(instances.size());
@@ -507,7 +507,7 @@ static void ApplyMatcher(OrthancPluginRestOutput* output,
   std::string body = writer.write(find);
   
   Json::Value resources;
-  if (!OrthancPlugins::RestApiPostJson(resources, context, "/tools/find", body, false) ||
+  if (!OrthancPlugins::RestApiPost(resources, context, "/tools/find", body, false) ||
       resources.type() != Json::arrayValue)
   {
     throw OrthancPlugins::PluginException(OrthancPluginErrorCode_InternalError);
@@ -527,7 +527,7 @@ static void ApplyMatcher(OrthancPluginRestOutput* output,
     {
       // Find one child instance of this resource
       Json::Value tmp;
-      if (OrthancPlugins::RestApiGetJson(tmp, context, root + resource + "/instances", false) &&
+      if (OrthancPlugins::RestApiGet(tmp, context, root + resource + "/instances", false) &&
           tmp.type() == Json::arrayValue &&
           tmp.size() > 0)
       {
@@ -585,7 +585,7 @@ static void ApplyMatcher(OrthancPluginRestOutput* output,
          it = resourcesAndInstances.begin(); it != resourcesAndInstances.end(); ++it)
   {
     Json::Value tags;
-    if (OrthancPlugins::RestApiGetJson(tags, context, "/instances/" + it->second + "/tags", false))
+    if (OrthancPlugins::RestApiGet(tags, context, "/instances/" + it->second + "/tags", false))
     {
       std::string wadoUrl = OrthancPlugins::Configuration::GetWadoUrl(
         wadoBase, 

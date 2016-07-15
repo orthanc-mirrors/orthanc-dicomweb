@@ -135,17 +135,17 @@ static void ParseStowRequest(std::list<std::string>& instances /* out */,
 
     // Test whether this resource is an instance
     Json::Value tmp;
-    if (OrthancPlugins::RestApiGetJson(tmp, context, "/instances/" + resource, false))
+    if (OrthancPlugins::RestApiGet(tmp, context, "/instances/" + resource, false))
     {
       AddInstance(instances, tmp);
     }
     // This was not an instance, successively try with series/studies/patients
-    else if ((OrthancPlugins::RestApiGetJson(tmp, context, "/series/" + resource, false) &&
-              OrthancPlugins::RestApiGetJson(tmp, context, "/series/" + resource + "/instances", false)) ||
-             (OrthancPlugins::RestApiGetJson(tmp, context, "/studies/" + resource, false) &&
-              OrthancPlugins::RestApiGetJson(tmp, context, "/studies/" + resource + "/instances", false)) ||
-             (OrthancPlugins::RestApiGetJson(tmp, context, "/patients/" + resource, false) &&
-              OrthancPlugins::RestApiGetJson(tmp, context, "/patients/" + resource + "/instances", false)))
+    else if ((OrthancPlugins::RestApiGet(tmp, context, "/series/" + resource, false) &&
+              OrthancPlugins::RestApiGet(tmp, context, "/series/" + resource + "/instances", false)) ||
+             (OrthancPlugins::RestApiGet(tmp, context, "/studies/" + resource, false) &&
+              OrthancPlugins::RestApiGet(tmp, context, "/studies/" + resource + "/instances", false)) ||
+             (OrthancPlugins::RestApiGet(tmp, context, "/patients/" + resource, false) &&
+              OrthancPlugins::RestApiGet(tmp, context, "/patients/" + resource + "/instances", false)))
     {
       if (tmp.type() != Json::arrayValue)
       {

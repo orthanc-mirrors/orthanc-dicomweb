@@ -174,7 +174,7 @@ static void AnswerListOfDicomInstances(OrthancPluginRestOutput* output,
   OrthancPluginContext* context = OrthancPlugins::Configuration::GetContext();
 
   Json::Value instances;
-  if (!OrthancPlugins::RestApiGetJson(instances, context, resource + "/instances", false))
+  if (!OrthancPlugins::RestApiGet(instances, context, resource + "/instances", false))
   {
     // Internal error
     OrthancPluginSendHttpStatusCode(context, output, 400);
@@ -217,7 +217,7 @@ static void AnswerMetadata(OrthancPluginRestOutput* output,
   else
   {
     Json::Value instances;
-    if (!OrthancPlugins::RestApiGetJson(instances, context, resource + "/instances", false))
+    if (!OrthancPlugins::RestApiGet(instances, context, resource + "/instances", false))
     {
       // Internal error
       OrthancPluginSendHttpStatusCode(context, output, 400);
@@ -310,7 +310,7 @@ static bool LocateSeries(OrthancPluginRestOutput* output,
   }
   
   Json::Value study;
-  if (!OrthancPlugins::RestApiGetJson(study, context, "/series/" + id + "/study", false))
+  if (!OrthancPlugins::RestApiGet(study, context, "/series/" + id + "/study", false))
   {
     OrthancPluginSendHttpStatusCode(context, output, 404);
     return false;
@@ -358,8 +358,8 @@ bool LocateInstance(OrthancPluginRestOutput* output,
   }
   
   Json::Value study, series;
-  if (!OrthancPlugins::RestApiGetJson(series, context, "/instances/" + id + "/series", false) ||
-      !OrthancPlugins::RestApiGetJson(study, context, "/instances/" + id + "/study", false))
+  if (!OrthancPlugins::RestApiGet(series, context, "/instances/" + id + "/series", false) ||
+      !OrthancPlugins::RestApiGet(study, context, "/instances/" + id + "/study", false))
   {
     OrthancPluginSendHttpStatusCode(context, output, 404);
     return false;
