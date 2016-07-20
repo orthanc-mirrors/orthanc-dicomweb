@@ -35,9 +35,8 @@ the "./Status.txt" file.
 Installation and usage
 ----------------------
 
-Build instructions can be found in "./Resources/BuildInstructions.txt".
-
-Usage instructions can be found in "./Usage.txt".
+Build and usage instructions are available in the Orthanc Book:
+https://orthanc.chu.ulg.ac.be/book/plugins/dicomweb.html
 
 
 Licensing: AGPL
