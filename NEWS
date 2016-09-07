@@ -1,6 +1,8 @@
 Pending changes in the mainline
 ===============================
 
+* Performance warning if runtime debug assertions are turned on
+
 
 Version 0.3 (2016/06/28)
 ========================

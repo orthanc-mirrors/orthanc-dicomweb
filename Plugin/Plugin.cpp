@@ -140,10 +140,21 @@ void ListServerOperations(OrthancPluginRestOutput* output,
 }
 
 
+static bool DisplayPerformanceWarning(OrthancPluginContext* context)
+{
+  (void) DisplayPerformanceWarning;   // Disable warning about unused function
+  OrthancPluginLogWarning(context, "Performance warning in DICOMweb: "
+                          "Non-release build, runtime debug assertions are turned on");
+  return true;
+}
+
+
 extern "C"
 {
   ORTHANC_PLUGINS_API int32_t OrthancPluginInitialize(OrthancPluginContext* context)
   {
+    assert(DisplayPerformanceWarning(context));
+
     /* Check the version of the Orthanc core */
     if (OrthancPluginCheckVersion(context) == 0)
     {
