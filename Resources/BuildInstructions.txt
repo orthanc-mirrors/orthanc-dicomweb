@@ -1,5 +1,5 @@
-Generic Linux (static linking)
-==============================
+Generic GNU/Linux (static linking)
+==================================
 
 # mkdir Build
 # cd Build
@@ -29,8 +29,8 @@ Dynamic linking for Ubuntu 12.10
 # make
 
 
-Cross-compiling for Windows from Linux using MinGW
-==================================================
+Cross-compiling for Windows from GNU/Linux using MinGW
+======================================================
 
 # mkdir Build
 # cd Build
@@ -41,6 +41,7 @@ Cross-compiling for Windows from Linux using MinGW
 Notes
 =====
 
-List the public symbols exported by the shared library under Linux:
+List the public symbols exported by the shared library under
+GNU/Linux:
 
 # nm -C -D --defined-only ./libOrthancDicomWeb.so
