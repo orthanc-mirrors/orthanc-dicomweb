@@ -30,7 +30,8 @@ import sys
 import json
 import uuid
 
-if len(sys.argv) < 2:
+#if len(sys.argv) < 2:
+if len(sys.argv) < 1:
     print('Usage: %s <StowUri> <file>...' % sys.argv[0])
     print('')
     print('Example: %s http://localhost:8042/dicom-web/studies hello.dcm world.dcm' % sys.argv[0])
@@ -45,9 +46,11 @@ body = bytearray()
 for i in range(2, len(sys.argv)):
     try:
         with open(sys.argv[i], 'rb') as f:
+            content = f.read()
             body += bytearray('--%s\r\n' % boundary, 'ascii')
+            body += bytearray('Content-Length: %d\r\n' % len(content), 'ascii')
             body += bytearray('Content-Type: application/dicom\r\n\r\n', 'ascii')
-            body += f.read()
+            body += content
             body += bytearray('\r\n', 'ascii')
     except:
         print('Ignoring directory %s' % sys.argv[i])

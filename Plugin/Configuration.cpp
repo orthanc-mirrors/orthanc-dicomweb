@@ -83,6 +83,120 @@ namespace OrthancPlugins
   }
 
 
+  static const boost::regex MULTIPART_HEADERS_ENDING("(.*?\r\n)\r\n(.*)");
+  static const boost::regex MULTIPART_HEADERS_LINE(".*?\r\n");
+
+  static void ParseMultipartHeaders(bool& hasLength /* out */,
+                                    size_t& length /* out */,
+                                    std::string& contentType /* out */,
+                                    OrthancPluginContext* context,
+                                    const char* startHeaders,
+                                    const char* endHeaders)
+  {
+    hasLength = false;
+    contentType = "application/octet-stream";
+
+    // Loop over the HTTP headers of this multipart item
+    boost::cregex_token_iterator it(startHeaders, endHeaders, MULTIPART_HEADERS_LINE, 0);
+    boost::cregex_token_iterator iteratorEnd;
+
+    for (; it != iteratorEnd; ++it)
+    {
+      const std::string line(*it);
+      size_t colon = line.find(':');
+      size_t eol = line.find('\r');
+
+      if (colon != std::string::npos &&
+          eol != std::string::npos &&
+          colon < eol &&
+          eol + 2 == line.length())
+      {
+        std::string key = Orthanc::Toolbox::StripSpaces(line.substr(0, colon));
+        Orthanc::Toolbox::ToLowerCase(key);
+
+        const std::string value = Orthanc::Toolbox::StripSpaces(line.substr(colon + 1, eol - colon - 1));
+
+        if (key == "content-length")
+        {
+          try
+          {
+            int tmp = boost::lexical_cast<int>(value);
+            if (tmp >= 0)
+            {
+              hasLength = true;
+              length = tmp;
+            }
+          }
+          catch (boost::bad_lexical_cast&)
+          {
+            OrthancPluginLogWarning(context, "Unable to parse the Content-Length of a multipart item");
+          }
+        }
+        else if (key == "content-type")
+        {
+          contentType = value;
+        }
+      }
+    }
+  }
+
+
+  static const char* ParseMultipartItem(std::vector<MultipartItem>& result,
+                                        OrthancPluginContext* context,
+                                        const char* start,
+                                        const char* end,
+                                        const boost::regex& nextSeparator)
+  {
+    // Just before "start", it is guaranteed that "--[BOUNDARY]\r\n" is present
+
+    boost::cmatch what;
+    if (!boost::regex_match(start, end, what, MULTIPART_HEADERS_ENDING, boost::match_perl))
+    {
+      // Cannot find the HTTP headers of this multipart item
+      throw OrthancPlugins::PluginException(OrthancPluginErrorCode_NetworkProtocol);
+    }
+
+    // Some aliases for more clarity
+    assert(what[1].first == start);
+    const char* startHeaders = what[1].first;
+    const char* endHeaders = what[1].second;
+    const char* startBody = what[2].first;
+
+    bool hasLength;
+    size_t length;
+    std::string contentType;
+    ParseMultipartHeaders(hasLength, length, contentType, context, startHeaders, endHeaders);
+
+    boost::cmatch separator;
+
+    if (hasLength)
+    {
+      if (!boost::regex_match(startBody + length, end, separator, nextSeparator, boost::match_perl) ||
+          startBody + length != separator[1].first)
+      {
+        // Cannot find the separator after skipping the "Content-Length" bytes
+        throw OrthancPlugins::PluginException(OrthancPluginErrorCode_NetworkProtocol);
+      }
+    }
+    else
+    {
+      if (!boost::regex_match(startBody, end, separator, nextSeparator, boost::match_perl))
+      {
+        // No more occurrence of the boundary separator
+        throw OrthancPlugins::PluginException(OrthancPluginErrorCode_NetworkProtocol);
+      }
+    }
+
+    MultipartItem item;
+    item.data_ = startBody;
+    item.size_ = separator[1].first - startBody;
+    item.contentType_ = contentType;
+    result.push_back(item);
+
+    return separator[1].second;  // Return the end of the separator
+  }
+
+
   void ParseMultipartBody(std::vector<MultipartItem>& result,
                           OrthancPluginContext* context,
                           const char* body,
@@ -94,96 +208,38 @@ namespace OrthancPlugins
 
     result.clear();
 
-    const boost::regex separator("(^|\r\n)--" + boundary + "(--|\r\n)");
-    const boost::regex encapsulation("(.*)\r\n\r\n(.*)");
- 
-    std::vector< std::pair<const char*, const char*> > parts;
-    
-    const char* start = body;
+    // Look for the first boundary separator in the body (note the "?"
+    // to request non-greedy search)
+    const boost::regex firstSeparator1("--" + boundary + "(--|\r\n).*");
+    const boost::regex firstSeparator2(".*?\r\n--" + boundary + "(--|\r\n).*");
+
+    // Look for the next boundary separator in the body (note the "?"
+    // to request non-greedy search)
+    const boost::regex nextSeparator(".*?(\r\n--" + boundary + ").*");
+
     const char* end = body + bodySize;
 
     boost::cmatch what;
-    boost::match_flag_type flags = boost::match_perl | boost::match_single_line;
-    while (boost::regex_search(start, end, what, separator, flags))   
+    if (boost::regex_match(body, end, what, firstSeparator1, boost::match_perl | boost::match_single_line) ||
+        boost::regex_match(body, end, what, firstSeparator2, boost::match_perl | boost::match_single_line))
     {
-      if (start != body)  // Ignore the first separator
+      const char* current = what[1].first;
+
+      while (current != NULL &&
+             current + 2 < end)
       {
-        parts.push_back(std::make_pair(start, what[0].first));
-      }
-
-      if (*what[2].first == '-')
-      {
-        // This is the last separator (there is a trailing "--")
-        break;
-      }
-
-      start = what[0].second;
-      flags |= boost::match_prev_avail;
-    }
-
-    for (size_t i = 0; i < parts.size(); i++)
-    {
-      if (boost::regex_match(parts[i].first, parts[i].second, what, encapsulation, boost::match_perl))
-      {
-        size_t dicomSize = what[2].second - what[2].first;
-
-        std::string contentType = "application/octet-stream";
-        std::vector<std::string> headers;
-
+        if (current[0] != '\r' ||
+            current[1] != '\n')
         {
-          std::string tmp;
-          tmp.assign(what[1].first, what[1].second);
-          Orthanc::Toolbox::TokenizeString(headers, tmp, '\n');
-        }
-
-        bool valid = true;
-
-        for (size_t j = 0; j < headers.size(); j++)
-        {
-          std::vector<std::string> tokens;
-          Orthanc::Toolbox::TokenizeString(tokens, headers[j], ':');
-
-          if (tokens.size() == 2)
-          {
-            std::string key = Orthanc::Toolbox::StripSpaces(tokens[0]);
-            std::string value = Orthanc::Toolbox::StripSpaces(tokens[1]);
-            Orthanc::Toolbox::ToLowerCase(key);
-
-            if (key == "content-type")
-            {
-              contentType = value;
-            }
-            else if (key == "content-length")
-            {
-              try
-              {
-                size_t s = boost::lexical_cast<size_t>(value);
-                if (s != dicomSize)
-                {
-                  valid = false;
-                }
-              }
-              catch (boost::bad_lexical_cast&)
-              {
-                valid = false;
-              }
-            }
-          }
-        }
-
-        if (valid)
-        {
-          MultipartItem item;
-          item.data_ = what[2].first;
-          item.size_ = dicomSize;
-          item.contentType_ = contentType;
-          result.push_back(item);          
+          // We reached a separator with a trailing "--", which
+          // means that reading the multipart body is done
+          break;
         }
         else
         {
-          OrthancPluginLogWarning(context, "Ignoring a badly-formatted item in a multipart body");
+          current = ParseMultipartItem(result, context, current + 2, end, nextSeparator);
         }
-      }      
+      }
     }
   }
 

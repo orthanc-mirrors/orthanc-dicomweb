@@ -153,6 +153,12 @@ void StowCallback(OrthancPluginRestOutput* output,
   std::vector<OrthancPlugins::MultipartItem> items;
   OrthancPlugins::ParseMultipartBody(items, context, request->body, request->bodySize, boundary);
 
+  for (size_t i = 0; i < items.size(); i++)
+  {
+    OrthancPlugins::Configuration::LogInfo("Detected multipart item with content type \"" + 
+                                           items[i].contentType_ + "\" of size " + 
+                                           boost::lexical_cast<std::string>(items[i].size_));
+  }  
 
   for (size_t i = 0; i < items.size(); i++)
   {
