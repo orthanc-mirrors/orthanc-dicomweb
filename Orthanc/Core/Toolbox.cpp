@@ -111,6 +111,18 @@ extern "C"
 
 namespace Orthanc
 {
+  void Toolbox::USleep(uint64_t microSeconds)
+  {
+#if defined(_WIN32)
+    ::Sleep(static_cast<DWORD>(microSeconds / static_cast<uint64_t>(1000)));
+#elif defined(__linux__) || defined(__APPLE__) || defined(__FreeBSD_kernel__) || defined(__FreeBSD__) || defined(__native_client__)
+    usleep(microSeconds);
+#else
+#error Support your platform here
+#endif
+  }
+
+
 #if !defined(ORTHANC_SANDBOXED) || ORTHANC_SANDBOXED != 1
   static bool finish_;
   static ServerBarrierEvent barrierEvent_;
@@ -133,18 +145,6 @@ namespace Orthanc
     finish_ = true;
   }
 #endif
-
-
-  void Toolbox::USleep(uint64_t microSeconds)
-  {
-#if defined(_WIN32)
-    ::Sleep(static_cast<DWORD>(microSeconds / static_cast<uint64_t>(1000)));
-#elif defined(__linux__) || defined(__APPLE__) || defined(__FreeBSD_kernel__) || defined(__FreeBSD__)
-    usleep(microSeconds);
-#else
-#error Support your platform here
-#endif
-  }
 
 
   static ServerBarrierEvent ServerBarrierInternal(const bool* stopFlag)
@@ -312,7 +312,7 @@ namespace Orthanc
                           const std::string& path)
   {
     boost::filesystem::ofstream f;
-    f.open(path, std::ofstream::binary);
+    f.open(path, std::ofstream::out | std::ofstream::binary);
     if (!f.good())
     {
       throw OrthancException(ErrorCode_CannotWriteFile);
@@ -321,6 +321,12 @@ namespace Orthanc
     if (size != 0)
     {
       f.write(reinterpret_cast<const char*>(content), size);
+
+      if (!f.good())
+      {
+        f.close();
+        throw OrthancException(ErrorCode_FileStorageCannotWrite);
+      }
     }
 
     f.close();
@@ -835,6 +841,23 @@ namespace Orthanc
       // Bad input string or bad encoding
       return ConvertToAscii(source);
     }
+  }
+
+
+  bool Toolbox::IsAsciiString(const void* data,
+                              size_t size)
+  {
+    const uint8_t* p = reinterpret_cast<const uint8_t*>(data);
+
+    for (size_t i = 0; i < size; i++, p++)
+    {
+      if (*p > 127 || (*p != 0 && iscntrl(*p)))
+      {
+        return false;
+      }
+    }
+
+    return true;
   }
 
 

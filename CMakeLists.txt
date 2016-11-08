@@ -42,6 +42,7 @@ mark_as_advanced(USE_GTEST_DEBIAN_SOURCE_PACKAGE)
 
 set(USE_PUGIXML ON)
 set(ORTHANC_ROOT ${CMAKE_SOURCE_DIR}/Orthanc)
+set(ORTHANC_DISABLE_PATCH ON)  # No need for the "patch" command-line tool
 include(CheckIncludeFiles)
 include(CheckIncludeFileCXX)
 include(CheckLibraryExists)
