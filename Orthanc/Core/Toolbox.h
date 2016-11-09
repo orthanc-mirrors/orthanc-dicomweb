@@ -56,9 +56,17 @@
 #  error The macro BOOST_HAS_REGEX must be defined
 #endif
 
-#if !defined(ORTHANC_SANDBOXED)
-#  define ORTHANC_SANDBOXED  0
-#endif
+
+/**
+ * NOTE: GUID vs. UUID
+ * The simple answer is: no difference, they are the same thing. Treat
+ * them as a 16 byte (128 bits) value that is used as a unique
+ * value. In Microsoft-speak they are called GUIDs, but call them
+ * UUIDs when not using Microsoft-speak.
+ * http://stackoverflow.com/questions/246930/is-there-any-difference-between-a-guid-and-a-uuid
+ **/
+
+
 
 namespace Orthanc
 {
@@ -72,12 +80,6 @@ namespace Orthanc
   {
     void USleep(uint64_t microSeconds);
 
-#if ORTHANC_SANDBOXED == 0
-    ServerBarrierEvent ServerBarrier(const bool& stopFlag);
-
-    ServerBarrierEvent ServerBarrier();
-#endif
-
     void ToUpperCase(std::string& s);  // Inplace version
 
     void ToLowerCase(std::string& s);  // Inplace version
@@ -87,24 +89,6 @@ namespace Orthanc
 
     void ToLowerCase(std::string& result,
                      const std::string& source);
-
-#if ORTHANC_SANDBOXED == 0
-    void ReadFile(std::string& content,
-                  const std::string& path);
-
-    bool ReadHeader(std::string& header,
-                    const std::string& path,
-                    size_t headerSize);
-
-    void WriteFile(const std::string& content,
-                   const std::string& path);
-
-    void WriteFile(const void* content,
-                   size_t size,
-                   const std::string& path);
-
-    void RemoveFile(const std::string& path);
-#endif
 
     void SplitUriComponents(UriComponents& components,
                             const std::string& uri);
@@ -120,10 +104,6 @@ namespace Orthanc
 
     std::string FlattenUri(const UriComponents& components,
                            size_t fromLevel = 0);
-
-#if ORTHANC_SANDBOXED == 0
-    uint64_t GetFileSize(const std::string& path);
-#endif
 
 #if ORTHANC_ENABLE_MD5 == 1
     void ComputeMD5(std::string& result,
@@ -164,12 +144,6 @@ namespace Orthanc
                              const std::string& content);
 #endif
 
-#if ORTHANC_SANDBOXED == 0
-    std::string GetPathToExecutable();
-
-    std::string GetDirectoryOfExecutable();
-#endif
-
     std::string ConvertToUtf8(const std::string& source,
                               Encoding sourceEncoding);
 
@@ -182,13 +156,6 @@ namespace Orthanc
     std::string ConvertToAscii(const std::string& source);
 
     std::string StripSpaces(const std::string& source);
-
-#if BOOST_HAS_DATE_TIME == 1
-    std::string GetNowIsoString();
-
-    void GetNowDicom(std::string& date,
-                     std::string& time);
-#endif
 
     // In-place percent-decoding for URL
     void UrlDecode(std::string& s);
@@ -203,22 +170,11 @@ namespace Orthanc
                         const std::string& source,
                         char separator);
 
-#if ORTHANC_SANDBOXED == 0
-    void MakeDirectory(const std::string& path);
-
-    bool IsExistingFile(const std::string& path);
-#endif
-
 #if ORTHANC_ENABLE_PUGIXML == 1
     void JsonToXml(std::string& target,
                    const Json::Value& source,
                    const std::string& rootElement = "root",
                    const std::string& arrayElement = "item");
-#endif
-
-#if ORTHANC_SANDBOXED == 0
-    void ExecuteSystemCommand(const std::string& command,
-                              const std::vector<std::string>& arguments);
 #endif
 
     bool IsInteger(const std::string& str);
@@ -228,15 +184,6 @@ namespace Orthanc
 
     bool StartsWith(const std::string& str,
                     const std::string& prefix);
-
-#if ORTHANC_SANDBOXED == 0
-    int GetProcessId();
-
-    bool IsRegularFile(const std::string& path);
-#endif
-
-    FILE* OpenFile(const std::string& path,
-                   FileMode mode);
 
     void UriEncode(std::string& target,
                    const std::string& source);
@@ -256,5 +203,11 @@ namespace Orthanc
     unsigned int GetJsonUnsignedIntegerField(const ::Json::Value& json,
                                              const std::string& key,
                                              unsigned int defaultValue);
+
+    std::string GenerateUuid();
+
+    bool IsUuid(const std::string& str);
+
+    bool StartsWithUuid(const std::string& str);
   }
 }

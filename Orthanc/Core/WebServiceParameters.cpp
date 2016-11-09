@@ -37,6 +37,10 @@
 #include "../Core/Toolbox.h"
 #include "../Core/OrthancException.h"
 
+#if ORTHANC_SANDBOXED == 0
+#  include "../Core/SystemToolbox.h"
+#endif
+
 #include <cassert>
 
 namespace Orthanc
@@ -57,6 +61,7 @@ namespace Orthanc
   }
 
 
+#if ORTHANC_SANDBOXED == 0
   void WebServiceParameters::SetClientCertificate(const std::string& certificateFile,
                                                   const std::string& certificateKeyFile,
                                                   const std::string& certificateKeyPassword)
@@ -66,14 +71,14 @@ namespace Orthanc
       throw OrthancException(ErrorCode_ParameterOutOfRange);
     }
 
-    if (!Toolbox::IsRegularFile(certificateFile))
+    if (!SystemToolbox::IsRegularFile(certificateFile))
     {
       LOG(ERROR) << "Cannot open certificate file: " << certificateFile;
       throw OrthancException(ErrorCode_InexistentFile);
     }
 
     if (!certificateKeyFile.empty() && 
-        !Toolbox::IsRegularFile(certificateKeyFile))
+        !SystemToolbox::IsRegularFile(certificateKeyFile))
     {
       LOG(ERROR) << "Cannot open key file: " << certificateKeyFile;
       throw OrthancException(ErrorCode_InexistentFile);
@@ -84,6 +89,7 @@ namespace Orthanc
     certificateKeyFile_ = certificateKeyFile;
     certificateKeyPassword_ = certificateKeyPassword;
   }
+#endif
 
 
   static void AddTrailingSlash(std::string& url)
@@ -171,12 +177,14 @@ namespace Orthanc
     SetUsername(GetStringMember(peer, "Username", ""));
     SetPassword(GetStringMember(peer, "Password", ""));
 
+#if ORTHANC_SANDBOXED == 0
     if (peer.isMember("CertificateFile"))
     {
       SetClientCertificate(GetStringMember(peer, "CertificateFile", ""),
                            GetStringMember(peer, "CertificateKeyFile", ""),
                            GetStringMember(peer, "CertificateKeyPassword", ""));
     }
+#endif
 
     if (peer.isMember("Pkcs11"))
     {
