@@ -46,6 +46,7 @@ if (STATIC_BUILD OR NOT USE_SYSTEM_GDCM)
   externalproject_add(GDCM
     URL "http://www.montefiore.ulg.ac.be/~jodogne/Orthanc/ThirdPartyDownloads/gdcm-2.6.0.tar.gz"
     URL_MD5 "978afe57af448b1c97c9f116790aca9c"
+    TIMEOUT 60
     CMAKE_ARGS -DCMAKE_BUILD_TYPE:STRING=${CMAKE_BUILD_TYPE} ${Flags}
     #-DLIBRARY_OUTPUT_PATH=${CMAKE_CURRENT_BINARY_DIR}
     INSTALL_COMMAND ""  # Skip the install step
