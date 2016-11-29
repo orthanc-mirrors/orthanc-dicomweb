@@ -37,9 +37,18 @@
 #include <boost/lexical_cast.hpp>
 #include <json/value.h>
 
+#if !defined(HAS_ORTHANC_EXCEPTION)
+#  error The macro HAS_ORTHANC_EXCEPTION must be defined
+#endif
+
+
 #if HAS_ORTHANC_EXCEPTION == 1
 #  include "../../../Core/OrthancException.h"
+#  define ORTHANC_PLUGINS_THROW_EXCEPTION(code)  throw ::Orthanc::OrthancException(static_cast<Orthanc::ErrorCode>(code))
+#else
+#  define ORTHANC_PLUGINS_THROW_EXCEPTION(code)  throw ::OrthancPlugins::PluginException(code)
 #endif
+
 
 
 namespace OrthancPlugins
@@ -48,7 +57,10 @@ namespace OrthancPlugins
                                 const char* url,
                                 const OrthancPluginHttpRequest* request);
 
+  const char* GetErrorDescription(OrthancPluginContext* context,
+                                  OrthancPluginErrorCode code);
 
+#if HAS_ORTHANC_EXCEPTION == 0
   class PluginException
   {
   private:
@@ -64,10 +76,14 @@ namespace OrthancPlugins
       return code_;
     }
 
-    const char* GetErrorDescription(OrthancPluginContext* context) const;
+    const char* What(OrthancPluginContext* context) const
+    {
+      return ::OrthancPlugins::GetErrorDescription(context, code_);
+    }
 
     static void Check(OrthancPluginErrorCode code);
   };
+#endif
 
 
   class MemoryBuffer : public boost::noncopyable
@@ -191,7 +207,7 @@ namespace OrthancPlugins
   {
   private:
     OrthancPluginContext*  context_;
-    Json::Value            configuration_;
+    Json::Value            configuration_;  // Necessarily a Json::objectValue
     std::string            path_;
 
     std::string GetPath(const std::string& key) const;
@@ -209,6 +225,8 @@ namespace OrthancPlugins
     {
       return configuration_;
     }
+
+    bool IsSection(const std::string& key) const;
 
     void GetSection(OrthancConfiguration& target,
                     const std::string& key) const;
@@ -357,10 +375,6 @@ namespace OrthancPlugins
                      const std::string& uri,
                      bool applyPlugins);
 
-  bool RestApiDelete(OrthancPluginContext* context,
-                     const std::string& uri,
-                     bool applyPlugins);
-
   inline void LogError(OrthancPluginContext* context,
                        const std::string& message)
   {
@@ -406,14 +420,15 @@ namespace OrthancPlugins
         Callback(output, url, request);
         return OrthancPluginErrorCode_Success;
       }
-      catch (OrthancPlugins::PluginException& e)
-      {
-        return e.GetErrorCode();
-      }
 #if HAS_ORTHANC_EXCEPTION == 1
       catch (Orthanc::OrthancException& e)
       {
         return static_cast<OrthancPluginErrorCode>(e.GetErrorCode());
+      }
+#else
+      catch (OrthancPlugins::PluginException& e)
+      {
+        return e.GetErrorCode();
       }
 #endif
       catch (boost::bad_lexical_cast&)

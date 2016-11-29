@@ -77,18 +77,9 @@ extern "C"
 #endif
 
 
-
-// Inclusions for UUID
-// http://stackoverflow.com/a/1626302
-
-extern "C"
-{
-#ifdef WIN32
-#  include <rpc.h>
-#else
-#  include <uuid/uuid.h>
+#if defined(_WIN32)
+#  include <windows.h>   // For ::Sleep
 #endif
-}
 
 
 #if ORTHANC_ENABLE_PUGIXML == 1
@@ -1223,28 +1214,6 @@ namespace Orthanc
     {
       return static_cast<unsigned int>(v);
     }
-  }
-
-
-  std::string Toolbox::GenerateUuid()
-  {
-#ifdef WIN32
-    UUID uuid;
-    UuidCreate ( &uuid );
-
-    unsigned char * str;
-    UuidToStringA ( &uuid, &str );
-
-    std::string s( ( char* ) str );
-
-    RpcStringFreeA ( &str );
-#else
-    uuid_t uuid;
-    uuid_generate_random ( uuid );
-    char s[37];
-    uuid_unparse ( uuid, s );
-#endif
-    return s;
   }
 
 
