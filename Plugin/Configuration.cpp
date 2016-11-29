@@ -153,7 +153,7 @@ namespace OrthancPlugins
     if (!boost::regex_match(start, end, what, MULTIPART_HEADERS_ENDING, boost::match_perl))
     {
       // Cannot find the HTTP headers of this multipart item
-      throw OrthancPlugins::PluginException(OrthancPluginErrorCode_NetworkProtocol);
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);
     }
 
     // Some aliases for more clarity
@@ -175,7 +175,7 @@ namespace OrthancPlugins
           startBody + length != separator[1].first)
       {
         // Cannot find the separator after skipping the "Content-Length" bytes
-        throw OrthancPlugins::PluginException(OrthancPluginErrorCode_NetworkProtocol);
+        throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);
       }
     }
     else
@@ -183,7 +183,7 @@ namespace OrthancPlugins
       if (!boost::regex_match(startBody, end, separator, nextSeparator, boost::match_perl))
       {
         // No more occurrence of the boundary separator
-        throw OrthancPlugins::PluginException(OrthancPluginErrorCode_NetworkProtocol);
+        throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);
       }
     }
 
@@ -251,7 +251,7 @@ namespace OrthancPlugins
     if (value.type() != Json::objectValue)
     {
       OrthancPlugins::Configuration::LogError("This is not a JSON object");
-      throw OrthancPlugins::PluginException(OrthancPluginErrorCode_BadFileFormat);
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
     }
 
     if (!value.isMember(key))
@@ -265,7 +265,7 @@ namespace OrthancPlugins
     {
       OrthancPlugins::Configuration::LogError("The field \"" + key + "\" of a JSON object is "
                                               "not a JSON associative array as expected");
-      throw OrthancPlugins::PluginException(OrthancPluginErrorCode_BadFileFormat);
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
     }
 
     Json::Value::Members names = tmp.getMemberNames();
@@ -276,7 +276,7 @@ namespace OrthancPlugins
       {
         OrthancPlugins::Configuration::LogError("Some value in the associative array \"" + key + 
                                                 "\" is not a string as expected");
-        throw OrthancPlugins::PluginException(OrthancPluginErrorCode_BadFileFormat);
+        throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
       }
       else
       {

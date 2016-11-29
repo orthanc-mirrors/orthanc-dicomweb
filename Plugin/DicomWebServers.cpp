@@ -71,7 +71,7 @@ namespace OrthancPlugins
     if (!ok)
     {
       OrthancPlugins::Configuration::LogError("Cannot parse the \"DicomWeb.Servers\" section of the configuration file");
-      throw OrthancPlugins::PluginException(OrthancPluginErrorCode_BadFileFormat);
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
     }
   }
 
@@ -92,7 +92,7 @@ namespace OrthancPlugins
         server->second == NULL)
     {
       OrthancPlugins::Configuration::LogError("Inexistent server: " + name);
-      throw OrthancPlugins::PluginException(OrthancPluginErrorCode_InexistentItem);
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_InexistentItem);
     }
     else
     {
@@ -206,7 +206,7 @@ namespace OrthancPlugins
     {
       OrthancPlugins::Configuration::LogError("Cannot issue an HTTP query to " + url + 
                                               " (HTTP status: " + boost::lexical_cast<std::string>(status) + ")");
-      throw PluginException(code);
+      throw Orthanc::OrthancException(static_cast<Orthanc::ErrorCode>(code));
     }
 
     Json::Value json;
@@ -215,7 +215,7 @@ namespace OrthancPlugins
 
     if (json.type() != Json::objectValue)
     {
-      throw PluginException(OrthancPluginErrorCode_InternalError);
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
     }
 
     Json::Value::Members members = json.getMemberNames();
@@ -225,7 +225,7 @@ namespace OrthancPlugins
 
       if (json[key].type() != Json::stringValue)
       {
-        throw PluginException(OrthancPluginErrorCode_InternalError);
+        throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
       }
       else
       {
@@ -243,7 +243,7 @@ namespace OrthancPlugins
     {
       OrthancPlugins::Configuration::LogError("The GET arguments must be provided in a separate field "
                                               "(explicit \"?\" is disallowed): " + resource);
-      throw OrthancPlugins::PluginException(OrthancPluginErrorCode_BadFileFormat);
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
     }
 
     uri = resource;

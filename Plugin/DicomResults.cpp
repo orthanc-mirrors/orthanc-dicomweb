@@ -47,7 +47,7 @@ namespace OrthancPlugins
         OrthancPluginStartMultipartAnswer(context_, output_, "related", "application/dicom+xml") != 0)
     {
       OrthancPlugins::Configuration::LogError("Unable to create a multipart stream of DICOM+XML answers");
-      throw OrthancPlugins::PluginException(OrthancPluginErrorCode_NetworkProtocol);
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);
     }
 
     jsonWriter_.AddChunk("[\n");
@@ -61,7 +61,7 @@ namespace OrthancPlugins
       if (OrthancPluginSendMultipartItem(context_, output_, item.c_str(), item.size()) != 0)
       {
         OrthancPlugins::Configuration::LogError("Unable to create a multipart stream of DICOM+XML answers");
-        throw OrthancPlugins::PluginException(OrthancPluginErrorCode_NetworkProtocol);
+        throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);
       }
     }
     else
@@ -120,7 +120,7 @@ namespace OrthancPlugins
       {
         if (source.type() != Json::objectValue)
         {
-          throw OrthancPlugins::PluginException(OrthancPluginErrorCode_InternalError);
+          throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
         }
 
         Json::Value::Members members = source.getMemberNames();
@@ -133,7 +133,7 @@ namespace OrthancPlugins
               !source[members[i]].isMember("Type") ||
               source[members[i]]["Type"].type() != Json::stringValue)
           {
-            throw OrthancPlugins::PluginException(OrthancPluginErrorCode_InternalError);
+            throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
           }        
 
           const Json::Value& value = source[members[i]]["Value"];
@@ -213,7 +213,7 @@ namespace OrthancPlugins
           if (type != "Sequence" ||
               value.type() != Json::arrayValue)
           {
-            throw OrthancPlugins::PluginException(OrthancPluginErrorCode_InternalError);
+            throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
           }
 
           node["Value"] = Json::arrayValue;
@@ -222,7 +222,7 @@ namespace OrthancPlugins
           {
             if (value[i].type() != Json::objectValue)
             {
-              throw OrthancPlugins::PluginException(OrthancPluginErrorCode_InternalError);
+              throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
             }
 
             Json::Value child;
@@ -307,14 +307,14 @@ namespace OrthancPlugins
           if (type != "Sequence" ||
               value.type() != Json::arrayValue)
           {
-            throw OrthancPlugins::PluginException(OrthancPluginErrorCode_InternalError);
+            throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
           }
 
           for (Json::Value::ArrayIndex i = 0; i < value.size(); i++)
           {
             if (value[i].type() != Json::objectValue)
             {
-              throw OrthancPlugins::PluginException(OrthancPluginErrorCode_InternalError);
+              throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
             }
 
             pugi::xml_node child = node.append_child("Item");

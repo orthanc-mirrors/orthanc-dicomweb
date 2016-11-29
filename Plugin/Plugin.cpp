@@ -226,12 +226,6 @@ extern "C"
         OrthancPlugins::Configuration::LogWarning("WADO-URI support is disabled");
       }
     }
-    catch (OrthancPlugins::PluginException& e)
-    {
-      OrthancPlugins::Configuration::LogError("Exception while initializing the DICOMweb plugin: " + 
-                                              std::string(e.GetErrorDescription(context)));
-      return -1;
-    }
     catch (Orthanc::OrthancException& e)
     {
       OrthancPlugins::Configuration::LogError("Exception while initializing the DICOMweb plugin: " + 

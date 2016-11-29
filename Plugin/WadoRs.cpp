@@ -183,7 +183,7 @@ static void AnswerListOfDicomInstances(OrthancPluginRestOutput* output,
 
   if (OrthancPluginStartMultipartAnswer(context, output, "related", "application/dicom"))
   {
-    throw OrthancPlugins::PluginException(OrthancPluginErrorCode_NetworkProtocol);
+    throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);
   }
   
   for (Json::Value::ArrayIndex i = 0; i < instances.size(); i++)
@@ -194,7 +194,7 @@ static void AnswerListOfDicomInstances(OrthancPluginRestOutput* output,
     if (dicom.RestApiGet(uri, false) &&
         OrthancPluginSendMultipartItem(context, output, dicom.GetData(), dicom.GetSize()) != 0)
     {
-      throw OrthancPlugins::PluginException(OrthancPluginErrorCode_InternalError);
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
     }
   }
 }
@@ -436,14 +436,14 @@ void RetrieveDicomInstance(OrthancPluginRestOutput* output,
     {
       if (OrthancPluginStartMultipartAnswer(context, output, "related", "application/dicom"))
       {
-        throw OrthancPlugins::PluginException(OrthancPluginErrorCode_NetworkProtocol);
+        throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);
       }
 
       OrthancPlugins::MemoryBuffer dicom(context);
       if (dicom.RestApiGet(uri + "/file", false) &&
           OrthancPluginSendMultipartItem(context, output, dicom.GetData(), dicom.GetSize()) != 0)
       {
-        throw OrthancPlugins::PluginException(OrthancPluginErrorCode_NetworkProtocol);
+        throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);
       }
     }
   }
@@ -612,7 +612,7 @@ void RetrieveBulkData(OrthancPluginRestOutput* output,
       if (OrthancPluginStartMultipartAnswer(context, output, "related", "application/octet-stream") != 0 ||
           OrthancPluginSendMultipartItem(context, output, result.c_str(), result.size()) != 0)
       {
-        throw OrthancPlugins::PluginException(OrthancPluginErrorCode_Plugin);
+        throw Orthanc::OrthancException(Orthanc::ErrorCode_Plugin);
       }
     }
     else

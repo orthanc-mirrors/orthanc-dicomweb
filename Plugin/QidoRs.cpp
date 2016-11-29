@@ -150,7 +150,7 @@ namespace
           break;
 
         default:
-          throw OrthancPlugins::PluginException(OrthancPluginErrorCode_InternalError);
+          throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
       }
     }
 
@@ -188,7 +188,7 @@ namespace
           else
           {
             OrthancPlugins::Configuration::LogError("Not a proper value for fuzzy matching (true or false): " + value);
-            throw OrthancPlugins::PluginException(OrthancPluginErrorCode_BadRequest);
+            throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest);
           }
         }
         else if (key == "includefield")
@@ -260,7 +260,7 @@ namespace
           break;
 
         default:
-          throw OrthancPlugins::PluginException(OrthancPluginErrorCode_InternalError);
+          throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
       }
 
       result["Expand"] = false;
@@ -510,7 +510,7 @@ static void ApplyMatcher(OrthancPluginRestOutput* output,
   if (!OrthancPlugins::RestApiPost(resources, context, "/tools/find", body, false) ||
       resources.type() != Json::arrayValue)
   {
-    throw OrthancPlugins::PluginException(OrthancPluginErrorCode_InternalError);
+    throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
   }
 
   typedef std::list< std::pair<std::string, std::string> > ResourcesAndInstances;

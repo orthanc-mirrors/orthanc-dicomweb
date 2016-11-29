@@ -176,7 +176,7 @@ namespace OrthancPlugins
     {
       OrthancPlugins::Configuration::LogError("GDCM cannot decode this DICOM instance of length " +
                                               boost::lexical_cast<std::string>(dicom.size()));
-      throw OrthancPlugins::PluginException(OrthancPluginErrorCode_BadFileFormat);
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
     }
   }
 
@@ -253,7 +253,7 @@ namespace OrthancPlugins
   {
     if (!GetDataSet().FindDataElement(tag))
     {
-      throw OrthancPlugins::PluginException(OrthancPluginErrorCode_InexistentTag);
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_InexistentTag);
     }
 
     const gdcm::DataElement& element = GetDataSet().GetDataElement(tag);
@@ -700,7 +700,7 @@ namespace OrthancPlugins
     if (key.find('.') != std::string::npos)
     {
       OrthancPlugins::Configuration::LogError("This DICOMweb plugin does not support hierarchical queries: " + key);
-      throw OrthancPlugins::PluginException(OrthancPluginErrorCode_NotImplemented);
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_NotImplemented);
     }
 
     if (key.size() == 8 &&  // This is the DICOMweb convention
@@ -740,12 +740,12 @@ namespace OrthancPlugins
         if (key.find('.') != std::string::npos)
         {
           OrthancPlugins::Configuration::LogError("This QIDO-RS implementation does not support search over sequences: " + key);
-          throw OrthancPlugins::PluginException(OrthancPluginErrorCode_NotImplemented);
+          throw Orthanc::OrthancException(Orthanc::ErrorCode_NotImplemented);
         }
         else
         {
           OrthancPlugins::Configuration::LogError("Illegal tag name in QIDO-RS: " + key);
-          throw OrthancPlugins::PluginException(OrthancPluginErrorCode_UnknownDicomTag);
+          throw Orthanc::OrthancException(Orthanc::ErrorCode_UnknownDicomTag);
         }
       }
 
