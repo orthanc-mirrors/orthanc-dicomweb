@@ -50,6 +50,17 @@
 #endif
 
 
+#if (ORTHANC_PLUGINS_MINIMAL_MAJOR_NUMBER >= 2 ||   \
+     (ORTHANC_PLUGINS_MINIMAL_MAJOR_NUMBER == 1 &&  \
+      ORTHANC_PLUGINS_MINIMAL_MINOR_NUMBER >= 2))
+// The "OrthancPluginFindMatcher()" primitive was introduced in Orthanc 1.2.0
+#  define HAS_ORTHANC_PLUGIN_FIND_MATCHER  1
+#else
+#  define HAS_ORTHANC_PLUGIN_FIND_MATCHER  0
+#endif
+
+
+
 
 namespace OrthancPlugins
 {
@@ -172,6 +183,13 @@ namespace OrthancPlugins
                      OrthancPluginCreateDicomFlags flags);
 
     void ReadFile(const std::string& path);
+
+    void GetDicomQuery(const OrthancPluginWorklistQuery* query);
+
+    void DicomToJson(Json::Value& target,
+                     OrthancPluginDicomToJsonFormat format,
+                     OrthancPluginDicomToJsonFlags flags,
+                     uint32_t maxStringLength);
   };
 
 
@@ -181,16 +199,23 @@ namespace OrthancPlugins
     OrthancPluginContext*  context_;
     char*                  str_;
 
+    void Clear();
+
   public:
-    OrthancString(OrthancPluginContext* context,
-                  char* str);
+    OrthancString(OrthancPluginContext* context) :
+      context_(context),
+      str_(NULL)
+    {
+    }
 
     ~OrthancString()
     {
       Clear();
     }
 
-    void Clear();
+    // This transfers ownership, warning: The string must have been
+    // allocated by the Orthanc core
+    void Assign(char* str);
 
     const char* GetContent() const
     {
@@ -262,7 +287,7 @@ namespace OrthancPlugins
                         float defaultValue) const;
   };
 
-  class OrthancImage
+  class OrthancImage : public boost::noncopyable
   {
   private:
     OrthancPluginContext*  context_;
@@ -318,6 +343,48 @@ namespace OrthancPlugins
     void AnswerJpegImage(OrthancPluginRestOutput* output,
                          uint8_t quality);
   };
+
+
+#if HAS_ORTHANC_PLUGIN_FIND_MATCHER == 1
+  class FindMatcher : public boost::noncopyable
+  {
+  private:
+    OrthancPluginContext*              context_;
+    OrthancPluginFindMatcher*          matcher_;
+    const OrthancPluginWorklistQuery*  worklist_;
+
+    void SetupDicom(OrthancPluginContext*  context,
+                    const void*            query,
+                    uint32_t               size);
+
+  public:
+    FindMatcher(OrthancPluginContext*              context,
+                const OrthancPluginWorklistQuery*  worklist);
+
+    FindMatcher(OrthancPluginContext*  context,
+                const void*            query,
+                uint32_t               size)
+    {
+      SetupDicom(context, query, size);
+    }
+
+    FindMatcher(OrthancPluginContext*  context,
+                const MemoryBuffer&    dicom)
+    {
+      SetupDicom(context, dicom.GetData(), dicom.GetSize());
+    }
+
+    ~FindMatcher();
+
+    bool IsMatch(const void*  dicom,
+                 uint32_t     size) const;
+
+    bool IsMatch(const MemoryBuffer& dicom) const
+    {
+      return IsMatch(dicom.GetData(), dicom.GetSize());
+    }
+  };
+#endif
 
 
   bool RestApiGet(Json::Value& result,

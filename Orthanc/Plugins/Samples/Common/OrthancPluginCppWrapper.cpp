@@ -276,11 +276,24 @@ namespace OrthancPlugins
   }
 
 
-  OrthancString::OrthancString(OrthancPluginContext* context,
-                               char* str) :
-    context_(context),
-    str_(str)
+  void MemoryBuffer::GetDicomQuery(const OrthancPluginWorklistQuery* query)
   {
+    Clear();
+    Check(OrthancPluginWorklistGetDicomQuery(context_, &buffer_, query));
+  }
+
+
+  void OrthancString::Assign(char* str)
+  {
+    if (str == NULL)
+    {
+      ORTHANC_PLUGINS_THROW_EXCEPTION(OrthancPluginErrorCode_InternalError);
+    }
+    else
+    {
+      Clear();
+      str_ = str;
+    }
   }
 
 
@@ -322,12 +335,25 @@ namespace OrthancPlugins
       ORTHANC_PLUGINS_THROW_EXCEPTION(OrthancPluginErrorCode_BadFileFormat);
     }
   }
+
+  
+  void MemoryBuffer::DicomToJson(Json::Value& target,
+                                 OrthancPluginDicomToJsonFormat format,
+                                 OrthancPluginDicomToJsonFlags flags,
+                                 uint32_t maxStringLength)
+  {
+    OrthancString str(context_);
+    str.Assign(OrthancPluginDicomBufferToJson(context_, GetData(), GetSize(), format, flags, maxStringLength));
+    str.ToJson(target);
+  }
+
   
 
   OrthancConfiguration::OrthancConfiguration(OrthancPluginContext* context) : 
     context_(context)
   {
-    OrthancString str(context, OrthancPluginGetConfiguration(context));
+    OrthancString str(context);
+    str.Assign(OrthancPluginGetConfiguration(context));
 
     if (str.GetContent() == NULL)
     {
@@ -807,6 +833,83 @@ namespace OrthancPlugins
     OrthancPluginCompressAndAnswerJpegImage(context_, output, GetPixelFormat(),
                                             GetWidth(), GetHeight(), GetPitch(), GetBuffer(), quality);
   }
+
+
+
+#if HAS_ORTHANC_PLUGIN_FIND_MATCHER == 1
+  FindMatcher::FindMatcher(OrthancPluginContext*              context,
+                           const OrthancPluginWorklistQuery*  worklist) :
+    context_(context),
+    matcher_(NULL),
+    worklist_(worklist)
+  {
+    if (worklist_ == NULL)
+    {
+      ORTHANC_PLUGINS_THROW_EXCEPTION(OrthancPluginErrorCode_ParameterOutOfRange);
+    }
+  }
+
+
+  void FindMatcher::SetupDicom(OrthancPluginContext*  context,
+                               const void*            query,
+                               uint32_t               size)
+  {
+    context_ = context;
+    worklist_ = NULL;
+
+    matcher_ = OrthancPluginCreateFindMatcher(context_, query, size);
+    if (matcher_ == NULL)
+    {
+      ORTHANC_PLUGINS_THROW_EXCEPTION(OrthancPluginErrorCode_InternalError);
+    }
+  }
+
+
+  FindMatcher::~FindMatcher()
+  {
+    // The "worklist_" field 
+
+    if (matcher_ != NULL)
+    {
+      OrthancPluginFreeFindMatcher(context_, matcher_);
+    }
+  }
+
+
+
+  bool FindMatcher::IsMatch(const void*  dicom,
+                            uint32_t     size) const
+  {
+    int32_t result;
+
+    if (matcher_ != NULL)
+    {
+      result = OrthancPluginFindMatcherIsMatch(context_, matcher_, dicom, size);
+    }
+    else if (worklist_ != NULL)
+    {
+      result = OrthancPluginWorklistIsMatch(context_, worklist_, dicom, size);
+    }
+    else
+    {
+      ORTHANC_PLUGINS_THROW_EXCEPTION(OrthancPluginErrorCode_InternalError);
+    }
+
+    if (result == 0)
+    {
+      return false;
+    }
+    else if (result == 1)
+    {
+      return true;
+    }
+    else
+    {
+      ORTHANC_PLUGINS_THROW_EXCEPTION(OrthancPluginErrorCode_InternalError);
+    }
+  }
+
+#endif /* HAS_ORTHANC_PLUGIN_FIND_MATCHER == 1 */
 
 
   bool RestApiGet(Json::Value& result,
