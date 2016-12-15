@@ -311,16 +311,17 @@ static bool AnswerFrames(OrthancPluginRestOutput* output,
       throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);      
     }
 
-    int width, height, bits;
+    int width, height, bits, samplesPerPixel;
 
     if (!dicom.GetIntegerTag(height, *dictionary_, OrthancPlugins::DICOM_TAG_ROWS) ||
         !dicom.GetIntegerTag(width, *dictionary_, OrthancPlugins::DICOM_TAG_COLUMNS) ||
-        !dicom.GetIntegerTag(bits, *dictionary_, OrthancPlugins::DICOM_TAG_BITS_ALLOCATED))
+        !dicom.GetIntegerTag(bits, *dictionary_, OrthancPlugins::DICOM_TAG_BITS_ALLOCATED) || 
+        !dicom.GetIntegerTag(samplesPerPixel, *dictionary_, OrthancPlugins::DICOM_TAG_SAMPLES_PER_PIXEL))
     {
       throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
     }
 
-    size_t frameSize = height * width * bits / 8;
+    size_t frameSize = height * width * bits * samplesPerPixel / 8;
     
     if (pixelData.GetByteValue()->GetLength() % frameSize != 0)
     {

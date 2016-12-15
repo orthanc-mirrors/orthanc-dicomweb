@@ -49,6 +49,7 @@ namespace OrthancPlugins
   static const gdcm::Tag DICOM_TAG_ACCESSION_NUMBER(0x0008, 0x0050);
   static const gdcm::Tag DICOM_TAG_SPECIFIC_CHARACTER_SET(0x0008, 0x0005);
   static const gdcm::Tag DICOM_TAG_PIXEL_DATA(0x7fe0, 0x0010);
+  static const gdcm::Tag DICOM_TAG_SAMPLES_PER_PIXEL(0x0028, 0x0002);
   static const gdcm::Tag DICOM_TAG_COLUMNS(0x0028, 0x0011);
   static const gdcm::Tag DICOM_TAG_ROWS(0x0028, 0x0010);
   static const gdcm::Tag DICOM_TAG_BITS_ALLOCATED(0x0028, 0x0100);
