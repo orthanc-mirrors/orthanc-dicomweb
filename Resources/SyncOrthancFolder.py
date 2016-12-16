@@ -28,6 +28,7 @@ FILES = [
     'Core/WebServiceParameters.cpp',
     'Core/WebServiceParameters.h',
     'Plugins/Samples/Common/ExportedSymbols.list',
+    'Plugins/Samples/Common/OrthancPluginException.h',
     'Plugins/Samples/Common/OrthancPluginCppWrapper.h',
     'Plugins/Samples/Common/OrthancPluginCppWrapper.cpp',
     'Plugins/Samples/Common/VersionScript.map',
