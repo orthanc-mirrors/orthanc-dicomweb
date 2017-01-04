@@ -2,6 +2,7 @@
  * Orthanc - A Lightweight, RESTful DICOM Store
  * Copyright (C) 2012-2016 Sebastien Jodogne, Medical Physics
  * Department, University Hospital of Liege, Belgium
+ * Copyright (C) 2017 Osimis, Belgium
  *
  * This program is free software: you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -34,7 +35,6 @@
 #include "WebServiceParameters.h"
 
 #include "../Core/Logging.h"
-#include "../Core/Toolbox.h"
 #include "../Core/OrthancException.h"
 
 #if ORTHANC_SANDBOXED == 0

@@ -2,6 +2,7 @@
  * Orthanc - A Lightweight, RESTful DICOM Store
  * Copyright (C) 2012-2016 Sebastien Jodogne, Medical Physics
  * Department, University Hospital of Liege, Belgium
+ * Copyright (C) 2017 Osimis, Belgium
  *
  * This program is free software: you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -39,23 +40,23 @@
 
 #if HAS_ORTHANC_EXCEPTION == 1
 #  include "../../../Core/OrthancException.h"
-#  define ORTHANC_PLUGINS_GET_ERROR_ENUMERATION  ::Orthanc::ErrorCode
-#  define ORTHANC_PLUGINS_GET_ERROR_CODE(code)   ::Orthanc::ErrorCode_ ## code
-#  define ORTHANC_PLUGINS_GET_EXCEPTION_CLASS    ::Orthanc::OrthancException
+#  define ORTHANC_PLUGINS_ERROR_ENUMERATION     ::Orthanc::ErrorCode
+#  define ORTHANC_PLUGINS_EXCEPTION_CLASS       ::Orthanc::OrthancException
+#  define ORTHANC_PLUGINS_GET_ERROR_CODE(code)  ::Orthanc::ErrorCode_ ## code
 #else
 #  include <orthanc/OrthancCPlugin.h>
-#  define ORTHANC_PLUGINS_GET_ERROR_ENUMERATION  ::OrthancPluginErrorCode
-#  define ORTHANC_PLUGINS_GET_ERROR_CODE(code)   ::OrthancPluginErrorCode_ ## code
-#  define ORTHANC_PLUGINS_GET_EXCEPTION_CLASS    ::OrthancPlugins::PluginException
+#  define ORTHANC_PLUGINS_ERROR_ENUMERATION     ::OrthancPluginErrorCode
+#  define ORTHANC_PLUGINS_EXCEPTION_CLASS       ::OrthancPlugins::PluginException
+#  define ORTHANC_PLUGINS_GET_ERROR_CODE(code)  ::OrthancPluginErrorCode_ ## code
 #endif
 
 
 #define ORTHANC_PLUGINS_THROW_PLUGIN_ERROR_CODE(code)                   \
-  throw ORTHANC_PLUGINS_GET_EXCEPTION_CLASS(static_cast<ORTHANC_PLUGINS_GET_ERROR_ENUMERATION>(code));
+  throw ORTHANC_PLUGINS_EXCEPTION_CLASS(static_cast<ORTHANC_PLUGINS_ERROR_ENUMERATION>(code));
 
 
 #define ORTHANC_PLUGINS_THROW_EXCEPTION(code)                           \
-  throw ORTHANC_PLUGINS_GET_EXCEPTION_CLASS(ORTHANC_PLUGINS_GET_ERROR_CODE(code));
+  throw ORTHANC_PLUGINS_EXCEPTION_CLASS(ORTHANC_PLUGINS_GET_ERROR_CODE(code));
                                                   
 
 #define ORTHANC_PLUGINS_CHECK_ERROR(code)                           \
