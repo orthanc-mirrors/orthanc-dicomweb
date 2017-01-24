@@ -96,10 +96,12 @@ static bool GetSequenceSize(size_t& result,
 
 static void ParseStowRequest(std::list<std::string>& instances /* out */,
                              std::map<std::string, std::string>& httpHeaders /* out */,
+                             std::map<std::string, std::string>& queryArguments /* out */,
                              const OrthancPluginHttpRequest* request /* in */)
 {
   static const char* RESOURCES = "Resources";
   static const char* HTTP_HEADERS = "HttpHeaders";
+  static const char* QUERY_ARGUMENTS = "Arguments";
 
   OrthancPluginContext* context = OrthancPlugins::Configuration::GetContext();
 
@@ -116,6 +118,7 @@ static void ParseStowRequest(std::list<std::string>& instances /* out */,
     throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
   }
 
+  OrthancPlugins::ParseAssociativeArray(queryArguments, body, QUERY_ARGUMENTS);
   OrthancPlugins::ParseAssociativeArray(httpHeaders, body, HTTP_HEADERS);
 
   Json::Value& resources = body[RESOURCES];
@@ -168,6 +171,7 @@ static void ParseStowRequest(std::list<std::string>& instances /* out */,
 
 static void SendStowChunks(const Orthanc::WebServiceParameters& server,
                            const std::map<std::string, std::string>& httpHeaders,
+                           const std::map<std::string, std::string>& queryArguments,
                            const std::string& boundary,
                            Orthanc::ChunkedBuffer& chunks,
                            size_t& countInstances,
@@ -187,8 +191,12 @@ static void SendStowChunks(const Orthanc::WebServiceParameters& server,
 
     OrthancPlugins::MemoryBuffer answerBody(OrthancPlugins::Configuration::GetContext());
     std::map<std::string, std::string> answerHeaders;
+
+    std::string uri;
+    OrthancPlugins::UriEncode(uri, "studies", queryArguments);
+
     OrthancPlugins::CallServer(answerBody, answerHeaders, server, OrthancPluginHttpMethod_Post,
-                               httpHeaders, "studies", body);
+                               httpHeaders, uri, body);
 
     Json::Value response;
     Json::Reader reader;
@@ -275,15 +283,16 @@ void StowClient(OrthancPluginRestOutput* output,
 
   std::string mime = "multipart/related; type=application/dicom; boundary=" + boundary;
 
+  std::map<std::string, std::string> queryArguments;
   std::map<std::string, std::string> httpHeaders;
   httpHeaders["Accept"] = "application/json";
   httpHeaders["Expect"] = "";
   httpHeaders["Content-Type"] = mime;
 
   std::list<std::string> instances;
-  ParseStowRequest(instances, httpHeaders, request);
+  ParseStowRequest(instances, httpHeaders, queryArguments, request);
 
-  OrthancPlugins::Configuration::LogInfo("Sending " + boost::lexical_cast<std::string>(instances.size()) + 
+  OrthancPlugins::Configuration::LogInfo("Sending " + boost::lexical_cast<std::string>(instances.size()) +
                                          " instances using STOW-RS to DICOMweb server: " + server.GetUrl());
 
   Orthanc::ChunkedBuffer chunks;
@@ -301,11 +310,11 @@ void StowClient(OrthancPluginRestOutput* output,
       chunks.AddChunk(dicom.GetData(), dicom.GetSize());
       countInstances ++;
 
-      SendStowChunks(server, httpHeaders, boundary, chunks, countInstances, false);
+      SendStowChunks(server, httpHeaders, queryArguments, boundary, chunks, countInstances, false);
     }
   }
 
-  SendStowChunks(server, httpHeaders, boundary, chunks, countInstances, true);
+  SendStowChunks(server, httpHeaders, queryArguments, boundary, chunks, countInstances, true);
 
   std::string answer = "{}\n";
   OrthancPluginAnswerBuffer(context, output, answer.c_str(), answer.size(), "application/json");
@@ -363,7 +372,7 @@ void GetFromServer(OrthancPluginRestOutput* output,
       body.type() != Json::objectValue ||
       !GetStringValue(tmp, body, URI))
   {
-    OrthancPlugins::Configuration::LogError("A request to the DICOMweb STOW-RS client must provide a JSON object "
+    OrthancPlugins::Configuration::LogError("A request to the DICOMweb client must provide a JSON object "
                                             "with the field \"Uri\" containing the URI of interest");
     throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
   }
@@ -413,6 +422,7 @@ void GetFromServer(OrthancPluginRestOutput* output,
 static void RetrieveFromServerInternal(std::set<std::string>& instances,
                                        const Orthanc::WebServiceParameters& server,
                                        const std::map<std::string, std::string>& httpHeaders,
+                                       const std::map<std::string, std::string>& getArguments,
                                        const Json::Value& resource)
 {
   static const std::string STUDY = "Study";
@@ -450,15 +460,18 @@ static void RetrieveFromServerInternal(std::set<std::string>& instances,
     throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
   }
 
-  std::string uri = "studies/" + study;
+  std::string tmpUri = "studies/" + study;
   if (!series.empty())
   {
-    uri += "/series/" + series;
+    tmpUri += "/series/" + series;
     if (!instance.empty())
     {
-      uri += "/instances/" + instance;
+      tmpUri += "/instances/" + instance;
     }
   }
+
+  std::string uri;
+  OrthancPlugins::UriEncode(uri, tmpUri, getArguments);
 
   OrthancPlugins::MemoryBuffer answerBody(context);
   std::map<std::string, std::string> answerHeaders;
@@ -571,6 +584,7 @@ void RetrieveFromServer(OrthancPluginRestOutput* output,
 {
   static const std::string RESOURCES("Resources");
   static const char* HTTP_HEADERS = "HttpHeaders";
+  static const std::string GET_ARGUMENTS = "Arguments";
 
   OrthancPluginContext* context = OrthancPlugins::Configuration::GetContext();
 
@@ -597,10 +611,14 @@ void RetrieveFromServer(OrthancPluginRestOutput* output,
   std::map<std::string, std::string> httpHeaders;
   OrthancPlugins::ParseAssociativeArray(httpHeaders, body, HTTP_HEADERS);
 
+  std::map<std::string, std::string> getArguments;
+  OrthancPlugins::ParseAssociativeArray(getArguments, body, GET_ARGUMENTS);
+
+
   std::set<std::string> instances;
   for (Json::Value::ArrayIndex i = 0; i < body[RESOURCES].size(); i++)
   {
-    RetrieveFromServerInternal(instances, server, httpHeaders, body[RESOURCES][i]);
+    RetrieveFromServerInternal(instances, server, httpHeaders, getArguments, body[RESOURCES][i]);
   }
 
   Json::Value status = Json::objectValue;
