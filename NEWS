@@ -3,6 +3,7 @@ Pending changes in the mainline
 
 * Improved robustness in the STOW-RS server (occurrences of "\r\n\r\n" in DICOM are supported)
 * Performance warning if runtime debug assertions are turned on
+* WADO-RS client supports quoted Content-Type header in HTTP answers
 
 
 Version 0.3 (2016/06/28)

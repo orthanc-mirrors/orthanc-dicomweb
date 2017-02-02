@@ -68,15 +68,15 @@ namespace OrthancPlugins
     Orthanc::Toolbox::StripSpaces(application);
     Orthanc::Toolbox::ToLowerCase(application);
 
-    boost::regex pattern("\\s*([^=]+)\\s*=\\s*([^=]+)\\s*");
-
+    boost::regex pattern("\\s*([^=]+)\\s*=\\s*(([^=\"]+)|\"([^=\"]+)\")\\s*");
+    
     for (size_t i = 1; i < tokens.size(); i++)
     {
       boost::cmatch what;
       if (boost::regex_match(tokens[i].c_str(), what, pattern))
       {
         std::string key(what[1]);
-        std::string value(what[2]);
+        std::string value(what.length(3) != 0 ? what[3] : what[4]);
         Orthanc::Toolbox::ToLowerCase(key);
         attributes[key] = value;
       }
