@@ -518,6 +518,18 @@ static void RetrieveFromServerInternal(std::set<std::string>& instances,
       if (s == "type")
       {
         type = Orthanc::Toolbox::StripSpaces(tokens[1]);
+
+        // This covers the case where the content-type is quoted,
+        // which COULD be the case 
+        // cf. https://tools.ietf.org/html/rfc7231#section-3.1.1.1
+        size_t len = type.length();
+        if (len >= 2 &&
+            type[0] == '"' &&
+            type[len - 1] == '"')
+        {
+          type = type.substr(1, len - 2);
+        }
+        
         Orthanc::Toolbox::ToLowerCase(type);
       }
       else if (s == "boundary")
