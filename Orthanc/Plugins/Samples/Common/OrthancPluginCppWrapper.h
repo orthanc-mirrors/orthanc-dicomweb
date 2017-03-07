@@ -39,11 +39,20 @@
 #include <boost/noncopyable.hpp>
 #include <boost/lexical_cast.hpp>
 #include <json/value.h>
+#include <list>
+#include <set>
 
 
-#if (ORTHANC_PLUGINS_MINIMAL_MAJOR_NUMBER >= 2 ||   \
-     (ORTHANC_PLUGINS_MINIMAL_MAJOR_NUMBER == 1 &&  \
-      ORTHANC_PLUGINS_MINIMAL_MINOR_NUMBER >= 2))
+
+#define ORTHANC_PLUGINS_VERSION_IS_ABOVE(major, minor, revision) \
+  (ORTHANC_PLUGINS_MINIMAL_MAJOR_NUMBER > major ||               \
+   (ORTHANC_PLUGINS_MINIMAL_MAJOR_NUMBER == major &&             \
+    (ORTHANC_PLUGINS_MINIMAL_MINOR_NUMBER > minor ||             \
+     (ORTHANC_PLUGINS_MINIMAL_MINOR_NUMBER == minor &&           \
+      ORTHANC_PLUGINS_MINIMAL_REVISION_NUMBER >= revision))))
+  
+
+#if ORTHANC_PLUGINS_VERSION_IS_ABOVE(1, 2, 0)
 // The "OrthancPluginFindMatcher()" primitive was introduced in Orthanc 1.2.0
 #  define HAS_ORTHANC_PLUGIN_FIND_MATCHER  1
 #else
@@ -65,6 +74,8 @@ namespace OrthancPlugins
     OrthancPluginMemoryBuffer  buffer_;
 
     void Check(OrthancPluginErrorCode code);
+
+    bool CheckHttp(OrthancPluginErrorCode code);
 
   public:
     MemoryBuffer(OrthancPluginContext* context);
@@ -151,6 +162,20 @@ namespace OrthancPlugins
                      OrthancPluginDicomToJsonFormat format,
                      OrthancPluginDicomToJsonFlags flags,
                      uint32_t maxStringLength);
+
+    bool HttpGet(const std::string& url,
+                 const std::string& username,
+                 const std::string& password);
+ 
+    bool HttpPost(const std::string& url,
+                  const std::string& body,
+                  const std::string& username,
+                  const std::string& password);
+ 
+    bool HttpPut(const std::string& url,
+                 const std::string& body,
+                 const std::string& username,
+                 const std::string& password);
   };
 
 
@@ -231,6 +256,14 @@ namespace OrthancPlugins
 
     bool LookupFloatValue(float& target,
                           const std::string& key) const;
+
+    bool LookupListOfStrings(std::list<std::string>& target,
+                             const std::string& key,
+                             bool allowSingleString) const;
+
+    bool LookupSetOfStrings(std::set<std::string>& target,
+                            const std::string& key,
+                            bool allowSingleString) const;
 
     std::string GetStringValue(const std::string& key,
                                const std::string& defaultValue) const;
@@ -403,6 +436,11 @@ namespace OrthancPlugins
                      const std::string& uri,
                      bool applyPlugins);
 
+  bool HttpDelete(OrthancPluginContext* context,
+                  const std::string& url,
+                  const std::string& username,
+                  const std::string& password);
+
   inline void LogError(OrthancPluginContext* context,
                        const std::string& message)
   {
@@ -430,6 +468,11 @@ namespace OrthancPlugins
     }
   }
 
+  void ReportMinimalOrthancVersion(OrthancPluginContext* context,
+                                   unsigned int major,
+                                   unsigned int minor,
+                                   unsigned int revision);
+  
   bool CheckMinimalOrthancVersion(OrthancPluginContext* context,
                                   unsigned int major,
                                   unsigned int minor,

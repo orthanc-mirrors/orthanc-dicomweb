@@ -51,6 +51,31 @@ namespace OrthancPlugins
   }
 
 
+  bool MemoryBuffer::CheckHttp(OrthancPluginErrorCode code)
+  {
+    if (code != OrthancPluginErrorCode_Success)
+    {
+      // Prevent using garbage information
+      buffer_.data = NULL;
+      buffer_.size = 0;
+    }
+
+    if (code == OrthancPluginErrorCode_Success)
+    {
+      return true;
+    }
+    else if (code == OrthancPluginErrorCode_UnknownResource ||
+             code == OrthancPluginErrorCode_InexistentItem)
+    {
+      return false;
+    }
+    else
+    {
+      ORTHANC_PLUGINS_THROW_PLUGIN_ERROR_CODE(code);
+    }
+  }
+
+
   MemoryBuffer::MemoryBuffer(OrthancPluginContext* context) : 
     context_(context)
   {
@@ -119,29 +144,13 @@ namespace OrthancPlugins
   {
     Clear();
 
-    OrthancPluginErrorCode error;
-
     if (applyPlugins)
     {
-      error = OrthancPluginRestApiGetAfterPlugins(context_, &buffer_, uri.c_str());
+      return CheckHttp(OrthancPluginRestApiGetAfterPlugins(context_, &buffer_, uri.c_str()));
     }
     else
     {
-      error = OrthancPluginRestApiGet(context_, &buffer_, uri.c_str());
-    }
-
-    if (error == OrthancPluginErrorCode_Success)
-    {
-      return true;
-    }
-    else if (error == OrthancPluginErrorCode_UnknownResource ||
-             error == OrthancPluginErrorCode_InexistentItem)
-    {
-      return false;
-    }
-    else
-    {
-      ORTHANC_PLUGINS_THROW_PLUGIN_ERROR_CODE(error);
+      return CheckHttp(OrthancPluginRestApiGet(context_, &buffer_, uri.c_str()));
     }
   }
 
@@ -153,29 +162,13 @@ namespace OrthancPlugins
   {
     Clear();
 
-    OrthancPluginErrorCode error;
-
     if (applyPlugins)
     {
-      error = OrthancPluginRestApiPostAfterPlugins(context_, &buffer_, uri.c_str(), body, bodySize);
+      return CheckHttp(OrthancPluginRestApiPostAfterPlugins(context_, &buffer_, uri.c_str(), body, bodySize));
     }
     else
     {
-      error = OrthancPluginRestApiPost(context_, &buffer_, uri.c_str(), body, bodySize);
-    }
-
-    if (error == OrthancPluginErrorCode_Success)
-    {
-      return true;
-    }
-    else if (error == OrthancPluginErrorCode_UnknownResource ||
-             error == OrthancPluginErrorCode_InexistentItem)
-    {
-      return false;
-    }
-    else
-    {
-      ORTHANC_PLUGINS_THROW_PLUGIN_ERROR_CODE(error);
+      return CheckHttp(OrthancPluginRestApiPost(context_, &buffer_, uri.c_str(), body, bodySize));
     }
   }
 
@@ -187,29 +180,13 @@ namespace OrthancPlugins
   {
     Clear();
 
-    OrthancPluginErrorCode error;
-
     if (applyPlugins)
     {
-      error = OrthancPluginRestApiPutAfterPlugins(context_, &buffer_, uri.c_str(), body, bodySize);
+      return CheckHttp(OrthancPluginRestApiPutAfterPlugins(context_, &buffer_, uri.c_str(), body, bodySize));
     }
     else
     {
-      error = OrthancPluginRestApiPut(context_, &buffer_, uri.c_str(), body, bodySize);
-    }
-
-    if (error == OrthancPluginErrorCode_Success)
-    {
-      return true;
-    }
-    else if (error == OrthancPluginErrorCode_UnknownResource ||
-             error == OrthancPluginErrorCode_InexistentItem)
-    {
-      return false;
-    }
-    else
-    {
-      ORTHANC_PLUGINS_THROW_PLUGIN_ERROR_CODE(error);
+      return CheckHttp(OrthancPluginRestApiPut(context_, &buffer_, uri.c_str(), body, bodySize));
     }
   }
 
@@ -322,6 +299,69 @@ namespace OrthancPlugins
     str.ToJson(target);
   }
 
+
+  bool MemoryBuffer::HttpGet(const std::string& url,
+                             const std::string& username,
+                             const std::string& password)
+  {
+    Clear();
+    return CheckHttp(OrthancPluginHttpGet(context_, &buffer_, url.c_str(),
+                                          username.empty() ? NULL : username.c_str(),
+                                          password.empty() ? NULL : password.c_str()));
+  }
+
+  
+  bool MemoryBuffer::HttpPost(const std::string& url,
+                              const std::string& body,
+                              const std::string& username,
+                              const std::string& password)
+  {
+    Clear();
+    return CheckHttp(OrthancPluginHttpPost(context_, &buffer_, url.c_str(),
+                                           body.c_str(), body.size(),
+                                           username.empty() ? NULL : username.c_str(),
+                                           password.empty() ? NULL : password.c_str()));
+  }
+  
+ 
+  bool MemoryBuffer::HttpPut(const std::string& url,
+                             const std::string& body,
+                             const std::string& username,
+                             const std::string& password)
+  {
+    Clear();
+    return CheckHttp(OrthancPluginHttpPut(context_, &buffer_, url.c_str(),
+                                          body.empty() ? NULL : body.c_str(),
+                                          body.size(),
+                                          username.empty() ? NULL : username.c_str(),
+                                          password.empty() ? NULL : password.c_str()));
+  }
+  
+ 
+  bool HttpDelete(OrthancPluginContext* context_,
+                  const std::string& url,
+                  const std::string& username,
+                  const std::string& password)
+  {
+    OrthancPluginErrorCode error = OrthancPluginHttpDelete
+      (context_, url.c_str(),
+       username.empty() ? NULL : username.c_str(),
+       password.empty() ? NULL : password.c_str());
+  
+    if (error == OrthancPluginErrorCode_Success)
+    {
+      return true;
+    }
+    else if (error == OrthancPluginErrorCode_UnknownResource ||
+             error == OrthancPluginErrorCode_InexistentItem)
+    {
+      return false;
+    }
+    else
+    {
+      ORTHANC_PLUGINS_THROW_PLUGIN_ERROR_CODE(error);
+    }
+  }
   
 
   OrthancConfiguration::OrthancConfiguration(OrthancPluginContext* context) : 
@@ -554,6 +594,94 @@ namespace OrthancPlugins
         }
 
         ORTHANC_PLUGINS_THROW_EXCEPTION(BadFileFormat);
+    }
+  }
+
+
+  bool OrthancConfiguration::LookupListOfStrings(std::list<std::string>& target,
+                                                 const std::string& key,
+                                                 bool allowSingleString) const
+  {
+    assert(configuration_.type() == Json::objectValue);
+
+    target.clear();
+
+    if (!configuration_.isMember(key))
+    {
+      return false;
+    }
+
+    switch (configuration_[key].type())
+    {
+      case Json::arrayValue:
+      {
+        bool ok = true;
+    
+        for (Json::Value::ArrayIndex i = 0; ok && i < configuration_[key].size(); i++)
+        {
+          if (configuration_[key][i].type() == Json::stringValue)
+          {
+            target.push_back(configuration_[key][i].asString());
+          }
+          else
+          {
+            ok = false;
+          }
+        }
+
+        if (ok)
+        {
+          return true;
+        }
+
+        break;
+      }
+
+      case Json::stringValue:
+        if (allowSingleString)
+        {
+          target.push_back(configuration_[key].asString());
+          return true;
+        }
+
+        break;
+
+      default:
+        break;
+    }
+
+    if (context_ != NULL)
+    {
+      std::string s = ("The configuration option \"" + GetPath(key) +
+                       "\" is not a list of strings as expected");
+      OrthancPluginLogError(context_, s.c_str());
+    }
+
+    ORTHANC_PLUGINS_THROW_EXCEPTION(BadFileFormat);
+  }
+
+
+  bool OrthancConfiguration::LookupSetOfStrings(std::set<std::string>& target,
+                                                const std::string& key,
+                                                bool allowSingleString) const
+  {
+    std::list<std::string> lst;
+
+    if (LookupListOfStrings(lst, key, allowSingleString))
+    {
+      target.clear();
+
+      for (std::list<std::string>::const_iterator
+             it = lst.begin(); it != lst.end(); ++it)
+      {
+        target.insert(*it);
+      }
+
+      return true;
+    }
+    else
+    {
+      return false;
     }
   }
 
@@ -998,15 +1126,20 @@ namespace OrthancPlugins
   }
 
 
-  static void ReportIncompatibleVersion(OrthancPluginContext* context,
-                                        unsigned int major,
-                                        unsigned int minor,
-                                        unsigned int revision)
+  void ReportMinimalOrthancVersion(OrthancPluginContext* context,
+                                   unsigned int major,
+                                   unsigned int minor,
+                                   unsigned int revision)
   {
-    char buf[128];
-    sprintf(buf, "Your version of the Orthanc core (%s) is too old to run this plugin (%d.%d.%d is required)",
-            context->orthancVersion, major, minor, revision);
-    OrthancPluginLogError(context, buf);
+    std::string s = ("Your version of the Orthanc core (" +
+                     std::string(context->orthancVersion) +
+                     ") is too old to run this plugin (version " +
+                     boost::lexical_cast<std::string>(major) + "." +
+                     boost::lexical_cast<std::string>(minor) + "." +
+                     boost::lexical_cast<std::string>(revision) + 
+                     " is required)");
+    
+    OrthancPluginLogError(context, s.c_str());
   }
 
 
@@ -1056,7 +1189,6 @@ namespace OrthancPlugins
 
     if (a < major)
     {
-      ReportIncompatibleVersion(context, major, minor, revision);
       return false;
     }
 
@@ -1071,7 +1203,6 @@ namespace OrthancPlugins
 
     if (b < minor)
     {
-      ReportIncompatibleVersion(context, major, minor, revision);
       return false;
     }
 
@@ -1084,7 +1215,6 @@ namespace OrthancPlugins
     }
     else
     {
-      ReportIncompatibleVersion(context, major, minor, revision);
       return false;
     }
   }
