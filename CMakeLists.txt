@@ -104,7 +104,7 @@ add_definitions(
   -DORTHANC_ENABLE_MD5=0
   -DORTHANC_ENABLE_BASE64=0
   -DORTHANC_ENABLE_LOGGING=0
-  -DORTHANC_SANDBOXED=1
+  -DORTHANC_SANDBOXED=0
   -DHAS_ORTHANC_EXCEPTION=1
   )
 
@@ -119,6 +119,7 @@ set(CORE_SOURCES
   ${ORTHANC_ROOT}/Core/ChunkedBuffer.cpp
   ${ORTHANC_ROOT}/Core/Enumerations.cpp
   ${ORTHANC_ROOT}/Core/Toolbox.cpp
+  ${ORTHANC_ROOT}/Core/SystemToolbox.cpp
   ${ORTHANC_ROOT}/Core/WebServiceParameters.cpp
   ${ORTHANC_ROOT}/Plugins/Samples/Common/OrthancPluginCppWrapper.cpp
 

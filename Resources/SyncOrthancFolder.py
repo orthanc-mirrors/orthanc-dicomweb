@@ -25,6 +25,8 @@ FILES = [
     'Core/PrecompiledHeaders.h',
     'Core/Toolbox.cpp',
     'Core/Toolbox.h',
+    'Core/SystemToolbox.h',
+    'Core/SystemToolbox.cpp',
     'Core/WebServiceParameters.cpp',
     'Core/WebServiceParameters.h',
     'Plugins/Samples/Common/ExportedSymbols.list',
