@@ -163,10 +163,13 @@ namespace
     limit_(0),
     includeAllFields_(false)
     {
+      std::string args;
+      
       for (uint32_t i = 0; i < request->getCount; i++)
       {
         std::string key(request->getKeys[i]);
         std::string value(request->getValues[i]);
+        args += " [" + key + "=" + value + "]";
 
         if (key == "limit")
         {
@@ -214,6 +217,8 @@ namespace
           filters_[OrthancPlugins::ParseTag(*dictionary_, key)] = value;
         }
       }
+
+      OrthancPlugins::Configuration::LogInfo("Arguments of QIDO-RS request:" + args);
     }
 
     unsigned int GetLimit() const
@@ -267,6 +272,8 @@ namespace
       result["Expand"] = false;
       result["CaseSensitive"] = true;
       result["Query"] = Json::objectValue;
+      result["Limit"] = limit_;
+      result["Since"] = offset_;
 
       for (Filters::const_iterator it = filters_.begin(); 
            it != filters_.end(); ++it)
