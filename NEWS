@@ -5,6 +5,7 @@ Pending changes in the mainline
 * Performance warning if runtime debug assertions are turned on
 * WADO-RS client supports quoted Content-Type header in HTTP answers
 * Added "Arguments" to WADO-RS and STOW-RS client to handle query arguments in uri
+* Fix issue #53 (DICOMWeb plugin support for "limit" and "offset" parameters in QIDO-RS)
 
 
 Version 0.3 (2016/06/28)

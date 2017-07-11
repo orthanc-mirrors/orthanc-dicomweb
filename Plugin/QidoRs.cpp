@@ -275,6 +275,15 @@ namespace
       result["Limit"] = limit_;
       result["Since"] = offset_;
 
+      if (offset_ != 0 &&
+          !OrthancPlugins::CheckMinimalOrthancVersion(
+            OrthancPlugins::Configuration::GetContext(), 1, 2, 1))
+      {
+        OrthancPlugins::Configuration::LogError(
+          "QIDO-RS request with \"offset\" argument: "
+          "Only available if the Orthanc core version is >= 1.2.1");
+      }
+      
       for (Filters::const_iterator it = filters_.begin(); 
            it != filters_.end(); ++it)
       {
