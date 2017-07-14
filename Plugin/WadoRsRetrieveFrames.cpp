@@ -111,7 +111,65 @@ static gdcm::TransferSyntax ParseTransferSyntax(const OrthancPluginHttpRequest* 
       }
       else
       {
-        // http://dicom.nema.org/medical/dicom/current/output/html/part18.html#table_6.5-1
+        /**
+         * DICOM 2017c
+         * http://dicom.nema.org/medical/dicom/current/output/html/part18.html#table_6.1.1.8-3b
+         **/
+        if (type == "image/jpeg" && (transferSyntax.empty() ||  // Default
+                                     transferSyntax == "1.2.840.10008.1.2.4.70"))
+        {
+          return gdcm::TransferSyntax::JPEGLosslessProcess14_1;
+        }
+        else if (type == "image/jpeg" && transferSyntax == "1.2.840.10008.1.2.4.50")
+        {
+          return gdcm::TransferSyntax::JPEGBaselineProcess1;
+        }
+        else if (type == "image/jpeg" && transferSyntax == "1.2.840.10008.1.2.4.51")
+        {
+          return gdcm::TransferSyntax::JPEGExtendedProcess2_4;
+        }
+        else if (type == "image/jpeg" && transferSyntax == "1.2.840.10008.1.2.4.57")
+        {
+          return gdcm::TransferSyntax::JPEGLosslessProcess14;
+        }
+        else if (type == "image/x-dicom-rle" && (transferSyntax.empty() ||  // Default
+                                                 transferSyntax == "1.2.840.10008.1.2.5"))
+        {
+          return gdcm::TransferSyntax::RLELossless;
+        }
+        else if (type == "image/x-jls" && (transferSyntax.empty() ||  // Default
+                                           transferSyntax == "1.2.840.10008.1.2.4.80"))
+        {
+          return gdcm::TransferSyntax::JPEGLSLossless;
+        }
+        else if (type == "image/x-jls" && transferSyntax == "1.2.840.10008.1.2.4.81")
+        {
+          return gdcm::TransferSyntax::JPEGLSNearLossless;
+        }
+        else if (type == "image/jp2" && (transferSyntax.empty() ||  // Default
+                                         transferSyntax == "1.2.840.10008.1.2.4.90"))
+        {
+          return gdcm::TransferSyntax::JPEG2000Lossless;
+        }
+        else if (type == "image/jp2" && transferSyntax == "1.2.840.10008.1.2.4.91")
+        {
+          return gdcm::TransferSyntax::JPEG2000;
+        }
+        else if (type == "image/jpx" && (transferSyntax.empty() ||  // Default
+                                         transferSyntax == "1.2.840.10008.1.2.4.92"))
+        {
+          return gdcm::TransferSyntax::JPEG2000Part2Lossless;
+        }
+        else if (type == "image/jpx" && transferSyntax == "1.2.840.10008.1.2.4.93")
+        {
+          return gdcm::TransferSyntax::JPEG2000Part2;
+        }
+
+
+        /**
+         * Backward compatibility with DICOM 2014a
+         * http://dicom.nema.org/medical/dicom/2014a/output/html/part18.html#table_6.5-1
+         **/
         if (type == "image/dicom+jpeg" && transferSyntax == "1.2.840.10008.1.2.4.50")
         {
           return gdcm::TransferSyntax::JPEGBaselineProcess1;
@@ -161,12 +219,11 @@ static gdcm::TransferSyntax ParseTransferSyntax(const OrthancPluginHttpRequest* 
         {
           return gdcm::TransferSyntax::JPEG2000Part2;
         }
-        else
-        {
-          OrthancPlugins::Configuration::LogError("DICOMweb RetrieveFrames: Transfer syntax \"" + 
+
+
+        OrthancPlugins::Configuration::LogError("DICOMweb RetrieveFrames: Transfer syntax \"" + 
                                                   transferSyntax + "\" is incompatible with media type \"" + type + "\"");
-          throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest);
-        }
+        throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest);
       }
     }
   }
@@ -211,43 +268,45 @@ static void ParseFrameList(std::list<unsigned int>& frames,
 
 static const char* GetMimeType(const gdcm::TransferSyntax& syntax)
 {
+  // http://dicom.nema.org/medical/dicom/current/output/html/part18.html#table_6.1.1.8-3b
+  
   switch (syntax)
   {
     case gdcm::TransferSyntax::ImplicitVRLittleEndian:
       return "application/octet-stream";
 
     case gdcm::TransferSyntax::JPEGBaselineProcess1:
-      return "image/dicom+jpeg; transfer-syntax=1.2.840.10008.1.2.4.50";
+      return "image/jpeg; transfer-syntax=1.2.840.10008.1.2.4.50";
 
     case gdcm::TransferSyntax::JPEGExtendedProcess2_4:
-      return "image/dicom+jpeg; transfer-syntax=1.2.840.10008.1.2.4.51";
+      return "image/jpeg; transfer-syntax=1.2.840.10008.1.2.4.51";
     
     case gdcm::TransferSyntax::JPEGLosslessProcess14:
-      return "image/dicom+jpeg; transfer-syntax=1.2.840.10008.1.2.4.57";
+      return "image/jpeg; transfer-syntax=1.2.840.10008.1.2.4.57";
 
     case gdcm::TransferSyntax::JPEGLosslessProcess14_1:
-      return "image/dicom+jpeg; transferSyntax=1.2.840.10008.1.2.4.70";
+      return "image/jpeg; transferSyntax=1.2.840.10008.1.2.4.70";
     
     case gdcm::TransferSyntax::RLELossless:
-      return "image/dicom+rle; transferSyntax=1.2.840.10008.1.2.5";
+      return "image/x-dicom-rle; transferSyntax=1.2.840.10008.1.2.5";
 
     case gdcm::TransferSyntax::JPEGLSLossless:
-      return "image/dicom+jpeg-ls; transferSyntax=1.2.840.10008.1.2.4.80";
+      return "image/x-jls; transferSyntax=1.2.840.10008.1.2.4.80";
 
     case gdcm::TransferSyntax::JPEGLSNearLossless:
-      return "image/dicom+jpeg-ls; transfer-syntax=1.2.840.10008.1.2.4.81";
+      return "image/x-jls; transfer-syntax=1.2.840.10008.1.2.4.81";
 
     case gdcm::TransferSyntax::JPEG2000Lossless:
-      return "image/dicom+jp2; transferSyntax=1.2.840.10008.1.2.4.90";
+      return "image/jp2; transferSyntax=1.2.840.10008.1.2.4.90";
 
     case gdcm::TransferSyntax::JPEG2000:
-      return "image/dicom+jp2; transfer-syntax=1.2.840.10008.1.2.4.91";
+      return "image/jp2; transfer-syntax=1.2.840.10008.1.2.4.91";
 
     case gdcm::TransferSyntax::JPEG2000Part2Lossless:
-      return "image/dicom+jpx; transferSyntax=1.2.840.10008.1.2.4.92";
+      return "image/jpx; transferSyntax=1.2.840.10008.1.2.4.92";
 
     case gdcm::TransferSyntax::JPEG2000Part2:
-      return "image/dicom+jpx; transfer-syntax=1.2.840.10008.1.2.4.93";
+      return "image/jpx; transfer-syntax=1.2.840.10008.1.2.4.93";
 
     default:
       throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
