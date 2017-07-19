@@ -21,7 +21,7 @@ cmake_minimum_required(VERSION 2.8)
 
 project(OrthancDicomWeb)
 
-set(ORTHANC_DICOM_WEB_VERSION "mainline")
+set(ORTHANC_DICOM_WEB_VERSION "0.4")
 
 
 # Parameters of the build

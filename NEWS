@@ -1,6 +1,10 @@
 Pending changes in the mainline
 ===============================
 
+
+Version 0.4 (2017-07-19)
+========================
+
 * Improved robustness in the STOW-RS server (occurrences of "\r\n\r\n" in DICOM are supported)
 * Performance warning if runtime debug assertions are turned on
 * WADO-RS client supports quoted Content-Type header in HTTP answers
@@ -10,7 +14,7 @@ Pending changes in the mainline
 * Fix issue #28 (Non-compliant enumerations for "accept" header for WADO RetrieveFrames)
 
 
-Version 0.3 (2016/06/28)
+Version 0.3 (2016-06-28)
 ========================
 
 => Minimum SDK version: 1.1.0 <=
@@ -23,7 +27,7 @@ Version 0.3 (2016/06/28)
 * Fix issue #14 (Aggregate fields empty for QIDO-RS study/series-level queries)
 
 
-Version 0.2 (2015/12/10)
+Version 0.2 (2015-12-10)
 ========================
 
 => Minimum SDK version: 0.9.5 <=
@@ -33,7 +37,7 @@ Version 0.2 (2015/12/10)
 * Upgrade to GDCM 2.6.0 for static and Windows builds
 
 
-Version 0.1 (2015/08/03)
+Version 0.1 (2015-08-03)
 ========================
 
 => Minimum SDK version: 0.9.1 <=
@@ -53,7 +57,7 @@ Production
 * Upgrade to Boost 1.58.0 for static and Windows builds
 
 
-2015/03/13
+2015-03-13
 ==========
 
 * Initial commit
