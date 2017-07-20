@@ -277,11 +277,11 @@ namespace
 
       if (offset_ != 0 &&
           !OrthancPlugins::CheckMinimalOrthancVersion(
-            OrthancPlugins::Configuration::GetContext(), 1, 2, 1))
+            OrthancPlugins::Configuration::GetContext(), 1, 3, 0))
       {
         OrthancPlugins::Configuration::LogError(
           "QIDO-RS request with \"offset\" argument: "
-          "Only available if the Orthanc core version is >= 1.2.1");
+          "Only available if the Orthanc core version is >= 1.3.0");
       }
       
       for (Filters::const_iterator it = filters_.begin(); 
