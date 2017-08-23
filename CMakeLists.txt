@@ -47,6 +47,7 @@ set(ORTHANC_ROOT ${CMAKE_SOURCE_DIR}/Orthanc)
 set(ORTHANC_DISABLE_PATCH ON)  # No need for the "patch" command-line tool
 set(ENABLE_LOCALE ON)          # Enable support for locales (notably in Boost)
 set(USE_BOOST_ICONV ON)
+include(CheckFunctionExists)
 include(CheckIncludeFiles)
 include(CheckIncludeFileCXX)
 include(CheckLibraryExists)
