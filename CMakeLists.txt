@@ -33,6 +33,7 @@ set(USE_SYSTEM_BOOST ON CACHE BOOL "Use the system version of Boost")
 set(USE_SYSTEM_GDCM ON CACHE BOOL "Use the system version of Grassroot DICOM (GDCM)")
 set(USE_SYSTEM_GOOGLE_TEST ON CACHE BOOL "Use the system version of Google Test")
 set(USE_SYSTEM_JSONCPP ON CACHE BOOL "Use the system version of JsonCpp")
+set(USE_SYSTEM_LIBICONV ON CACHE BOOL "Use the system version of libiconv")
 set(USE_SYSTEM_ZLIB ON CACHE BOOL "Use the system version of zlib")
 set(USE_SYSTEM_PUGIXML ON CACHE BOOL "Use the system version of Pugixml")
 set(USE_SYSTEM_ORTHANC_SDK ON CACHE BOOL "Use the system version of the Orthanc plugin SDK")
@@ -44,6 +45,7 @@ mark_as_advanced(USE_GTEST_DEBIAN_SOURCE_PACKAGE)
 set(USE_PUGIXML ON)
 set(ORTHANC_ROOT ${CMAKE_SOURCE_DIR}/Orthanc)
 set(ORTHANC_DISABLE_PATCH ON)  # No need for the "patch" command-line tool
+set(ENABLE_LOCALE ON)          # Enable support for locales (notably in Boost)
 include(CheckIncludeFiles)
 include(CheckIncludeFileCXX)
 include(CheckLibraryExists)
@@ -54,6 +56,7 @@ include(${ORTHANC_ROOT}/Resources/CMake/DownloadPackage.cmake)
 include(${ORTHANC_ROOT}/Resources/CMake/BoostConfiguration.cmake)
 include(${ORTHANC_ROOT}/Resources/CMake/GoogleTestConfiguration.cmake)
 include(${ORTHANC_ROOT}/Resources/CMake/JsonCppConfiguration.cmake)
+include(${ORTHANC_ROOT}/Resources/CMake/LibIconvConfiguration.cmake)
 include(${ORTHANC_ROOT}/Resources/CMake/ZlibConfiguration.cmake)
 include(${ORTHANC_ROOT}/Resources/CMake/PugixmlConfiguration.cmake)
 
@@ -101,6 +104,7 @@ endif()
 
 
 add_definitions(
+  -DORTHANC_ENABLE_LOCALE=1
   -DORTHANC_ENABLE_MD5=0
   -DORTHANC_ENABLE_BASE64=0
   -DORTHANC_ENABLE_LOGGING=0

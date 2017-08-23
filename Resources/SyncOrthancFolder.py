@@ -39,6 +39,7 @@ FILES = [
     'Resources/CMake/DownloadPackage.cmake',
     'Resources/CMake/GoogleTestConfiguration.cmake',
     'Resources/CMake/JsonCppConfiguration.cmake',
+    'Resources/CMake/LibIconvConfiguration.cmake',
     'Resources/CMake/PugixmlConfiguration.cmake',
     'Resources/CMake/ZlibConfiguration.cmake',
     'Resources/MinGW-W64-Toolchain32.cmake',

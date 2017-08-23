@@ -35,11 +35,6 @@
 #include "SystemToolbox.h"
 
 
-#if BOOST_HAS_DATE_TIME == 1
-#  include <boost/date_time/posix_time/posix_time.hpp>
-#endif
-
-
 #if defined(_WIN32)
 #  include <windows.h>
 #  include <process.h>   // For "_spawnvp()" and "_getpid()"
@@ -62,12 +57,17 @@
 #endif
 
 
+#if defined(__OpenBSD__)
+#  include <sys/sysctl.h>  // For "sysctl", "CTL_KERN" and "KERN_PROC_ARGS"
+#endif
+
+
 // Inclusions for UUID
 // http://stackoverflow.com/a/1626302
 
 extern "C"
 {
-#ifdef WIN32
+#if defined(_WIN32)
 #  include <rpc.h>
 #else
 #  include <uuid/uuid.h>
@@ -81,6 +81,7 @@ extern "C"
 
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/fstream.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
 
 
 namespace Orthanc
@@ -157,7 +158,7 @@ namespace Orthanc
   {
 #if defined(_WIN32)
     ::Sleep(static_cast<DWORD>(microSeconds / static_cast<uint64_t>(1000)));
-#elif defined(__linux__) || defined(__APPLE__) || defined(__FreeBSD_kernel__) || defined(__FreeBSD__) || defined(__native_client__)
+#elif defined(__linux__) || defined(__APPLE__) || defined(__FreeBSD_kernel__) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__native_client__)
     usleep(microSeconds);
 #else
 #error Support your platform here
@@ -193,7 +194,7 @@ namespace Orthanc
     }
 
     std::streamsize size = GetStreamSize(f);
-    content.resize(size);
+    content.resize(static_cast<size_t>(size));
     if (size != 0)
     {
       f.read(reinterpret_cast<char*>(&content[0]), size);
@@ -231,7 +232,7 @@ namespace Orthanc
       }
       else if (static_cast<size_t>(size) < headerSize)
       {
-        headerSize = size;  // Truncate to the size of the file
+        headerSize = static_cast<size_t>(size);  // Truncate to the size of the file
         full = false;
       }
     }
@@ -349,6 +350,8 @@ namespace Orthanc
 #elif defined(__linux__) || defined(__FreeBSD_kernel__) || defined(__FreeBSD__)
   static std::string GetPathToExecutableInternal()
   {
+    // NOTE: For FreeBSD, using KERN_PROC_PATHNAME might be a better alternative
+
     std::vector<char> buffer(PATH_MAX + 1);
     ssize_t bytes = readlink("/proc/self/exe", &buffer[0], buffer.size() - 1);
     if (bytes == 0)
@@ -368,6 +371,37 @@ namespace Orthanc
     _NSGetExecutablePath( pathbuf, &bufsize);
 
     return std::string(pathbuf);
+  }
+
+#elif defined(__OpenBSD__)
+  static std::string GetPathToExecutableInternal()
+  {
+    // This is an adapted version of the patch proposed in issue #64
+    // without an explicit call to "malloc()" to prevent memory leak
+    // https://bitbucket.org/sjodogne/orthanc/issues/64/add-openbsd-support
+    // https://stackoverflow.com/q/31494901/881731
+
+    const int mib[4] = { CTL_KERN, KERN_PROC_ARGS, getpid(), KERN_PROC_ARGV };
+
+    size_t len;
+    if (sysctl(mib, 4, NULL, &len, NULL, 0) == -1) 
+    {
+      throw OrthancException(ErrorCode_PathToExecutable);
+    }
+
+    std::string tmp;
+    tmp.resize(len);
+
+    char** buffer = reinterpret_cast<char**>(&tmp[0]);
+
+    if (sysctl(mib, 4, buffer, &len, NULL, 0) == -1) 
+    {
+      throw OrthancException(ErrorCode_PathToExecutable);
+    }
+    else
+    {
+      return std::string(buffer[0]);
+    }
   }
 
 #else
@@ -527,13 +561,13 @@ namespace Orthanc
   }
 
 
-#if BOOST_HAS_DATE_TIME == 1
   std::string SystemToolbox::GetNowIsoString()
   {
     boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
     return boost::posix_time::to_iso_string(now);
   }
 
+  
   void SystemToolbox::GetNowDicom(std::string& date,
                                   std::string& time)
   {
@@ -548,5 +582,4 @@ namespace Orthanc
     sprintf(s, "%02d%02d%02d.%06d", tm.tm_hour, tm.tm_min, tm.tm_sec, 0);
     time.assign(s);
   }
-#endif
 }

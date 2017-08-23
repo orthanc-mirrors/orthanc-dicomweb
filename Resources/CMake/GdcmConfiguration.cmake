@@ -24,6 +24,10 @@ if (STATIC_BUILD OR NOT USE_SYSTEM_GDCM)
       ${CMAKE_SYSTEM_NAME} STREQUAL "FreeBSD" OR
       ${CMAKE_SYSTEM_NAME} STREQUAL "kFreeBSD")
     set(AdditionalFlags "-fPIC")
+  elseif (${CMAKE_SYSTEM_NAME} STREQUAL "OpenBSD")
+    # This definition is necessary to compile
+    # "Source/MediaStorageAndFileFormat/gdcmFileStreamer.cxx"
+    set(AdditionalFlags "-Doff64_t=off_t") 
   endif()
   
   set(Flags

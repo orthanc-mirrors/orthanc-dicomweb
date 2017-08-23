@@ -37,24 +37,18 @@
 #include "OrthancException.h"
 #include "Logging.h"
 
+#include <boost/algorithm/string/case_conv.hpp>
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/lexical_cast.hpp>
-#include <boost/locale.hpp>
+#include <boost/regex.hpp> 
 #include <boost/uuid/sha1.hpp>
-
+ 
 #include <string>
 #include <stdint.h>
 #include <string.h>
 #include <algorithm>
 #include <ctype.h>
 
-#if BOOST_HAS_REGEX == 1
-#  include <boost/regex.hpp> 
-#endif
-
-#if BOOST_HAS_LOCALE != 1
-#  error Since version 0.7.6, Orthanc entirely relies on boost::locale
-#endif
 
 #if ORTHANC_ENABLE_MD5 == 1
 #  include "../Resources/ThirdParty/md5/md5.h"
@@ -62,6 +56,10 @@
 
 #if ORTHANC_ENABLE_BASE64 == 1
 #  include "../Resources/ThirdParty/base64/base64.h"
+#endif
+
+#if ORTHANC_ENABLE_LOCALE == 1
+#  include <boost/locale.hpp>
 #endif
 
 
@@ -368,7 +366,6 @@ namespace Orthanc
   }
 
 
-#  if BOOST_HAS_REGEX == 1
   bool Toolbox::DecodeDataUriScheme(std::string& mime,
                                     std::string& content,
                                     const std::string& source)
@@ -388,7 +385,6 @@ namespace Orthanc
       return false;
     }
   }
-#  endif
 
 
   void Toolbox::EncodeDataUriScheme(std::string& result,
@@ -469,6 +465,7 @@ namespace Orthanc
   }
 
 
+#if ORTHANC_ENABLE_LOCALE == 1
   std::string Toolbox::ConvertToUtf8(const std::string& source,
                                      Encoding sourceEncoding)
   {
@@ -495,8 +492,10 @@ namespace Orthanc
       return ConvertToAscii(source);
     }
   }
+#endif
+  
 
-
+#if ORTHANC_ENABLE_LOCALE == 1
   std::string Toolbox::ConvertFromUtf8(const std::string& source,
                                        Encoding targetEncoding)
   {
@@ -523,6 +522,7 @@ namespace Orthanc
       return ConvertToAscii(source);
     }
   }
+#endif
 
 
   bool Toolbox::IsAsciiString(const void* data,
@@ -778,7 +778,6 @@ namespace Orthanc
   }
 
 
-#if BOOST_HAS_REGEX == 1
   std::string Toolbox::WildcardToRegularExpression(const std::string& source)
   {
     // TODO - Speed up this with a regular expression
@@ -806,8 +805,6 @@ namespace Orthanc
 
     return result;
   }
-#endif
-
 
 
   void Toolbox::TokenizeString(std::vector<std::string>& result,
@@ -1251,4 +1248,124 @@ namespace Orthanc
 
     return IsUuid(str.substr(0, 36));
   }
+
+
+#if ORTHANC_ENABLE_LOCALE == 1
+  static std::auto_ptr<std::locale>  globalLocale_;
+
+  static bool SetGlobalLocale(const char* locale)
+  {
+    globalLocale_.reset(NULL);
+
+    try
+    {
+      if (locale == NULL)
+      {
+        LOG(WARNING) << "Falling back to system-wide default locale";
+        globalLocale_.reset(new std::locale());
+      }
+      else
+      {
+        LOG(INFO) << "Using locale: \"" << locale << "\" for case-insensitive comparison of strings";
+        globalLocale_.reset(new std::locale(locale));
+      }
+    }
+    catch (std::runtime_error&)
+    {
+    }
+
+    return (globalLocale_.get() != NULL);
+  }
+  
+  void Toolbox::InitializeGlobalLocale(const char* locale)
+  {
+    // Make Orthanc use English, United States locale
+    // Linux: use "en_US.UTF-8"
+    // Windows: use ""
+    // Wine: use NULL
+    
+#if defined(__MINGW32__)
+    // Visibly, there is no support of locales in MinGW yet
+    // http://mingw.5.n7.nabble.com/How-to-use-std-locale-global-with-MinGW-correct-td33048.html
+    static const char* DEFAULT_LOCALE = NULL;
+#elif defined(_WIN32)
+    // For Windows: use default locale (using "en_US" does not work)
+    static const char* DEFAULT_LOCALE = "";
+#else
+    // For Linux & cie
+    static const char* DEFAULT_LOCALE = "en_US.UTF-8";
+#endif
+
+    bool ok;
+    
+    if (locale == NULL)
+    {
+      ok = SetGlobalLocale(DEFAULT_LOCALE);
+
+#if defined(__MINGW32__)
+      LOG(WARNING) << "This is a MinGW build, case-insensitive comparison of "
+                   << "strings with accents will not work outside of Wine";
+#endif
+    }
+    else
+    {
+      ok = SetGlobalLocale(locale);
+    }
+
+    if (!ok &&
+        !SetGlobalLocale(NULL))
+    {
+      LOG(ERROR) << "Cannot initialize global locale";
+      throw OrthancException(ErrorCode_InternalError);
+    }
+
+  }
+
+
+  void Toolbox::FinalizeGlobalLocale()
+  {
+    globalLocale_.reset();
+  }
+
+  
+  std::string Toolbox::ToUpperCaseWithAccents(const std::string& source)
+  {
+    if (globalLocale_.get() == NULL)
+    {
+      LOG(ERROR) << "No global locale was set, call Toolbox::InitializeGlobalLocale()";
+      throw OrthancException(ErrorCode_BadSequenceOfCalls);
+    }
+
+    /**
+     * A few notes about locales:
+     *
+     * (1) We don't use "case folding":
+     * http://www.boost.org/doc/libs/1_64_0/libs/locale/doc/html/conversions.html
+     *
+     * Characters are made uppercase one by one. This is because, in
+     * static builds, we are using iconv, which is visibly not
+     * supported correctly (TODO: Understand why). Case folding seems
+     * to be working correctly if using the default backend under
+     * Linux (ICU or POSIX?). If one wishes to use case folding, one
+     * would use:
+     *
+     *   boost::locale::generator gen;
+     *   std::locale::global(gen(DEFAULT_LOCALE));
+     *   return boost::locale::to_upper(source);
+     *
+     * (2) The function "boost::algorithm::to_upper_copy" does not
+     * make use of the "std::locale::global()". We therefore create a
+     * global variable "globalLocale_".
+     * 
+     * (3) The variant of "boost::algorithm::to_upper_copy()" that
+     * uses std::string does not work properly. We need to apply it
+     * one wide strings (std::wstring). This explains the two calls to
+     * "utf_to_utf" in order to convert to/from std::wstring.
+     **/
+
+    std::wstring w = boost::locale::conv::utf_to_utf<wchar_t>(source);
+    w = boost::algorithm::to_upper_copy<std::wstring>(w, *globalLocale_);
+    return boost::locale::conv::utf_to_utf<char>(w);
+  }
+#endif
 }
