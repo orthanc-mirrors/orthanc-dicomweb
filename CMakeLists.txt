@@ -46,6 +46,7 @@ set(USE_PUGIXML ON)
 set(ORTHANC_ROOT ${CMAKE_SOURCE_DIR}/Orthanc)
 set(ORTHANC_DISABLE_PATCH ON)  # No need for the "patch" command-line tool
 set(ENABLE_LOCALE ON)          # Enable support for locales (notably in Boost)
+set(USE_BOOST_ICONV ON)
 include(CheckIncludeFiles)
 include(CheckIncludeFileCXX)
 include(CheckLibraryExists)
@@ -117,6 +118,7 @@ include_directories(${ORTHANC_ROOT}/Core)  # To access "OrthancException.h"
 set(CORE_SOURCES
   ${BOOST_SOURCES}
   ${JSONCPP_SOURCES}
+  ${LIBICONV_SOURCES}
   ${ZLIB_SOURCES}
   ${PUGIXML_SOURCES}
 
