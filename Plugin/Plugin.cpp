@@ -87,6 +87,16 @@ void SwitchStudy(OrthancPluginRestOutput* output,
   }
 }
 
+bool RequestHasKey(const OrthancPluginHttpRequest* request, const char* key)
+{
+  for (uint32_t i = 0; i < request->getCount; i++)
+  {
+    if (strcmp(key, request->getKeys[i]) == 0)
+      return true;
+  }
+  return false;
+}
+
 
 void ListServers(OrthancPluginRestOutput* output,
                  const char* url,
@@ -103,17 +113,38 @@ void ListServers(OrthancPluginRestOutput* output,
     std::list<std::string> servers;
     OrthancPlugins::DicomWebServers::GetInstance().ListServers(servers);
 
-    Json::Value json = Json::arrayValue;
-    for (std::list<std::string>::const_iterator it = servers.begin(); it != servers.end(); ++it)
+    if (RequestHasKey(request, "expand"))
     {
-      json.append(*it);
-    }
+      Json::Value result = Json::objectValue;
+      for (std::list<std::string>::const_iterator it = servers.begin(); it != servers.end(); ++it)
+      {
+        Orthanc::WebServiceParameters server = OrthancPlugins::DicomWebServers::GetInstance().GetServer(*it);
+        Json::Value jsonServer;
+        // only return the minimum information to identify the destination, do not include "security" information like passwords
+        jsonServer["Url"] = server.GetUrl();
+        if (!server.GetUsername().empty())
+        {
+          jsonServer["Username"] = server.GetUsername();
+        }
+        result[*it] = jsonServer;
+      }
 
-    std::string answer = json.toStyledString(); 
-    OrthancPluginAnswerBuffer(context, output, answer.c_str(), answer.size(), "application/json");
+      std::string answer = result.toStyledString();
+      OrthancPluginAnswerBuffer(context, output, answer.c_str(), answer.size(), "application/json");
+    }
+    else // if expand is not present, keep backward compatibility and return an array of server names
+    {
+      Json::Value json = Json::arrayValue;
+      for (std::list<std::string>::const_iterator it = servers.begin(); it != servers.end(); ++it)
+      {
+        json.append(*it);
+      }
+
+      std::string answer = json.toStyledString();
+      OrthancPluginAnswerBuffer(context, output, answer.c_str(), answer.size(), "application/json");
+    }
   }
 }
-
 
 void ListServerOperations(OrthancPluginRestOutput* output,
                           const char* /*url*/,
