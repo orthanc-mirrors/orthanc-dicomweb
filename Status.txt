@@ -82,6 +82,14 @@ Supported.
 
 
 
+===========================================
+6.5.8 WADO-RS / RetrieveRenderedTransaction
+===========================================
+
+Not supported yet.
+
+
+
 ===========
 6.6 STOW-RS
 ===========
