@@ -45,8 +45,7 @@ namespace OrthancPlugins
 
     void AddInternal(const std::string& item);
 
-    void AddInternal(const gdcm::File* file,
-                     const gdcm::DataSet& dicom);
+    void AddInternal(const gdcm::DataSet& dicom);
 
   public:
     DicomResults(OrthancPluginContext* context,
@@ -58,13 +57,12 @@ namespace OrthancPlugins
 
     void Add(const gdcm::File& file)
     {
-      AddInternal(&file, file.GetDataSet());
+      AddInternal(file.GetDataSet());
     }
 
-    void Add(const gdcm::File& file,
-             const gdcm::DataSet& subset)
+    void Add(const gdcm::DataSet& subset)
     {
-      AddInternal(&file, subset);
+      AddInternal(subset);
     }
 
     void AddFromOrthanc(const Json::Value& dicom,

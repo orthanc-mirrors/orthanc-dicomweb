@@ -1,8 +1,10 @@
 Pending changes in the mainline
 ===============================
 
+* Added "?expand" argument to "/servers" route
+* Fix generation of numeric tags part of sequences for ".../metadata" routes
 * Support for OpenBSD
-* added ?expand argument to /servers route
+
 
 Version 0.4 (2017-07-19)
 ========================

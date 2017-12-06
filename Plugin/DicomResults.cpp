@@ -79,18 +79,17 @@ namespace OrthancPlugins
   }
 
 
-  void DicomResults::AddInternal(const gdcm::File* file,
-                                 const gdcm::DataSet& dicom)
+  void DicomResults::AddInternal(const gdcm::DataSet& dicom)
   {
     std::string item;
 
     if (isXml_)
     {
-      GenerateSingleDicomAnswer(item, wadoBase_, dictionary_, file, dicom, true, isBulkAccessible_);
+      GenerateSingleDicomAnswer(item, wadoBase_, dictionary_, dicom, true, isBulkAccessible_);
     }
     else
     {
-      GenerateSingleDicomAnswer(item, wadoBase_, dictionary_, file, dicom, false, isBulkAccessible_);
+      GenerateSingleDicomAnswer(item, wadoBase_, dictionary_, dicom, false, isBulkAccessible_);
     }
 
     AddInternal(item);
