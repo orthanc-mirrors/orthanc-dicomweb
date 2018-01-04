@@ -41,11 +41,17 @@ if (BOOST_STATIC)
   ## Parameters for static compilation of Boost 
   ##
   
-  set(BOOST_NAME boost_1_64_0)
-  set(BOOST_BCP_SUFFIX bcpdigest-1.3.0)
-  set(BOOST_MD5 "ecb266cf46adcc7f695ad12685871174")
+  set(BOOST_NAME boost_1_65_1)
+  set(BOOST_BCP_SUFFIX bcpdigest-1.3.1)
+  set(BOOST_MD5 "92c9c603e56bbd7a450a305f08747d90")
   set(BOOST_URL "http://www.orthanc-server.com/downloads/third-party/${BOOST_NAME}_${BOOST_BCP_SUFFIX}.tar.gz")
   set(BOOST_SOURCES_DIR ${CMAKE_BINARY_DIR}/${BOOST_NAME})
+
+  if (IS_DIRECTORY "${BOOST_SOURCES_DIR}")
+    set(FirstRun OFF)
+  else()
+    set(FirstRun ON)
+  endif()
 
   DownloadPackage(${BOOST_MD5} ${BOOST_URL} "${BOOST_SOURCES_DIR}")
 
@@ -78,7 +84,22 @@ if (BOOST_STATIC)
     ${BOOST_SOURCES_DIR}/libs/system/src/error_code.cpp
     )
 
+  if ("${CMAKE_SYSTEM_VERSION}" STREQUAL "LinuxStandardBase")
+    add_definitions(-DBOOST_SYSTEM_USE_STRERROR=1)
+    
+    execute_process(
+      COMMAND ${PATCH_EXECUTABLE} -p0 -N -i
+      ${ORTHANC_ROOT}/Resources/Patches/boost-1.65.1-linux-standard-base.patch
+      WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+      RESULT_VARIABLE Failure
+      )
 
+    if (FirstRun AND Failure)
+      message(FATAL_ERROR "Error while patching a file")
+    endif()
+  endif()
+
+  
   ##
   ## Configuration of boost::thread
   ##
@@ -199,28 +220,8 @@ if (BOOST_STATIC)
       ${BOOST_SOURCES_DIR}/libs/locale/src/util/locale_data.cpp
       )        
 
-    if (CMAKE_SYSTEM_NAME STREQUAL "Linux" OR
-        CMAKE_SYSTEM_NAME STREQUAL "Darwin" OR
-        CMAKE_SYSTEM_NAME STREQUAL "FreeBSD" OR
-        CMAKE_SYSTEM_NAME STREQUAL "kFreeBSD" OR
-        CMAKE_SYSTEM_NAME STREQUAL "PNaCl" OR
-        CMAKE_SYSTEM_NAME STREQUAL "NaCl32" OR
-        CMAKE_SYSTEM_NAME STREQUAL "NaCl64")
-      list(APPEND BOOST_SOURCES
-        ${BOOST_SOURCES_DIR}/libs/locale/src/posix/codecvt.cpp
-        ${BOOST_SOURCES_DIR}/libs/locale/src/posix/collate.cpp
-        ${BOOST_SOURCES_DIR}/libs/locale/src/posix/converter.cpp
-        ${BOOST_SOURCES_DIR}/libs/locale/src/posix/numeric.cpp
-        ${BOOST_SOURCES_DIR}/libs/locale/src/posix/posix_backend.cpp
-        )
-
-      add_definitions(
-        -DBOOST_LOCALE_WITH_ICONV=1
-        -DBOOST_LOCALE_NO_WINAPI_BACKEND=1
-        -DBOOST_LOCALE_NO_STD_BACKEND=1
-        )
-      
-    elseif (CMAKE_SYSTEM_NAME STREQUAL "OpenBSD")
+    if (CMAKE_SYSTEM_NAME STREQUAL "OpenBSD" OR
+        CMAKE_SYSTEM_VERSION STREQUAL "LinuxStandardBase")
       list(APPEND BOOST_SOURCES
         ${BOOST_SOURCES_DIR}/libs/locale/src/std/codecvt.cpp
         ${BOOST_SOURCES_DIR}/libs/locale/src/std/collate.cpp
@@ -233,6 +234,27 @@ if (BOOST_STATIC)
         -DBOOST_LOCALE_WITH_ICONV=1
         -DBOOST_LOCALE_NO_WINAPI_BACKEND=1
         -DBOOST_LOCALE_NO_POSIX_BACKEND=1
+        )
+      
+    elseif (CMAKE_SYSTEM_NAME STREQUAL "Linux" OR
+            CMAKE_SYSTEM_NAME STREQUAL "Darwin" OR
+            CMAKE_SYSTEM_NAME STREQUAL "FreeBSD" OR
+            CMAKE_SYSTEM_NAME STREQUAL "kFreeBSD" OR
+            CMAKE_SYSTEM_NAME STREQUAL "PNaCl" OR
+            CMAKE_SYSTEM_NAME STREQUAL "NaCl32" OR
+            CMAKE_SYSTEM_NAME STREQUAL "NaCl64")
+      list(APPEND BOOST_SOURCES
+        ${BOOST_SOURCES_DIR}/libs/locale/src/posix/codecvt.cpp
+        ${BOOST_SOURCES_DIR}/libs/locale/src/posix/collate.cpp
+        ${BOOST_SOURCES_DIR}/libs/locale/src/posix/converter.cpp
+        ${BOOST_SOURCES_DIR}/libs/locale/src/posix/numeric.cpp
+        ${BOOST_SOURCES_DIR}/libs/locale/src/posix/posix_backend.cpp
+        )
+
+      add_definitions(
+        -DBOOST_LOCALE_WITH_ICONV=1
+        -DBOOST_LOCALE_NO_WINAPI_BACKEND=1
+        -DBOOST_LOCALE_NO_STD_BACKEND=1
         )
       
     elseif (CMAKE_SYSTEM_NAME STREQUAL "Windows")

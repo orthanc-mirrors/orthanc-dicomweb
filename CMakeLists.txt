@@ -34,22 +34,28 @@ set(USE_SYSTEM_GDCM ON CACHE BOOL "Use the system version of Grassroot DICOM (GD
 set(USE_SYSTEM_GOOGLE_TEST ON CACHE BOOL "Use the system version of Google Test")
 set(USE_SYSTEM_JSONCPP ON CACHE BOOL "Use the system version of JsonCpp")
 set(USE_SYSTEM_LIBICONV ON CACHE BOOL "Use the system version of libiconv")
-set(USE_SYSTEM_ZLIB ON CACHE BOOL "Use the system version of zlib")
-set(USE_SYSTEM_PUGIXML ON CACHE BOOL "Use the system version of Pugixml")
 set(USE_SYSTEM_ORTHANC_SDK ON CACHE BOOL "Use the system version of the Orthanc plugin SDK")
+set(USE_SYSTEM_PUGIXML ON CACHE BOOL "Use the system version of Pugixml")
+set(USE_SYSTEM_UUID ON CACHE BOOL "Use the system version of the uuid library from e2fsprogs")
+set(USE_SYSTEM_ZLIB ON CACHE BOOL "Use the system version of zlib")
 
 # Distribution-specific settings
-set(USE_GTEST_DEBIAN_SOURCE_PACKAGE OFF CACHE BOOL "Use the sources of Google Test shipped with libgtest-dev (Debian only)")
-mark_as_advanced(USE_GTEST_DEBIAN_SOURCE_PACKAGE)
+set(USE_GOOGLE_TEST_DEBIAN_PACKAGE OFF CACHE BOOL "Use the sources of Google Test shipped with libgtest-dev (Debian only)")
+mark_as_advanced(USE_GOOGLE_TEST_DEBIAN_PACKAGE)
 
-set(USE_PUGIXML ON)
 set(ORTHANC_ROOT ${CMAKE_SOURCE_DIR}/Orthanc)
-set(ORTHANC_DISABLE_PATCH ON)  # No need for the "patch" command-line tool
 set(ENABLE_LOCALE ON)          # Enable support for locales (notably in Boost)
 set(USE_BOOST_ICONV ON)
+
+if (NOT "${CMAKE_SYSTEM_VERSION}" STREQUAL "LinuxStandardBase")
+  # The "patch" command-line tool is only needed for Boost and LSB
+  set(ORTHANC_DISABLE_PATCH ON)
+endif()
+
 include(CheckFunctionExists)
-include(CheckIncludeFiles)
+include(CheckIncludeFile)
 include(CheckIncludeFileCXX)
+include(CheckIncludeFiles)
 include(CheckLibraryExists)
 include(FindPythonInterp)
 include(${ORTHANC_ROOT}/Resources/CMake/Compiler.cmake)
@@ -61,6 +67,7 @@ include(${ORTHANC_ROOT}/Resources/CMake/JsonCppConfiguration.cmake)
 include(${ORTHANC_ROOT}/Resources/CMake/LibIconvConfiguration.cmake)
 include(${ORTHANC_ROOT}/Resources/CMake/ZlibConfiguration.cmake)
 include(${ORTHANC_ROOT}/Resources/CMake/PugixmlConfiguration.cmake)
+include(${ORTHANC_ROOT}/Resources/CMake/UuidConfiguration.cmake)
 
 include(${CMAKE_SOURCE_DIR}/Resources/CMake/GdcmConfiguration.cmake)
 
@@ -106,12 +113,14 @@ endif()
 
 
 add_definitions(
-  -DORTHANC_ENABLE_LOCALE=1
-  -DORTHANC_ENABLE_MD5=0
-  -DORTHANC_ENABLE_BASE64=0
-  -DORTHANC_ENABLE_LOGGING=0
-  -DORTHANC_SANDBOXED=0
   -DHAS_ORTHANC_EXCEPTION=1
+  -DORTHANC_DEFAULT_DICOM_ENCODING=Encoding_Latin1
+  -DORTHANC_ENABLE_BASE64=0
+  -DORTHANC_ENABLE_LOCALE=1
+  -DORTHANC_ENABLE_LOGGING=0
+  -DORTHANC_ENABLE_MD5=0
+  -DORTHANC_ENABLE_PUGIXML=1
+  -DORTHANC_SANDBOXED=0
   )
 
 include_directories(${ORTHANC_ROOT}/Core)  # To access "OrthancException.h"
@@ -120,8 +129,9 @@ set(CORE_SOURCES
   ${BOOST_SOURCES}
   ${JSONCPP_SOURCES}
   ${LIBICONV_SOURCES}
-  ${ZLIB_SOURCES}
   ${PUGIXML_SOURCES}
+  ${UUID_SOURCES}
+  ${ZLIB_SOURCES}
 
   ${ORTHANC_ROOT}/Core/ChunkedBuffer.cpp
   ${ORTHANC_ROOT}/Core/Enumerations.cpp
@@ -166,7 +176,7 @@ install(
 
 add_executable(UnitTests
   ${CORE_SOURCES}
-  ${GTEST_SOURCES}
+  ${GOOGLE_TEST_SOURCES}
   ${CMAKE_SOURCE_DIR}/Plugin/DicomWebServers.cpp
   UnitTestsSources/UnitTestsMain.cpp
   )

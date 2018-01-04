@@ -2,7 +2,7 @@
  * Orthanc - A Lightweight, RESTful DICOM Store
  * Copyright (C) 2012-2016 Sebastien Jodogne, Medical Physics
  * Department, University Hospital of Liege, Belgium
- * Copyright (C) 2017 Osimis, Belgium
+ * Copyright (C) 2017-2018 Osimis S.A., Belgium
  *
  * This program is free software: you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -38,6 +38,7 @@
 #include "Toolbox.h"
 #include "Logging.h"
 
+#include <boost/thread/mutex.hpp>
 #include <string.h>
 #include <cassert>
 
@@ -752,7 +753,123 @@ namespace Orthanc
       case PixelFormat_Float32:
         return "Grayscale (float 32bpp)";
 
+      case PixelFormat_Grayscale32:
+        return "Grayscale (unsigned 32bpp)";
+
+      case PixelFormat_RGB48:
+        return "RGB48";
+
       default:
+        throw OrthancException(ErrorCode_ParameterOutOfRange);
+    }
+  }
+
+
+  const char* EnumerationToString(ModalityManufacturer manufacturer)
+  {
+    switch (manufacturer)
+    {
+      case ModalityManufacturer_Generic:
+        return "Generic";
+
+      case ModalityManufacturer_GenericNoWildcardInDates:
+        return "GenericNoWildcardInDates";
+
+      case ModalityManufacturer_GenericNoUniversalWildcard:
+        return "GenericNoUniversalWildcard";
+
+      case ModalityManufacturer_StoreScp:
+        return "StoreScp";
+      
+      case ModalityManufacturer_ClearCanvas:
+        return "ClearCanvas";
+      
+      case ModalityManufacturer_Dcm4Chee:
+        return "Dcm4Chee";
+      
+      case ModalityManufacturer_Vitrea:
+        return "Vitrea";
+      
+      default:
+        throw OrthancException(ErrorCode_ParameterOutOfRange);
+    }
+  }
+
+
+  const char* EnumerationToString(DicomRequestType type)
+  {
+    switch (type)
+    {
+      case DicomRequestType_Echo:
+        return "Echo";
+        break;
+
+      case DicomRequestType_Find:
+        return "Find";
+        break;
+
+      case DicomRequestType_Get:
+        return "Get";
+        break;
+
+      case DicomRequestType_Move:
+        return "Move";
+        break;
+
+      case DicomRequestType_Store:
+        return "Store";
+        break;
+
+      default: 
+        throw OrthancException(ErrorCode_ParameterOutOfRange);
+    }
+  }
+
+
+  const char* EnumerationToString(TransferSyntax syntax)
+  {
+    switch (syntax)
+    {
+      case TransferSyntax_Deflated:
+        return "Deflated";
+
+      case TransferSyntax_Jpeg:
+        return "JPEG";
+
+      case TransferSyntax_Jpeg2000:
+        return "JPEG2000";
+
+      case TransferSyntax_JpegLossless:
+        return "JPEG Lossless";
+
+      case TransferSyntax_Jpip:
+        return "JPIP";
+
+      case TransferSyntax_Mpeg2:
+        return "MPEG2";
+
+      case TransferSyntax_Rle:
+        return "RLE";
+
+      default: 
+        throw OrthancException(ErrorCode_ParameterOutOfRange);
+    }
+  }
+
+
+  const char* EnumerationToString(DicomVersion version)
+  {
+    switch (version)
+    {
+      case DicomVersion_2008:
+        return "2008";
+        break;
+
+      case DicomVersion_2017c:
+        return "2017c";
+        break;
+
+      default: 
         throw OrthancException(ErrorCode_ParameterOutOfRange);
     }
   }
@@ -1127,6 +1244,86 @@ namespace Orthanc
   }
   
 
+  ModalityManufacturer StringToModalityManufacturer(const std::string& manufacturer)
+  {
+    ModalityManufacturer result;
+    bool obsolete = false;
+    
+    if (manufacturer == "Generic")
+    {
+      return ModalityManufacturer_Generic;
+    }
+    else if (manufacturer == "GenericNoWildcardInDates")
+    {
+      return ModalityManufacturer_GenericNoWildcardInDates;
+    }
+    else if (manufacturer == "GenericNoUniversalWildcard")
+    {
+      return ModalityManufacturer_GenericNoUniversalWildcard;
+    }
+    else if (manufacturer == "ClearCanvas")
+    {
+      return ModalityManufacturer_ClearCanvas;
+    }
+    else if (manufacturer == "StoreScp")
+    {
+      return ModalityManufacturer_StoreScp;
+    }
+    else if (manufacturer == "Dcm4Chee")
+    {
+      return ModalityManufacturer_Dcm4Chee;
+    }
+    else if (manufacturer == "Vitrea")
+    {
+      return ModalityManufacturer_Vitrea;
+    }
+    else if (manufacturer == "AgfaImpax" ||
+             manufacturer == "SyngoVia")
+    {
+      result = ModalityManufacturer_GenericNoWildcardInDates;
+      obsolete = true;
+    }
+    else if (manufacturer == "EFilm2" ||
+             manufacturer == "MedInria")
+    {
+      result = ModalityManufacturer_Generic;
+      obsolete = true;
+    }
+    else
+    {
+      throw OrthancException(ErrorCode_ParameterOutOfRange);
+    }
+
+    if (obsolete)
+    {
+      LOG(WARNING) << "The \"" << manufacturer << "\" manufacturer is obsolete since "
+                   << "Orthanc 1.3.0. To guarantee compatibility with future Orthanc "
+                   << "releases, you should replace it by \""
+                   << EnumerationToString(result)
+                   << "\" in your configuration file.";
+    }
+
+    return result;
+  }
+
+
+  DicomVersion StringToDicomVersion(const std::string& version)
+  {
+    if (version == "2008")
+    {
+      return DicomVersion_2008;
+    }
+    else if (version == "2017c")
+    {
+      return DicomVersion_2017c;
+    }
+    else
+    {
+      throw OrthancException(ErrorCode_ParameterOutOfRange);
+    }
+  }
+
+
   unsigned int GetBytesPerPixel(PixelFormat format)
   {
     switch (format)
@@ -1143,11 +1340,15 @@ namespace Orthanc
 
       case PixelFormat_RGBA32:
       case PixelFormat_BGRA32:
+      case PixelFormat_Grayscale32:
         return 4;
 
       case PixelFormat_Float32:
         assert(sizeof(float) == 4);
         return 4;
+
+      case PixelFormat_RGB48:
+        return 6;
 
       default:
         throw OrthancException(ErrorCode_ParameterOutOfRange);
@@ -1225,8 +1426,15 @@ namespace Orthanc
     {
       encoding = Encoding_Japanese;
     }
-    else if (s == "GB18030")
+    else if (s == "GB18030" || s == "GBK")
     {
+      /**
+       * According to tumashu@163.com, "In China, many dicom file's
+       * 0008,0005 tag is set as "GBK", instead of "GB18030", GBK is a
+       * subset of GB18030, and which is used frequently in China,
+       * suggest support it."
+       * https://groups.google.com/d/msg/orthanc-users/WMM8LMbjpUc/02-1f_yFCgAJ
+       **/
       encoding = Encoding_Chinese;
     }
     /*
@@ -1475,5 +1683,28 @@ namespace Orthanc
       default:
         throw OrthancException(ErrorCode_ParameterOutOfRange);
     }
+  }  
+
+
+  static boost::mutex  defaultEncodingMutex_;  // Should not be necessary
+  static Encoding      defaultEncoding_ = ORTHANC_DEFAULT_DICOM_ENCODING;
+  
+  Encoding GetDefaultDicomEncoding()
+  {
+    boost::mutex::scoped_lock lock(defaultEncodingMutex_);
+    return defaultEncoding_;
   }
+
+  void SetDefaultDicomEncoding(Encoding encoding)
+  {
+    std::string name = EnumerationToString(encoding);
+    
+    {
+      boost::mutex::scoped_lock lock(defaultEncodingMutex_);
+      defaultEncoding_ = encoding;
+    }
+
+    LOG(INFO) << "Default encoding for DICOM was changed to: " << name;
+  }
+
 }

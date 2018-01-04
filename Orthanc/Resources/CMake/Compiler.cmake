@@ -1,6 +1,7 @@
 # This file sets all the compiler-related flags
 
-if (CMAKE_CROSSCOMPILING)
+if (CMAKE_CROSSCOMPILING OR
+    "${CMAKE_SYSTEM_VERSION}" STREQUAL "LinuxStandardBase")
   # Cross-compilation necessarily implies standalone and static build
   SET(STATIC_BUILD ON)
   SET(STANDALONE_BUILD ON)
@@ -87,7 +88,7 @@ if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux" OR
   # Remove the "-rdynamic" option
   # http://www.mail-archive.com/cmake@cmake.org/msg08837.html
   set(CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "")
-  link_libraries(uuid pthread)
+  link_libraries(pthread)
 
   if (NOT ${CMAKE_SYSTEM_NAME} STREQUAL "OpenBSD")
     link_libraries(rt)
@@ -115,11 +116,6 @@ if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux" OR
       -D_LARGEFILE64_SOURCE=1 
       -D_FILE_OFFSET_BITS=64
       )
-  endif()
-
-  CHECK_INCLUDE_FILES(uuid/uuid.h HAVE_UUID_H)
-  if (NOT HAVE_UUID_H)
-    message(FATAL_ERROR "Please install the uuid-dev package (or e2fsprogs if OpenBSD)")
   endif()
 
 elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
@@ -174,20 +170,11 @@ elseif (${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
     )
   link_libraries(iconv)
 
-  CHECK_INCLUDE_FILES(uuid/uuid.h HAVE_UUID_H)
-  if (NOT HAVE_UUID_H)
-    message(FATAL_ERROR "Please install the uuid-dev package")
-  endif()
+elseif (CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+  message("Building using Emscripten (for WebAssembly or asm.js targets)")
 
 else()
   message(FATAL_ERROR "Support your platform here")
-endif()
-
-
-if ("${CMAKE_SYSTEM_VERSION}" STREQUAL "LinuxStandardBase")
-  SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} --lsb-target-version=${LSB_TARGET_VERSION} -I${LSB_PATH}/include")
-  SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --lsb-target-version=${LSB_TARGET_VERSION} -nostdinc++ -I${LSB_PATH}/include -I${LSB_PATH}/include/c++ -I${LSB_PATH}/include/c++/backward -fpermissive")
-  SET(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} --lsb-target-version=${LSB_TARGET_VERSION} -L${LSB_LIBPATH}")
 endif()
 
 
@@ -205,6 +192,21 @@ if (DEFINED ENABLE_PROFILING AND ENABLE_PROFILING)
   else()
     message(FATAL_ERROR "Don't know how to enable profiling on your configuration")
   endif()
+endif()
+
+
+if (CMAKE_COMPILER_IS_GNUCXX)
+  # "When creating a static library using binutils (ar) and there
+  # exist a duplicate object name (e.g. a/Foo.cpp.o, b/Foo.cpp.o), the
+  # resulting static library can end up having only one of the
+  # duplicate objects. [...] This bug only happens if there are many
+  # objects." The trick consists in replacing the "r" argument
+  # ("replace") provided to "ar" (as used in CMake < 3.1) by the "q"
+  # argument ("quick append"). This is because of the fact that CMake
+  # will invoke "ar" several times with several batches of ".o"
+  # objects, and using "r" would overwrite symbols defined in
+  # preceding batches. https://cmake.org/Bug/view.php?id=14874
+  set(CMAKE_CXX_ARCHIVE_APPEND "<CMAKE_AR> <LINK_FLAGS> q <TARGET> <OBJECTS>")
 endif()
 
 

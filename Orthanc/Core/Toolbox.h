@@ -2,7 +2,7 @@
  * Orthanc - A Lightweight, RESTful DICOM Store
  * Copyright (C) 2012-2016 Sebastien Jodogne, Medical Physics
  * Department, University Hospital of Liege, Belgium
- * Copyright (C) 2017 Osimis, Belgium
+ * Copyright (C) 2017-2018 Osimis S.A., Belgium
  *
  * This program is free software: you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -151,6 +151,8 @@ namespace Orthanc
 
     bool IsAsciiString(const void* data,
                        size_t size);
+
+    bool IsAsciiString(const std::string& s);
 
     std::string ConvertToAscii(const std::string& source);
 
