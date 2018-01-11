@@ -701,7 +701,7 @@ namespace OrthancPlugins
     std::string answer;
     GenerateSingleDicomAnswer(answer, wadoBase, dictionary, dicom, isXml, isBulkAccessible);
     OrthancPluginAnswerBuffer(context, output, answer.c_str(), answer.size(), 
-                              isXml ? "application/dicom+xml" : "application/json");
+                              isXml ? "application/dicom+xml" : "application/dicom+json");
   }
 
 

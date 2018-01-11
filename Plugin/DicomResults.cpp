@@ -419,7 +419,7 @@ namespace OrthancPlugins
 
       std::string answer;
       jsonWriter_.Flatten(answer);
-      OrthancPluginAnswerBuffer(context_, output_, answer.c_str(), answer.size(), "application/json");
+      OrthancPluginAnswerBuffer(context_, output_, answer.c_str(), answer.size(), "application/dicom+json");
     }
   }
 }

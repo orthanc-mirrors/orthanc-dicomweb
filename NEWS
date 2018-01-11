@@ -1,6 +1,8 @@
 Pending changes in the mainline
 ===============================
 
+* Defaults to JSON answers instead of XML
+* Use of "application/dicom+json" MIME type instead of "application/json"
 * Added "?expand" argument to "/servers" route
 * Fix generation of numeric tags part of sequences for ".../metadata" routes
 * Support for OpenBSD

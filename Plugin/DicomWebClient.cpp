@@ -285,7 +285,7 @@ void StowClient(OrthancPluginRestOutput* output,
 
   std::map<std::string, std::string> queryArguments;
   std::map<std::string, std::string> httpHeaders;
-  httpHeaders["Accept"] = "application/json";
+  httpHeaders["Accept"] = "application/dicom+json";
   httpHeaders["Expect"] = "";
   httpHeaders["Content-Type"] = mime;
 

@@ -61,24 +61,28 @@ bool IsXmlExpected(const OrthancPluginHttpRequest* request)
 
   if (!OrthancPlugins::LookupHttpHeader(accept, request, "accept"))
   {
-    return true;   // By default, return XML Native DICOM Model
+    return false;   // By default, return DICOM+JSON
   }
 
   Orthanc::Toolbox::ToLowerCase(accept);
-  if (accept == "application/json")
+  if (accept == "application/dicom+json" ||
+      accept == "application/json" ||
+      accept == "*/*")
   {
     return false;
   }
-
-  if (accept != "application/dicom+xml" &&
-      accept != "application/xml" &&
-      accept != "text/xml" &&
-      accept != "*/*")
+  else if (accept == "application/dicom+xml" ||
+           accept == "application/xml" ||
+           accept == "text/xml")
   {
-    OrthancPlugins::Configuration::LogError("Unsupported return MIME type: " + accept + ", will return XML");
+    return true;
   }
-
-  return true;
+  else
+  {
+    OrthancPlugins::Configuration::LogError("Unsupported return MIME type: " + accept +
+                                            ", will return DICOM+JSON");
+    return false;
+  }
 }
 
 

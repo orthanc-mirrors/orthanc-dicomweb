@@ -75,13 +75,11 @@ static bool AcceptMultipartDicom(const OrthancPluginHttpRequest* request)
 static bool AcceptMetadata(const OrthancPluginHttpRequest* request,
                            bool& isXml)
 {
-  isXml = true;
+  isXml = false;    // By default, return application/dicom+json
 
   std::string accept;
-
   if (!OrthancPlugins::LookupHttpHeader(accept, request, "accept"))
   {
-    // By default, return "multipart/related; type=application/dicom+xml;"
     return true;
   }
 
@@ -89,14 +87,14 @@ static bool AcceptMetadata(const OrthancPluginHttpRequest* request,
   std::map<std::string, std::string> attributes;
   OrthancPlugins::ParseContentType(application, attributes, accept);
 
-  if (application == "application/json")
+  if (application == "application/json" ||
+      application == "application/dicom+json" ||
+      application == "*/*")
   {
-    isXml = false;
     return true;
   }
 
-  if (application != "multipart/related" &&
-      application != "*/*")
+  if (application != "multipart/related")
   {
     OrthancPlugins::Configuration::LogError("This WADO-RS plugin cannot generate the following content type: " + accept);
     return false;
@@ -106,12 +104,21 @@ static bool AcceptMetadata(const OrthancPluginHttpRequest* request,
   {
     std::string s = attributes["type"];
     Orthanc::Toolbox::ToLowerCase(s);
-    if (s != "application/dicom+xml")
+    if (s == "application/dicom+xml")
     {
-      OrthancPlugins::Configuration::LogError("This WADO-RS plugin only supports application/json or "
-                                              "application/dicom+xml return types for metadata (" + accept + ")");
+      isXml = true;
+    }
+    else
+    {
+      OrthancPlugins::Configuration::LogError("This WADO-RS plugin only supports application/dicom+xml "
+                                              "type for multipart/related accept (" + accept + ")");
       return false;
     }
+  }
+  else
+  {
+    OrthancPlugins::Configuration::LogError("Missing \"type\" in multipart/related accept type (" + accept + ")");
+    return false;
   }
 
   if (attributes.find("transfer-syntax") != attributes.end())
