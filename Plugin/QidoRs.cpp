@@ -270,7 +270,7 @@ namespace
       }
 
       result["Expand"] = false;
-      result["CaseSensitive"] = true;
+      result["CaseSensitive"] = OrthancPlugins::Configuration::GetBooleanValue("QidoCaseSensitive", true);
       result["Query"] = Json::objectValue;
       result["Limit"] = limit_;
       result["Since"] = offset_;
