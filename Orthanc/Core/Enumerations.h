@@ -35,6 +35,16 @@
 
 #include <string>
 
+
+#if defined(_MSC_VER)
+#  define ORTHANC_FORCE_INLINE __forceinline
+#elif defined(__GNUC__) || defined(__clang__) || defined(__EMSCRIPTEN__)
+#  define ORTHANC_FORCE_INLINE inline __attribute((always_inline))
+#else
+#  error Please support your compiler here
+#endif
+
+
 namespace Orthanc
 {
   enum Endianness
@@ -85,6 +95,7 @@ namespace Orthanc
     ErrorCode_EmptyRequest = 33    /*!< The request is empty */,
     ErrorCode_NotAcceptable = 34    /*!< Cannot send a response which is acceptable according to the Accept HTTP header */,
     ErrorCode_NullPointer = 35    /*!< Cannot handle a NULL pointer */,
+    ErrorCode_DatabaseUnavailable = 36    /*!< The database is currently not available (probably a transient situation) */,
     ErrorCode_SQLiteNotOpened = 1000    /*!< SQLite: The database is not opened */,
     ErrorCode_SQLiteAlreadyOpened = 1001    /*!< SQLite: Connection is already open */,
     ErrorCode_SQLiteCannotOpen = 1002    /*!< SQLite: Unable to open the database */,

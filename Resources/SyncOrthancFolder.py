@@ -16,6 +16,7 @@ PLUGIN_SDK_VERSION = '1.1.0'
 REPOSITORY = 'https://bitbucket.org/sjodogne/orthanc/raw'
 
 FILES = [
+    'NEWS',
     'Core/ChunkedBuffer.cpp',
     'Core/ChunkedBuffer.h',
     'Core/Enumerations.cpp',
