@@ -174,16 +174,18 @@ elseif (${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
 elseif (CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
   message("Building using Emscripten (for WebAssembly or asm.js targets)")
 
+  # The BINARYEN_TRAP_MODE specifies what to do when divisions per
+  # zero (and similar conditions like integer overflows) are
+  # encountered: The "clamp" mode avoids throwing errors, as they
+  # cannot be properly catched by "try {} catch (...)" constructions.
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -s EXTRA_EXPORTED_RUNTIME_METHODS='[\"ccall\", \"cwrap\"]' -s BINARYEN_TRAP_MODE='\"clamp\"'")
+
 else()
   message(FATAL_ERROR "Support your platform here")
 endif()
 
 
 if (DEFINED ENABLE_PROFILING AND ENABLE_PROFILING)
-  if (NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
-    message(WARNING "Enabling profiling on a non-debug build will not produce full information")
-  endif()
-
   if (CMAKE_COMPILER_IS_GNUCXX)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pg")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pg")

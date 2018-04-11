@@ -47,9 +47,19 @@
 #  endif
 #endif
 
+#if !defined(ORTHANC_ENABLE_LOGGING_STDIO)
+#  if ORTHANC_ENABLE_LOGGING == 1
+#    error The macro ORTHANC_ENABLE_LOGGING_STDIO must be defined
+#  else
+#    define ORTHANC_ENABLE_LOGGING_STDIO 0
+#  endif
+#endif
+
 #if ORTHANC_ENABLE_LOGGING_PLUGIN == 1
 #  include <orthanc/OrthancCPlugin.h>
 #endif
+
+#include <boost/lexical_cast.hpp>
 
 namespace Orthanc
 {
@@ -83,13 +93,8 @@ namespace Orthanc
       {
       }
       
-      std::ostream& operator<< (const std::string& message)
-      {
-        return *this;
-      }
-
-      // This overload fixes build problems with Visual Studio 2015
-      std::ostream& operator<< (const char* message)
+      template <typename T>
+      std::ostream& operator<< (const T& message)
       {
         return *this;
       }
@@ -104,40 +109,56 @@ namespace Orthanc
 #  define VLOG(level)  ::Orthanc::Logging::NullStream()
 
 
-#elif ORTHANC_ENABLE_LOGGING_PLUGIN == 1
+#elif (ORTHANC_ENABLE_LOGGING_PLUGIN == 1 ||    \
+       ORTHANC_ENABLE_LOGGING_STDIO == 1)
 
 #  include <boost/noncopyable.hpp>
-#  define LOG(level)  ::Orthanc::Logging::InternalLogger(#level,  __FILE__, __LINE__)
-#  define VLOG(level) ::Orthanc::Logging::InternalLogger("TRACE", __FILE__, __LINE__)
+#  define LOG(level)  ::Orthanc::Logging::InternalLogger \
+  (::Orthanc::Logging::InternalLevel_ ## level, __FILE__, __LINE__)
+#  define VLOG(level) ::Orthanc::Logging::InternalLogger \
+  (::Orthanc::Logging::InternalLevel_TRACE, __FILE__, __LINE__)
 
 namespace Orthanc
 {
   namespace Logging
   {
+    enum InternalLevel
+    {
+      InternalLevel_ERROR,
+      InternalLevel_WARNING,
+      InternalLevel_INFO,
+      InternalLevel_TRACE
+    };
+    
     class InternalLogger : public boost::noncopyable
     {
     private:
-      std::string level_;
-      std::string message_;
+      InternalLevel  level_;
+      std::string    message_;
 
     public:
-      InternalLogger(const char* level,
+      InternalLogger(InternalLevel level,
                      const char* file,
                      int line);
 
       ~InternalLogger();
       
-      InternalLogger& operator<< (const std::string& message);
-
-      InternalLogger& operator<< (const char* message);
-
-      InternalLogger& operator<< (int message);
+      template <typename T>
+      InternalLogger& operator<< (const T& message)
+      {
+        message_ += boost::lexical_cast<std::string>(message);
+        return *this;
+      }
     };
   }
 }
 
 
-#else  /* ORTHANC_ENABLE_LOGGING_PLUGIN == 0 && ORTHANC_ENABLE_LOGGING == 1 */
+
+
+#else  /* ORTHANC_ENABLE_LOGGING_PLUGIN == 0 && 
+          ORTHANC_ENABLE_LOGGING_STDIO == 0 && 
+          ORTHANC_ENABLE_LOGGING == 1 */
 
 #  include <boost/thread/mutex.hpp>
 #  define LOG(level)  ::Orthanc::Logging::InternalLogger(#level,  __FILE__, __LINE__)
@@ -161,15 +182,10 @@ namespace Orthanc
 
       ~InternalLogger();
       
-      std::ostream& operator<< (const std::string& message)
+      template <typename T>
+      std::ostream& operator<< (const T& message)
       {
-        return (*stream_) << message;
-      }
-
-      // This overload fixes build problems with Visual Studio 2015
-      std::ostream& operator<< (const char* message)
-      {
-        return (*stream_) << message;
+        return (*stream_) << boost::lexical_cast<std::string>(message);
       }
     };
   }

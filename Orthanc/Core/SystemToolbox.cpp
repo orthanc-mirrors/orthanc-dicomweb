@@ -62,19 +62,6 @@
 #endif
 
 
-// Inclusions for UUID
-// http://stackoverflow.com/a/1626302
-
-extern "C"
-{
-#if defined(_WIN32)
-#  include <rpc.h>
-#else
-#  include <uuid/uuid.h>
-#endif
-}
-
-
 #include "Logging.h"
 #include "OrthancException.h"
 #include "Toolbox.h"
@@ -182,7 +169,7 @@ namespace Orthanc
   {
     if (!IsRegularFile(path))
     {
-      LOG(ERROR) << std::string("The path does not point to a regular file: ") << path;
+      LOG(ERROR) << "The path does not point to a regular file: " << path;
       throw OrthancException(ErrorCode_RegularFileExpected);
     }
 
@@ -210,7 +197,7 @@ namespace Orthanc
   {
     if (!IsRegularFile(path))
     {
-      LOG(ERROR) << std::string("The path does not point to a regular file: ") << path;
+      LOG(ERROR) << "The path does not point to a regular file: " << path;
       throw OrthancException(ErrorCode_RegularFileExpected);
     }
 
@@ -539,39 +526,30 @@ namespace Orthanc
   }
 
 
-  std::string SystemToolbox::GenerateUuid()
+  static boost::posix_time::ptime GetNow(bool utc)
   {
-#ifdef WIN32
-    UUID uuid;
-    UuidCreate ( &uuid );
-
-    unsigned char * str;
-    UuidToStringA ( &uuid, &str );
-
-    std::string s( ( char* ) str );
-
-    RpcStringFreeA ( &str );
-#else
-    uuid_t uuid;
-    uuid_generate_random ( uuid );
-    char s[37];
-    uuid_unparse ( uuid, s );
-#endif
-    return s;
+    if (utc)
+    {
+      return boost::posix_time::second_clock::universal_time();
+    }
+    else
+    {
+      return boost::posix_time::second_clock::local_time();
+    }
   }
 
 
-  std::string SystemToolbox::GetNowIsoString()
+  std::string SystemToolbox::GetNowIsoString(bool utc)
   {
-    boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
-    return boost::posix_time::to_iso_string(now);
+    return boost::posix_time::to_iso_string(GetNow(utc));
   }
 
   
   void SystemToolbox::GetNowDicom(std::string& date,
-                                  std::string& time)
+                                  std::string& time,
+                                  bool utc)
   {
-    boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
+    boost::posix_time::ptime now = GetNow(utc);
     tm tm = boost::posix_time::to_tm(now);
 
     char s[32];

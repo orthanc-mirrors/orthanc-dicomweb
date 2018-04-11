@@ -93,11 +93,10 @@ namespace Orthanc
     FILE* OpenFile(const std::string& path,
                    FileMode mode);
 
-    std::string GenerateUuid();
-
-    std::string GetNowIsoString();
+    std::string GetNowIsoString(bool utc);
 
     void GetNowDicom(std::string& date,
-                     std::string& time);
+                     std::string& time,
+                     bool utc);
   }
 }

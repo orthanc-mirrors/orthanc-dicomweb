@@ -11,10 +11,22 @@ else()
     list(APPEND ORTHANC_BOOST_COMPONENTS locale)
   endif()
 
-  find_package(Boost
-    COMPONENTS filesystem thread system date_time regex ${ORTHANC_BOOST_COMPONENTS})
+  list(APPEND ORTHANC_BOOST_COMPONENTS filesystem thread system date_time regex)
+  find_package(Boost COMPONENTS "${ORTHANC_BOOST_COMPONENTS}")
 
   if (NOT Boost_FOUND)
+    foreach (item ${ORTHANC_BOOST_COMPONENTS})
+      string(TOUPPER ${item} tmp)
+
+      if (Boost_${tmp}_FOUND)
+        set(tmp2 "found")
+      else()
+        set(tmp2 "missing")
+      endif()
+      
+      message("Boost component ${item} - ${tmp2}")
+    endforeach()
+    
     message(FATAL_ERROR "Unable to locate Boost on this system")
   endif()
 
@@ -41,9 +53,9 @@ if (BOOST_STATIC)
   ## Parameters for static compilation of Boost 
   ##
   
-  set(BOOST_NAME boost_1_65_1)
-  set(BOOST_BCP_SUFFIX bcpdigest-1.3.1)
-  set(BOOST_MD5 "92c9c603e56bbd7a450a305f08747d90")
+  set(BOOST_NAME boost_1_66_0)
+  set(BOOST_BCP_SUFFIX bcpdigest-1.3.2)
+  set(BOOST_MD5 "4e15b0fd883528be159be9661b6ba20a")
   set(BOOST_URL "http://www.orthanc-server.com/downloads/third-party/${BOOST_NAME}_${BOOST_BCP_SUFFIX}.tar.gz")
   set(BOOST_SOURCES_DIR ${CMAKE_BINARY_DIR}/${BOOST_NAME})
 
@@ -85,11 +97,13 @@ if (BOOST_STATIC)
     )
 
   if ("${CMAKE_SYSTEM_VERSION}" STREQUAL "LinuxStandardBase")
-    add_definitions(-DBOOST_SYSTEM_USE_STRERROR=1)
+    add_definitions(
+      -DBOOST_SYSTEM_USE_STRERROR=1
+      )
     
     execute_process(
       COMMAND ${PATCH_EXECUTABLE} -p0 -N -i
-      ${ORTHANC_ROOT}/Resources/Patches/boost-1.65.1-linux-standard-base.patch
+      ${ORTHANC_ROOT}/Resources/Patches/boost-1.66.0-linux-standard-base.patch
       WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
       RESULT_VARIABLE Failure
       )
@@ -133,6 +147,7 @@ if (BOOST_STATIC)
       )
 
   elseif (CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+    # No support for threads in WebAssembly
 
   else()
     message(FATAL_ERROR "Support your platform here")
@@ -242,7 +257,8 @@ if (BOOST_STATIC)
             CMAKE_SYSTEM_NAME STREQUAL "kFreeBSD" OR
             CMAKE_SYSTEM_NAME STREQUAL "PNaCl" OR
             CMAKE_SYSTEM_NAME STREQUAL "NaCl32" OR
-            CMAKE_SYSTEM_NAME STREQUAL "NaCl64")
+            CMAKE_SYSTEM_NAME STREQUAL "NaCl64" OR
+            CMAKE_SYSTEM_NAME STREQUAL "Emscripten") # For WebAssembly or asm.js
       list(APPEND BOOST_SOURCES
         ${BOOST_SOURCES_DIR}/libs/locale/src/posix/codecvt.cpp
         ${BOOST_SOURCES_DIR}/libs/locale/src/posix/collate.cpp
