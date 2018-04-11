@@ -48,7 +48,7 @@ FILES = [
     'Resources/MinGW-W64-Toolchain64.cmake',
     'Resources/MinGWToolchain.cmake',
     'Resources/LinuxStandardBaseToolchain.cmake',
-    'Resources/Patches/boost-1.65.1-linux-standard-base.patch',
+    'Resources/Patches/boost-1.66.0-linux-standard-base.patch',
     'Resources/ThirdParty/VisualStudio/stdint.h',
     'Resources/WindowsResources.py',
     'Resources/WindowsResources.rc',
