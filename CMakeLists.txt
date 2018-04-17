@@ -105,6 +105,10 @@ endif()
 
 include_directories(${ORTHANC_ROOT}/Core)  # To access "OrthancException.h"
 
+add_definitions(
+  -DHAS_ORTHANC_EXCEPTION=1
+  )
+
 set(CORE_SOURCES
   Plugin/Configuration.cpp
   Plugin/Dicom.cpp
