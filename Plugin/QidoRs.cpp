@@ -26,7 +26,8 @@
 #include "Dicom.h"
 #include "DicomResults.h"
 #include "Configuration.h"
-#include "../Orthanc/Core/Toolbox.h"
+
+#include <Core/Toolbox.h>
 
 #include <gdcmTag.h>
 #include <list>

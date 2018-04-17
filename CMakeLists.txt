@@ -23,57 +23,46 @@ project(OrthancDicomWeb)
 
 set(ORTHANC_DICOM_WEB_VERSION "mainline")
 
+if (ORTHANC_DICOM_WEB_VERSION STREQUAL "mainline")
+  set(ORTHANC_FRAMEWORK_VERSION "mainline")
+  set(ORTHANC_FRAMEWORK_DEFAULT_SOURCE "hg")
+else()
+  set(ORTHANC_FRAMEWORK_VERSION "1.3.1")
+  set(ORTHANC_FRAMEWORK_DEFAULT_SOURCE "web")
+endif()
+
 
 # Parameters of the build
 set(STATIC_BUILD OFF CACHE BOOL "Static build of the third-party libraries (necessary for Windows)")
 set(ALLOW_DOWNLOADS OFF CACHE BOOL "Allow CMake to download packages")
+set(ORTHANC_FRAMEWORK_SOURCE "${ORTHANC_FRAMEWORK_DEFAULT_SOURCE}" CACHE STRING "Source of the Orthanc source code (can be \"hg\", \"archive\", \"web\" or \"path\")")
+set(ORTHANC_FRAMEWORK_ARCHIVE "" CACHE STRING "Path to the Orthanc archive, if ORTHANC_FRAMEWORK_SOURCE is \"archive\"")
+set(ORTHANC_FRAMEWORK_ROOT "" CACHE STRING "Path to the Orthanc source directory, if ORTHANC_FRAMEWORK_SOURCE is \"path\"")
 
 # Advanced parameters to fine-tune linking against system libraries
-set(USE_SYSTEM_BOOST ON CACHE BOOL "Use the system version of Boost")
 set(USE_SYSTEM_GDCM ON CACHE BOOL "Use the system version of Grassroot DICOM (GDCM)")
-set(USE_SYSTEM_GOOGLE_TEST ON CACHE BOOL "Use the system version of Google Test")
-set(USE_SYSTEM_JSONCPP ON CACHE BOOL "Use the system version of JsonCpp")
-set(USE_SYSTEM_LIBICONV ON CACHE BOOL "Use the system version of libiconv")
 set(USE_SYSTEM_ORTHANC_SDK ON CACHE BOOL "Use the system version of the Orthanc plugin SDK")
-set(USE_SYSTEM_PUGIXML ON CACHE BOOL "Use the system version of Pugixml")
-set(USE_SYSTEM_UUID ON CACHE BOOL "Use the system version of the uuid library from e2fsprogs")
-set(USE_SYSTEM_ZLIB ON CACHE BOOL "Use the system version of zlib")
 
-# Distribution-specific settings
-set(USE_GOOGLE_TEST_DEBIAN_PACKAGE OFF CACHE BOOL "Use the sources of Google Test shipped with libgtest-dev (Debian only)")
-mark_as_advanced(USE_GOOGLE_TEST_DEBIAN_PACKAGE)
 
-set(ORTHANC_ROOT ${CMAKE_SOURCE_DIR}/Orthanc)
-set(ENABLE_LOCALE ON)          # Enable support for locales (notably in Boost)
+
+# Download and setup the Orthanc framework
+include(${CMAKE_SOURCE_DIR}/Resources/Orthanc/DownloadOrthancFramework.cmake)
+include(${ORTHANC_ROOT}/Resources/CMake/OrthancFrameworkParameters.cmake)
+
+set(ENABLE_LOCALE ON)         # Enable support for locales (notably in Boost)
+set(ENABLE_GOOGLE_TEST ON)
+set(ENABLE_PUGIXML ON)
 set(USE_BOOST_ICONV ON)
 
-if (NOT "${CMAKE_SYSTEM_VERSION}" STREQUAL "LinuxStandardBase")
-  # The "patch" command-line tool is only needed for Boost and LSB
-  set(ORTHANC_DISABLE_PATCH ON)
-endif()
+include(${ORTHANC_ROOT}/Resources/CMake/OrthancFrameworkConfiguration.cmake)
+include_directories(${ORTHANC_ROOT})
 
-include(CheckFunctionExists)
-include(CheckIncludeFile)
-include(CheckIncludeFileCXX)
-include(CheckIncludeFiles)
-include(CheckLibraryExists)
-include(FindPythonInterp)
-include(${ORTHANC_ROOT}/Resources/CMake/Compiler.cmake)
-include(${ORTHANC_ROOT}/Resources/CMake/DownloadPackage.cmake)
-
-include(${ORTHANC_ROOT}/Resources/CMake/BoostConfiguration.cmake)
-include(${ORTHANC_ROOT}/Resources/CMake/GoogleTestConfiguration.cmake)
-include(${ORTHANC_ROOT}/Resources/CMake/JsonCppConfiguration.cmake)
-include(${ORTHANC_ROOT}/Resources/CMake/LibIconvConfiguration.cmake)
-include(${ORTHANC_ROOT}/Resources/CMake/ZlibConfiguration.cmake)
-include(${ORTHANC_ROOT}/Resources/CMake/PugixmlConfiguration.cmake)
-include(${ORTHANC_ROOT}/Resources/CMake/UuidConfiguration.cmake)
 
 include(${CMAKE_SOURCE_DIR}/Resources/CMake/GdcmConfiguration.cmake)
 
 
 if (STATIC_BUILD OR NOT USE_SYSTEM_ORTHANC_SDK)
-  include_directories(${ORTHANC_ROOT}/Sdk-1.1.0)
+  include_directories(${CMAKE_SOURCE_DIR}/Resources/Orthanc/Sdk-1.1.0)
 else ()
   CHECK_INCLUDE_FILE_CXX(orthanc/OrthancCPlugin.h HAVE_ORTHANC_H)
   if (NOT HAVE_ORTHANC_H)
@@ -114,35 +103,18 @@ endif()
 
 add_definitions(
   -DHAS_ORTHANC_EXCEPTION=1
-  -DORTHANC_DEFAULT_DICOM_ENCODING=Encoding_Latin1
-  -DORTHANC_ENABLE_BASE64=0
-  -DORTHANC_ENABLE_LOCALE=1
-  -DORTHANC_ENABLE_LOGGING=0
-  -DORTHANC_ENABLE_MD5=0
-  -DORTHANC_ENABLE_PUGIXML=1
   -DORTHANC_SANDBOXED=0
   )
 
 include_directories(${ORTHANC_ROOT}/Core)  # To access "OrthancException.h"
 
 set(CORE_SOURCES
-  ${BOOST_SOURCES}
-  ${JSONCPP_SOURCES}
-  ${LIBICONV_SOURCES}
-  ${PUGIXML_SOURCES}
-  ${UUID_SOURCES}
-  ${ZLIB_SOURCES}
-
-  ${ORTHANC_ROOT}/Core/ChunkedBuffer.cpp
-  ${ORTHANC_ROOT}/Core/Enumerations.cpp
-  ${ORTHANC_ROOT}/Core/Toolbox.cpp
-  ${ORTHANC_ROOT}/Core/SystemToolbox.cpp
-  ${ORTHANC_ROOT}/Core/WebServiceParameters.cpp
-  ${ORTHANC_ROOT}/Plugins/Samples/Common/OrthancPluginCppWrapper.cpp
-
   Plugin/Configuration.cpp
   Plugin/Dicom.cpp
   Plugin/DicomResults.cpp
+
+  ${ORTHANC_ROOT}/Plugins/Samples/Common/OrthancPluginCppWrapper.cpp
+  ${ORTHANC_CORE_SOURCES}
   )
 
 add_library(OrthancDicomWeb SHARED ${CORE_SOURCES}

@@ -22,7 +22,8 @@
 #include "DicomWebServers.h"
 
 #include "Configuration.h"
-#include "../Orthanc/Core/Toolbox.h"
+
+#include <Core/Toolbox.h>
 
 namespace OrthancPlugins
 {

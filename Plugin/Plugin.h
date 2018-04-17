@@ -21,7 +21,7 @@
 
 #pragma once
 
-#include "../Orthanc/Plugins/Samples/Common/OrthancPluginCppWrapper.h"
+#include <Plugins/Samples/Common/OrthancPluginCppWrapper.h>
 
 #include <gdcmDict.h>
 

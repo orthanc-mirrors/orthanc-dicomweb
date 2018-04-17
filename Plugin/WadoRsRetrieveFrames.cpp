@@ -21,9 +21,10 @@
 
 #include "WadoRs.h"
 
-#include "../Orthanc/Core/Toolbox.h"
 #include "Dicom.h"
 #include "Plugin.h"
+
+#include <Core/Toolbox.h>
 
 #include <memory>
 #include <list>

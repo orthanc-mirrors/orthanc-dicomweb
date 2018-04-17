@@ -29,8 +29,8 @@
 #include <set>
 #include <boost/lexical_cast.hpp>
 
-#include "../Orthanc/Core/ChunkedBuffer.h"
-#include "../Orthanc/Core/Toolbox.h"
+#include <Core/ChunkedBuffer.h>
+#include <Core/Toolbox.h>
 
 
 static void AddInstance(std::list<std::string>& target,

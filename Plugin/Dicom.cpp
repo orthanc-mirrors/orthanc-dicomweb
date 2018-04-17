@@ -24,7 +24,7 @@
 #include "Plugin.h"
 #include "ChunkedBuffer.h"
 
-#include "../Orthanc/Core/Toolbox.h"
+#include <Core/Toolbox.h>
 
 #include <gdcmDictEntry.h>
 #include <gdcmStringFilter.h>

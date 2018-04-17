@@ -22,8 +22,9 @@
 #include "DicomResults.h"
 
 #include "Dicom.h"
-#include "../Orthanc/Core/Toolbox.h"
-#include "../Orthanc/Plugins/Samples/Common/OrthancPluginCppWrapper.h"
+
+#include <Core/Toolbox.h>
+#include <Plugins/Samples/Common/OrthancPluginCppWrapper.h>
 
 #include <boost/lexical_cast.hpp>
 #include <boost/noncopyable.hpp>

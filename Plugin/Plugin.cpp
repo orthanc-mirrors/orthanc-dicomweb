@@ -29,8 +29,8 @@
 #include "Configuration.h"
 #include "DicomWebServers.h"
 
-#include "../Orthanc/Plugins/Samples/Common/OrthancPluginCppWrapper.h"
-#include "../Orthanc/Core/Toolbox.h"
+#include <Plugins/Samples/Common/OrthancPluginCppWrapper.h>
+#include <Core/Toolbox.h>
 
 #include <gdcmDictEntry.h>
 #include <gdcmDict.h>

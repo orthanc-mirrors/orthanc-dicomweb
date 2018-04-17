@@ -24,7 +24,8 @@
 #include "Configuration.h"
 #include "Dicom.h"
 #include "DicomResults.h"
-#include "../Orthanc/Core/Toolbox.h"
+
+#include <Core/Toolbox.h>
 
 #include <memory>
 

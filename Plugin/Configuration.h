@@ -21,7 +21,7 @@
 
 #pragma once
 
-#include "../Orthanc/Core/Enumerations.h"
+#include <Core/Enumerations.h>
 
 #include <orthanc/OrthancCPlugin.h>
 #include <json/value.h>

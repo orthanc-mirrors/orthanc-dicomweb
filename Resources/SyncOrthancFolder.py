@@ -9,60 +9,22 @@ import multiprocessing
 import os
 import stat
 import urllib2
-import uuid
 
-TARGET = os.path.join(os.path.dirname(__file__), '..', 'Orthanc')
+TARGET = os.path.join(os.path.dirname(__file__), 'Orthanc')
 PLUGIN_SDK_VERSION = '1.1.0'
 REPOSITORY = 'https://bitbucket.org/sjodogne/orthanc/raw'
 
 FILES = [
-    'NEWS',
-    'Core/ChunkedBuffer.cpp',
-    'Core/ChunkedBuffer.h',
-    'Core/Enumerations.cpp',
-    'Core/Enumerations.h',
-    'Core/Logging.h',
-    'Core/OrthancException.h',
-    'Core/PrecompiledHeaders.h',
-    'Core/Toolbox.cpp',
-    'Core/Toolbox.h',
-    'Core/SystemToolbox.h',
-    'Core/SystemToolbox.cpp',
-    'Core/WebServiceParameters.cpp',
-    'Core/WebServiceParameters.h',
-    'Plugins/Samples/Common/ExportedSymbols.list',
-    'Plugins/Samples/Common/OrthancPluginException.h',
-    'Plugins/Samples/Common/OrthancPluginCppWrapper.h',
-    'Plugins/Samples/Common/OrthancPluginCppWrapper.cpp',
-    'Plugins/Samples/Common/VersionScript.map',
-    'Resources/CMake/BoostConfiguration.cmake',
-    'Resources/CMake/Compiler.cmake',
-    'Resources/CMake/DownloadPackage.cmake',
-    'Resources/CMake/GoogleTestConfiguration.cmake',
-    'Resources/CMake/JsonCppConfiguration.cmake',
-    'Resources/CMake/LibIconvConfiguration.cmake',
-    'Resources/CMake/PugixmlConfiguration.cmake',
-    'Resources/CMake/UuidConfiguration.cmake',
-    'Resources/CMake/ZlibConfiguration.cmake',
-    'Resources/MinGW-W64-Toolchain32.cmake',
-    'Resources/MinGW-W64-Toolchain64.cmake',
-    'Resources/MinGWToolchain.cmake',
-    'Resources/LinuxStandardBaseToolchain.cmake',
-    'Resources/Patches/boost-1.66.0-linux-standard-base.patch',
-    'Resources/ThirdParty/VisualStudio/stdint.h',
-    'Resources/WindowsResources.py',
-    'Resources/WindowsResources.rc',
+    'DownloadOrthancFramework.cmake',
+    'LinuxStandardBaseToolchain.cmake',
+    'MinGW-W64-Toolchain32.cmake',
+    'MinGW-W64-Toolchain64.cmake',
+    'MinGWToolchain.cmake',
 ]
 
 SDK = [
     'orthanc/OrthancCPlugin.h',
-]   
-
-EXE = [ 
-    'Resources/WindowsResources.py',
 ]
-
-
 
 
 def Download(x):
@@ -76,37 +38,26 @@ def Download(x):
     except:
         pass
 
-    url = '%s/%s/%s?force=%s' % (REPOSITORY, branch, source, uuid.uuid4())
+    url = '%s/%s/%s' % (REPOSITORY, branch, source)
 
     with open(target, 'w') as f:
-        try:
-            f.write(urllib2.urlopen(url).read())
-        except:
-            print('Cannot download %s' % url)
-            raise
+        f.write(urllib2.urlopen(url).read())
 
 
 commands = []
 
 for f in FILES:
-    commands.append([ 'default', f, f ])
+    commands.append([ 'default',
+                      os.path.join('Resources', f),
+                      f ])
 
 for f in SDK:
-    if PLUGIN_SDK_VERSION == 'mainline':
-        branch = 'default'
-    else:
-        branch = 'Orthanc-%s' % PLUGIN_SDK_VERSION
-
-    commands.append([ branch, 
-                      'Plugins/Include/%s' % f,
-                      'Sdk-%s/%s' % (PLUGIN_SDK_VERSION, f) ])
+    commands.append([
+        'Orthanc-%s' % PLUGIN_SDK_VERSION, 
+        'Plugins/Include/%s' % f,
+        'Sdk-%s/%s' % (PLUGIN_SDK_VERSION, f) 
+    ])
 
 
 pool = multiprocessing.Pool(10)  # simultaneous downloads
 pool.map(Download, commands)
-
-
-for exe in EXE:
-    path = os.path.join(TARGET, exe)
-    st = os.stat(path)
-    os.chmod(path, st.st_mode | stat.S_IEXEC)

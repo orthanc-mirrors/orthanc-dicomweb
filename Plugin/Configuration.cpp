@@ -28,7 +28,8 @@
 
 #include "Plugin.h"
 #include "DicomWebServers.h"
-#include "../Orthanc/Core/Toolbox.h"
+
+#include <Core/Toolbox.h>
 
 namespace OrthancPlugins
 {

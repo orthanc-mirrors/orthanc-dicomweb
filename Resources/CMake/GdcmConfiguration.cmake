@@ -44,7 +44,9 @@ if (STATIC_BUILD OR NOT USE_SYSTEM_GDCM)
     )
 
   if (CMAKE_TOOLCHAIN_FILE)
-    list(APPEND Flags -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE})
+    # Take absolute path to the toolchain
+    get_filename_component(TMP ${CMAKE_TOOLCHAIN_FILE} REALPATH BASE ${CMAKE_SOURCE_DIR})
+    list(APPEND Flags -DCMAKE_TOOLCHAIN_FILE=${TMP})
   endif()
 
   # Don't build manpages (since gdcm 2.8.4)

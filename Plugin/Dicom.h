@@ -23,9 +23,9 @@
 
 #include "Configuration.h"
 
-#include "../Orthanc/Core/ChunkedBuffer.h"
-#include "../Orthanc/Core/Enumerations.h"
-#include "../Orthanc/Plugins/Samples/Common/OrthancPluginCppWrapper.h"
+#include <Core/ChunkedBuffer.h>
+#include <Core/Enumerations.h>
+#include <Plugins/Samples/Common/OrthancPluginCppWrapper.h>
 
 #include <gdcmReader.h>
 #include <gdcmDataSet.h>
