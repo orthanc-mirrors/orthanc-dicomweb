@@ -2,7 +2,7 @@ Pending changes in the mainline
 ===============================
 
 
-Version 0.5 (2018-08-19)
+Version 0.5 (2018-04-19)
 ========================
 
 * New option: "QidoCaseSensitive" to make queries to QIDO-RS server case insensitive
