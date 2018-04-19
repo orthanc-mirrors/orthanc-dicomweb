@@ -292,7 +292,7 @@ if (ORTHANC_FRAMEWORK_SOURCE STREQUAL "archive" OR
         message(FATAL_ERROR "Error while running the uncompression tool")
       endif()
 
-      get_filename_component(TMP_FILENAME NAME "${ORTHANC_FRAMEWORK_ARCHIVE}")
+      get_filename_component(TMP_FILENAME "${ORTHANC_FRAMEWORK_ARCHIVE}" NAME)
       string(REGEX REPLACE ".gz$" "" TMP_FILENAME2 "${TMP_FILENAME}")
 
       execute_process(
