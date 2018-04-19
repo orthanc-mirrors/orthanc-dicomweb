@@ -292,7 +292,8 @@ if (ORTHANC_FRAMEWORK_SOURCE STREQUAL "archive" OR
         message(FATAL_ERROR "Error while running the uncompression tool")
       endif()
 
-      string(REGEX REPLACE ".gz$" "" TMP "${ORTHANC_FRAMEWORK_ARCHIVE}")
+      get_filename_component(TMP_FILENAME NAME "${ORTHANC_FRAMEWORK_ARCHIVE}")
+      string(REGEX REPLACE ".gz$" "" TMP_FILENAME2 "${TMP_FILENAME}")
 
       execute_process(
         COMMAND ${ORTHANC_FRAMEWORK_7ZIP} x -y ${TMP_FILENAME2}
