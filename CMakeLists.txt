@@ -21,13 +21,13 @@ cmake_minimum_required(VERSION 2.8)
 
 project(OrthancDicomWeb)
 
-set(ORTHANC_DICOM_WEB_VERSION "mainline")
+set(ORTHANC_DICOM_WEB_VERSION "0.5")
 
 if (ORTHANC_DICOM_WEB_VERSION STREQUAL "mainline")
   set(ORTHANC_FRAMEWORK_VERSION "mainline")
   set(ORTHANC_FRAMEWORK_DEFAULT_SOURCE "hg")
 else()
-  set(ORTHANC_FRAMEWORK_VERSION "1.3.1")
+  set(ORTHANC_FRAMEWORK_VERSION "1.3.2")
   set(ORTHANC_FRAMEWORK_DEFAULT_SOURCE "web")
 endif()
 
