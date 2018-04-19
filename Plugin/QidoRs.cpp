@@ -158,11 +158,11 @@ namespace
 
 
   public:
-    ModuleMatcher(const OrthancPluginHttpRequest* request) :
-    fuzzy_(false),
-    offset_(0),
-    limit_(0),
-    includeAllFields_(false)
+    explicit ModuleMatcher(const OrthancPluginHttpRequest* request) :
+      fuzzy_(false),
+      offset_(0),
+      limit_(0),
+      includeAllFields_(false)
     {
       std::string args;
       
@@ -198,7 +198,7 @@ namespace
         }
         else if (key == "includefield")
         {
-          if (key == "all")
+          if (value == "all")
           {
             includeAllFields_ = true;
           }

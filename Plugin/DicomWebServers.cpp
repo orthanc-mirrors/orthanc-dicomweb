@@ -144,7 +144,6 @@ namespace OrthancPlugins
     assert(!url.empty() && url[url.size() - 1] == '/');
 
     // Remove the leading "/" in the URI if need be
-    std::string tmp;
     if (!uri.empty() &&
         uri[0] == '/')
     {

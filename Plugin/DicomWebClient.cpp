@@ -298,7 +298,7 @@ void StowClient(OrthancPluginRestOutput* output,
   Orthanc::ChunkedBuffer chunks;
   size_t countInstances = 0;
 
-  for (std::list<std::string>::const_iterator it = instances.begin(); it != instances.end(); it++)
+  for (std::list<std::string>::const_iterator it = instances.begin(); it != instances.end(); ++it)
   {
     OrthancPlugins::MemoryBuffer dicom(context);
     if (dicom.RestApiGet("/instances/" + *it + "/file", false))

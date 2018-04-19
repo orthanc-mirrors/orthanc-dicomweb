@@ -63,11 +63,11 @@ namespace OrthancPlugins
     void Setup(const std::string& dicom);
 
   public:
-    ParsedDicomFile(const OrthancPlugins::MultipartItem& item);
+    explicit ParsedDicomFile(const OrthancPlugins::MultipartItem& item);
 
-    ParsedDicomFile(const OrthancPlugins::MemoryBuffer& item);
+    explicit ParsedDicomFile(const OrthancPlugins::MemoryBuffer& item);
 
-    ParsedDicomFile(const std::string& dicom)
+    explicit ParsedDicomFile(const std::string& dicom)
     {
       Setup(dicom);
     }
