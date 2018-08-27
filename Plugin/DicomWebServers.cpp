@@ -57,7 +57,7 @@ namespace OrthancPlugins
         for (size_t i = 0; i < members.size(); i++)
         {
           std::auto_ptr<Orthanc::WebServiceParameters> parameters(new Orthanc::WebServiceParameters);
-          parameters->FromJson(servers[members[i]]);
+          parameters->Unserialize(servers[members[i]]);
 
           servers_[members[i]] = parameters.release();
         }
