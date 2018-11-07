@@ -154,18 +154,32 @@ namespace OrthancPlugins
       url += uri;
     }
 
-    std::vector<const char*> httpHeadersKeys(httpHeaders.size());
-    std::vector<const char*> httpHeadersValues(httpHeaders.size());
+    std::map<std::string, std::string> allHttpHeaders = server.GetHttpHeaders();
+    
+    {
+      // Add the user-specified HTTP headers to the HTTP headers
+      // coming from the Orthanc configuration file
+      for (std::map<std::string, std::string>::const_iterator
+             it = httpHeaders.begin(); it != httpHeaders.end(); ++it)
+      {
+        allHttpHeaders[it->first] = it->second;
+      }
+    }
+
+    std::vector<const char*> httpHeadersKeys(allHttpHeaders.size());
+    std::vector<const char*> httpHeadersValues(allHttpHeaders.size());
 
     {
       size_t pos = 0;
       for (std::map<std::string, std::string>::const_iterator
-             it = httpHeaders.begin(); it != httpHeaders.end(); ++it)
+             it = allHttpHeaders.begin(); it != allHttpHeaders.end(); ++it)
       {
         httpHeadersKeys[pos] = it->first.c_str();
         httpHeadersValues[pos] = it->second.c_str();
         pos += 1;
       }
+
+      assert(pos == allHttpHeaders.size());
     }
 
     const char* bodyContent = NULL;
@@ -190,7 +204,7 @@ namespace OrthancPlugins
       method,
       url.c_str(), 
       /* HTTP headers*/
-      httpHeaders.size(),
+      allHttpHeaders.size(),
       httpHeadersKeys.empty() ? NULL : &httpHeadersKeys[0],
       httpHeadersValues.empty() ? NULL : &httpHeadersValues[0],
       bodyContent, bodySize,
