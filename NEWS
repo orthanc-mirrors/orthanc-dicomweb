@@ -2,6 +2,7 @@ Pending changes in the mainline
 ===============================
 
 * Sending "HttpHeaders" of the "DicomWeb.Servers" configuration to remote DICOMweb servers
+* Improved WADO-RS compatibility if Orthanc is acting as a DICOMweb client
 
 
 Version 0.5 (2018-04-19)

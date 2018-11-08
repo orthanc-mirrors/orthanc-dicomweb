@@ -477,6 +477,7 @@ static void RetrieveFromServerInternal(std::set<std::string>& instances,
   std::map<std::string, std::string> answerHeaders;
   OrthancPlugins::CallServer(answerBody, answerHeaders, server, OrthancPluginHttpMethod_Get, httpHeaders, uri, "");
 
+  std::string contentTypeFull;
   std::vector<std::string> contentType;
   for (std::map<std::string, std::string>::const_iterator 
          it = answerHeaders.begin(); it != answerHeaders.end(); ++it)
@@ -485,11 +486,15 @@ static void RetrieveFromServerInternal(std::set<std::string>& instances,
     Orthanc::Toolbox::ToLowerCase(s);
     if (s == "content-type")
     {
+      contentTypeFull = it->second;
       Orthanc::Toolbox::TokenizeString(contentType, it->second, ';');
       break;
     }
   }
 
+  OrthancPlugins::Configuration::LogInfo("Got " + boost::lexical_cast<std::string>(answerBody.GetSize()) +
+                                         " bytes from a WADO-RS query with content type: " + contentTypeFull);
+  
   if (contentType.empty())
   {
     OrthancPlugins::Configuration::LogError("No Content-Type provided by the remote WADO-RS server");
@@ -539,6 +544,17 @@ static void RetrieveFromServerInternal(std::set<std::string>& instances,
     }
   }
 
+  // Strip the trailing and heading quotes if present
+  if (boundary.length() > 2 &&
+      boundary.front() == '"' &&
+      boundary.back() == '"')
+  {
+    boundary = boundary.substr(1, boundary.size() - 2);
+  }
+
+  OrthancPlugins::Configuration::LogInfo("  Parsing the multipart content type: " + type +
+                                         " with boundary: " + boundary);
+
   if (type != APPLICATION_DICOM)
   {
     OrthancPlugins::Configuration::LogError("The remote WADO-RS server answers with a \"" + type +
@@ -563,9 +579,20 @@ static void RetrieveFromServerInternal(std::set<std::string>& instances,
 
   for (size_t i = 0; i < parts.size(); i++)
   {
-    if (parts[i].contentType_ != APPLICATION_DICOM)
+    std::vector<std::string> tokens;
+    Orthanc::Toolbox::TokenizeString(tokens, parts[i].contentType_, ';');
+
+    std::string partType;
+    if (tokens.size() > 0)
     {
-      OrthancPlugins::Configuration::LogError("The remote WADO-RS server has provided a non-DICOM file in its multipart answer");
+      partType = Orthanc::Toolbox::StripSpaces(tokens[0]);
+    }
+
+    if (partType != APPLICATION_DICOM)
+    {
+      OrthancPlugins::Configuration::LogError(
+        "The remote WADO-RS server has provided a non-DICOM file in its multipart answer"
+        " (content type: " + parts[i].contentType_ + ")");
       throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);      
     }
 
