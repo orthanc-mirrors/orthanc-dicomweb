@@ -546,8 +546,8 @@ static void RetrieveFromServerInternal(std::set<std::string>& instances,
 
   // Strip the trailing and heading quotes if present
   if (boundary.length() > 2 &&
-      boundary.front() == '"' &&
-      boundary.back() == '"')
+      boundary[0] == '"' &&
+      boundary[boundary.size() - 1] == '"')
   {
     boundary = boundary.substr(1, boundary.size() - 2);
   }
