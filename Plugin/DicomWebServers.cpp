@@ -65,15 +65,16 @@ namespace OrthancPlugins
     }
     catch (Orthanc::OrthancException& e)
     {
-      OrthancPlugins::Configuration::LogError("Exception while parsing the \"DicomWeb.Servers\" section "
-                                              "of the configuration file: " + std::string(e.What()));
+      OrthancPlugins::LogError("Exception while parsing the \"DicomWeb.Servers\" section "
+                               "of the configuration file: " + std::string(e.What()));
       throw;
     }
 
     if (!ok)
     {
-      OrthancPlugins::Configuration::LogError("Cannot parse the \"DicomWeb.Servers\" section of the configuration file");
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
+      throw Orthanc::OrthancException(
+        Orthanc::ErrorCode_BadFileFormat,
+        "Cannot parse the \"DicomWeb.Servers\" section of the configuration file");
     }
   }
 
@@ -93,8 +94,8 @@ namespace OrthancPlugins
     if (server == servers_.end() ||
         server->second == NULL)
     {
-      OrthancPlugins::Configuration::LogError("Inexistent server: " + name);
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_InexistentItem);
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_InexistentItem,
+                                      "Inexistent server: " + name);
     }
     else
     {
@@ -193,10 +194,10 @@ namespace OrthancPlugins
       bodySize = body.size();
     }
 
-    OrthancPluginContext* context = OrthancPlugins::Configuration::GetContext();
+    OrthancPluginContext* context = OrthancPlugins::GetGlobalContext();
 
     uint16_t status = 0;
-    MemoryBuffer answerHeadersTmp(context);
+    MemoryBuffer answerHeadersTmp;
     OrthancPluginErrorCode code = OrthancPluginHttpClient(
       context, 
       /* Outputs */
@@ -219,9 +220,10 @@ namespace OrthancPlugins
     if (code != OrthancPluginErrorCode_Success ||
         (status < 200 || status >= 300))
     {
-      OrthancPlugins::Configuration::LogError("Cannot issue an HTTP query to " + url + 
-                                              " (HTTP status: " + boost::lexical_cast<std::string>(status) + ")");
-      throw Orthanc::OrthancException(static_cast<Orthanc::ErrorCode>(code));
+      throw Orthanc::OrthancException(
+        static_cast<Orthanc::ErrorCode>(code),
+        "Cannot issue an HTTP query to " + url + 
+        " (HTTP status: " + boost::lexical_cast<std::string>(status) + ")");
     }
 
     Json::Value json;
@@ -256,9 +258,9 @@ namespace OrthancPlugins
   {
     if (resource.find('?') != std::string::npos)
     {
-      OrthancPlugins::Configuration::LogError("The GET arguments must be provided in a separate field "
-                                              "(explicit \"?\" is disallowed): " + resource);
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat,
+                                      "The GET arguments must be provided in a separate field "
+                                      "(explicit \"?\" is disallowed): " + resource);
     }
 
     uri = resource;

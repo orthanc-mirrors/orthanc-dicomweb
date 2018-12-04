@@ -52,7 +52,6 @@ namespace OrthancPlugins
                         const std::string& header);
 
   void ParseMultipartBody(std::vector<MultipartItem>& result,
-                          OrthancPluginContext* context,
                           const char* body,
                           const uint64_t bodySize,
                           const std::string& boundary);
@@ -63,10 +62,8 @@ namespace OrthancPlugins
 
   namespace Configuration
   {
-    void Initialize(OrthancPluginContext* context);
+    void Initialize();
 
-    OrthancPluginContext* GetContext();
-    
     std::string GetStringValue(const std::string& key,
                                const std::string& defaultValue);
 
@@ -86,12 +83,6 @@ namespace OrthancPlugins
                            const std::string& studyInstanceUid,
                            const std::string& seriesInstanceUid,
                            const std::string& sopInstanceUid);
-
-    void LogError(const std::string& message);
-
-    void LogWarning(const std::string& message);
-
-    void LogInfo(const std::string& message);
 
     Orthanc::Encoding GetDefaultEncoding();
   }

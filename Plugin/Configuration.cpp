@@ -29,6 +29,7 @@
 #include "Plugin.h"
 #include "DicomWebServers.h"
 
+#include <Plugins/Samples/Common/OrthancPluginCppWrapper.h>
 #include <Core/Toolbox.h>
 
 namespace OrthancPlugins
@@ -91,7 +92,6 @@ namespace OrthancPlugins
   static void ParseMultipartHeaders(bool& hasLength /* out */,
                                     size_t& length /* out */,
                                     std::string& contentType /* out */,
-                                    OrthancPluginContext* context,
                                     const char* startHeaders,
                                     const char* endHeaders)
   {
@@ -131,7 +131,7 @@ namespace OrthancPlugins
           }
           catch (boost::bad_lexical_cast&)
           {
-            OrthancPluginLogWarning(context, "Unable to parse the Content-Length of a multipart item");
+            LogWarning("Unable to parse the Content-Length of a multipart item");
           }
         }
         else if (key == "content-type")
@@ -144,7 +144,6 @@ namespace OrthancPlugins
 
 
   static const char* ParseMultipartItem(std::vector<MultipartItem>& result,
-                                        OrthancPluginContext* context,
                                         const char* start,
                                         const char* end,
                                         const boost::regex& nextSeparator)
@@ -167,7 +166,7 @@ namespace OrthancPlugins
     bool hasLength;
     size_t length;
     std::string contentType;
-    ParseMultipartHeaders(hasLength, length, contentType, context, startHeaders, endHeaders);
+    ParseMultipartHeaders(hasLength, length, contentType, startHeaders, endHeaders);
 
     boost::cmatch separator;
 
@@ -200,7 +199,6 @@ namespace OrthancPlugins
 
 
   void ParseMultipartBody(std::vector<MultipartItem>& result,
-                          OrthancPluginContext* context,
                           const char* body,
                           const uint64_t bodySize,
                           const std::string& boundary)
@@ -239,7 +237,7 @@ namespace OrthancPlugins
         }
         else
         {
-          current = ParseMultipartItem(result, context, current + 2, end, nextSeparator);
+          current = ParseMultipartItem(result, current + 2, end, nextSeparator);
         }
       }
     }
@@ -252,8 +250,8 @@ namespace OrthancPlugins
   {
     if (value.type() != Json::objectValue)
     {
-      OrthancPlugins::Configuration::LogError("This is not a JSON object");
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat,
+                                      "This is not a JSON object");
     }
 
     if (!value.isMember(key))
@@ -265,9 +263,9 @@ namespace OrthancPlugins
 
     if (tmp.type() != Json::objectValue)
     {
-      OrthancPlugins::Configuration::LogError("The field \"" + key + "\" of a JSON object is "
-                                              "not a JSON associative array as expected");
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat,
+                                      "The field \"" + key + "\" of a JSON object is "
+                                      "not a JSON associative array as expected");
     }
 
     Json::Value::Members names = tmp.getMemberNames();
@@ -276,9 +274,9 @@ namespace OrthancPlugins
     {
       if (tmp[names[i]].type() != Json::stringValue)
       {
-        OrthancPlugins::Configuration::LogError("Some value in the associative array \"" + key + 
-                                                "\" is not a string as expected");
-        throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
+        throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat,
+                                        "Some value in the associative array \"" + key + 
+                                        "\" is not a string as expected");
       }
       else
       {
@@ -292,13 +290,15 @@ namespace OrthancPlugins
   {
     // Assume Latin-1 encoding by default (as in the Orthanc core)
     static Orthanc::Encoding defaultEncoding_ = Orthanc::Encoding_Latin1;
-    static OrthancConfiguration configuration_;
+    static std::auto_ptr<OrthancConfiguration> configuration_;
 
 
-    void Initialize(OrthancPluginContext* context)
-    {      
-      OrthancPlugins::OrthancConfiguration global(context);
-      global.GetSection(configuration_, "DicomWeb");
+    void Initialize()
+    {
+      configuration_.reset(new OrthancConfiguration);
+      
+      OrthancPlugins::OrthancConfiguration global;
+      global.GetSection(*configuration_, "DicomWeb");
 
       std::string s;
       if (global.LookupStringValue(s, "DefaultEncoding"))
@@ -307,41 +307,39 @@ namespace OrthancPlugins
       }
 
       OrthancPlugins::OrthancConfiguration servers;
-      configuration_.GetSection(servers, "Servers");
+      configuration_->GetSection(servers, "Servers");
       OrthancPlugins::DicomWebServers::GetInstance().Load(servers.GetJson());
-    }
-
-
-    OrthancPluginContext* GetContext()
-    {
-      return configuration_.GetContext();
     }
 
 
     std::string GetStringValue(const std::string& key,
                                const std::string& defaultValue)
     {
-      return configuration_.GetStringValue(key, defaultValue);
+      assert(configuration_.get() != NULL);
+      return configuration_->GetStringValue(key, defaultValue);
     }
 
 
     bool GetBooleanValue(const std::string& key,
                          bool defaultValue)
     {
-      return configuration_.GetBooleanValue(key, defaultValue);
+      assert(configuration_.get() != NULL);
+      return configuration_->GetBooleanValue(key, defaultValue);
     }
 
 
     unsigned int GetUnsignedIntegerValue(const std::string& key,
                                          unsigned int defaultValue)
     {
-      return configuration_.GetUnsignedIntegerValue(key, defaultValue);
+      assert(configuration_.get() != NULL);
+      return configuration_->GetUnsignedIntegerValue(key, defaultValue);
     }
 
 
     std::string GetRoot()
     {
-      std::string root = configuration_.GetStringValue("Root", "/dicom-web/");
+      assert(configuration_.get() != NULL);
+      std::string root = configuration_->GetStringValue("Root", "/dicom-web/");
 
       // Make sure the root URI starts and ends with a slash
       if (root.size() == 0 ||
@@ -361,7 +359,8 @@ namespace OrthancPlugins
 
     std::string GetWadoRoot()
     {
-      std::string root = configuration_.GetStringValue("WadoRoot", "/wado/");
+      assert(configuration_.get() != NULL);
+      std::string root = configuration_->GetStringValue("WadoRoot", "/wado/");
 
       // Make sure the root URI starts with a slash
       if (root.size() == 0 ||
@@ -382,8 +381,9 @@ namespace OrthancPlugins
 
     std::string  GetBaseUrl(const OrthancPluginHttpRequest* request)
     {
-      std::string host = configuration_.GetStringValue("Host", "");
-      bool ssl = configuration_.GetBooleanValue("Ssl", false);
+      assert(configuration_.get() != NULL);
+      std::string host = configuration_->GetStringValue("Host", "");
+      bool ssl = configuration_->GetBooleanValue("Ssl", false);
 
       if (host.empty() &&
           !LookupHttpHeader(host, request, "host"))
@@ -415,24 +415,6 @@ namespace OrthancPlugins
                 "/series/" + seriesInstanceUid + 
                 "/instances/" + sopInstanceUid + "/");
       }
-    }
-
-
-    void LogError(const std::string& message)
-    {
-      OrthancPluginLogError(GetContext(), message.c_str());
-    }
-
-
-    void LogWarning(const std::string& message)
-    {
-      OrthancPluginLogWarning(GetContext(), message.c_str());
-    }
-
-
-    void LogInfo(const std::string& message)
-    {
-      OrthancPluginLogInfo(GetContext(), message.c_str());
     }
 
 

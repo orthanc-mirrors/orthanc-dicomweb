@@ -218,9 +218,9 @@ namespace OrthancPlugins
 
     if (!reader_.Read())
     {
-      OrthancPlugins::Configuration::LogError("GDCM cannot decode this DICOM instance of length " +
-                                              boost::lexical_cast<std::string>(dicom.size()));
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat,
+                                      "GDCM cannot decode this DICOM instance of length " +
+                                      boost::lexical_cast<std::string>(dicom.size()));
     }
   }
 
@@ -690,8 +690,7 @@ namespace OrthancPlugins
   }
 
 
-  void AnswerDicom(OrthancPluginContext* context,
-                   OrthancPluginRestOutput* output,
+  void AnswerDicom(OrthancPluginRestOutput* output,
                    const std::string& wadoBase,
                    const gdcm::Dict& dictionary,
                    const gdcm::DataSet& dicom,
@@ -700,7 +699,7 @@ namespace OrthancPlugins
   {
     std::string answer;
     GenerateSingleDicomAnswer(answer, wadoBase, dictionary, dicom, isXml, isBulkAccessible);
-    OrthancPluginAnswerBuffer(context, output, answer.c_str(), answer.size(), 
+    OrthancPluginAnswerBuffer(GetGlobalContext(), output, answer.c_str(), answer.size(), 
                               isXml ? "application/dicom+xml" : "application/dicom+json");
   }
 
@@ -738,8 +737,9 @@ namespace OrthancPlugins
   {
     if (key.find('.') != std::string::npos)
     {
-      OrthancPlugins::Configuration::LogError("This DICOMweb plugin does not support hierarchical queries: " + key);
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_NotImplemented);
+      throw Orthanc::OrthancException(
+        Orthanc::ErrorCode_NotImplemented,
+        "This DICOMweb plugin does not support hierarchical queries: " + key);
     }
 
     if (key.size() == 8 &&  // This is the DICOMweb convention
@@ -778,13 +778,14 @@ namespace OrthancPlugins
       {
         if (key.find('.') != std::string::npos)
         {
-          OrthancPlugins::Configuration::LogError("This QIDO-RS implementation does not support search over sequences: " + key);
-          throw Orthanc::OrthancException(Orthanc::ErrorCode_NotImplemented);
+          throw Orthanc::OrthancException(
+            Orthanc::ErrorCode_NotImplemented,
+            "This QIDO-RS implementation does not support search over sequences: " + key);
         }
         else
         {
-          OrthancPlugins::Configuration::LogError("Illegal tag name in QIDO-RS: " + key);
-          throw Orthanc::OrthancException(Orthanc::ErrorCode_UnknownDicomTag);
+          throw Orthanc::OrthancException(Orthanc::ErrorCode_UnknownDicomTag,
+                                          "Illegal tag name in QIDO-RS: " + key);
         }
       }
 

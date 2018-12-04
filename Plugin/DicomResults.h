@@ -34,7 +34,6 @@ namespace OrthancPlugins
   class DicomResults
   {
   private:
-    OrthancPluginContext*     context_;
     OrthancPluginRestOutput*  output_;
     std::string               wadoBase_;
     const gdcm::Dict&         dictionary_;
@@ -48,8 +47,7 @@ namespace OrthancPlugins
     void AddInternal(const gdcm::DataSet& dicom);
 
   public:
-    DicomResults(OrthancPluginContext* context,
-                 OrthancPluginRestOutput* output,
+    DicomResults(OrthancPluginRestOutput* output,
                  const std::string& wadoBase,
                  const gdcm::Dict& dictionary,
                  bool isXml,

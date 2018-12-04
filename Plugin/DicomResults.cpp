@@ -31,13 +31,11 @@
 
 namespace OrthancPlugins
 {
-  DicomResults::DicomResults(OrthancPluginContext* context,
-                             OrthancPluginRestOutput* output,
+  DicomResults::DicomResults(OrthancPluginRestOutput* output,
                              const std::string& wadoBase,
                              const gdcm::Dict& dictionary,
                              bool isXml,
                              bool isBulkAccessible) :
-    context_(context),
     output_(output),
     wadoBase_(wadoBase),
     dictionary_(dictionary),
@@ -46,10 +44,11 @@ namespace OrthancPlugins
     isBulkAccessible_(isBulkAccessible)
   {
     if (isXml_ &&
-        OrthancPluginStartMultipartAnswer(context_, output_, "related", "application/dicom+xml") != 0)
+        OrthancPluginStartMultipartAnswer(GetGlobalContext(), output_,
+                                          "related", "application/dicom+xml") != 0)
     {
-      OrthancPlugins::Configuration::LogError("Unable to create a multipart stream of DICOM+XML answers");
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol,
+                                      "Unable to create a multipart stream of DICOM+XML answers");
     }
 
     jsonWriter_.AddChunk("[\n");
@@ -60,10 +59,10 @@ namespace OrthancPlugins
   {
     if (isXml_)
     {
-      if (OrthancPluginSendMultipartItem(context_, output_, item.c_str(), item.size()) != 0)
+      if (OrthancPluginSendMultipartItem(GetGlobalContext(), output_, item.c_str(), item.size()) != 0)
       {
-        OrthancPlugins::Configuration::LogError("Unable to create a multipart stream of DICOM+XML answers");
-        throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);
+        throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol,
+                                        "Unable to create a multipart stream of DICOM+XML answers");
       }
     }
     else
@@ -420,7 +419,8 @@ namespace OrthancPlugins
 
       std::string answer;
       jsonWriter_.Flatten(answer);
-      OrthancPluginAnswerBuffer(context_, output_, answer.c_str(), answer.size(), "application/dicom+json");
+      OrthancPluginAnswerBuffer(GetGlobalContext(), output_, answer.c_str(),
+                                answer.size(), "application/dicom+json");
     }
   }
 }

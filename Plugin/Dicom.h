@@ -116,8 +116,7 @@ namespace OrthancPlugins
                                  bool isXml,
                                  bool isBulkAccessible);
 
-  void AnswerDicom(OrthancPluginContext* context,
-                   OrthancPluginRestOutput* output,
+  void AnswerDicom(OrthancPluginRestOutput* output,
                    const std::string& wadoBase,
                    const gdcm::Dict& dictionary,
                    const gdcm::DataSet& dicom,
