@@ -75,7 +75,7 @@ if (STATIC_BUILD OR NOT USE_SYSTEM_GDCM)
 
   include(ExternalProject)
   externalproject_add(GDCM
-    URL "http://www.orthanc-server.com/downloads/third-party/gdcm-2.8.4.tar.gz"
+    URL "http://orthanc.osimis.io/ThirdPartyDownloads/gdcm-2.8.4.tar.gz"
     URL_MD5 "ce957b0bc1be4e8019162a10ca15432f"
     TIMEOUT 60
     CMAKE_ARGS -DCMAKE_BUILD_TYPE:STRING=${CMAKE_BUILD_TYPE} ${Flags}
