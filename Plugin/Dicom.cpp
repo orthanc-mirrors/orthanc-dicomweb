@@ -199,7 +199,7 @@ namespace OrthancPlugins
     else
     {
       std::string tmp(data->GetPointer(), data->GetLength());
-      result = Orthanc::Toolbox::ConvertToUtf8(tmp, sourceEncoding);
+      result = Orthanc::Toolbox::ConvertToUtf8(tmp, sourceEncoding, false);
     }
 
     result = MyStripSpaces(result);
