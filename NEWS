@@ -4,6 +4,7 @@ Pending changes in the mainline
 * Sending "HttpHeaders" of the "DicomWeb.Servers" configuration to remote DICOMweb servers
 * Improved WADO-RS compatibility if Orthanc is acting as a DICOMweb client
 * More detailed information about errors is provided in the HTTP answers
+* Upgrade to GDCM 2.8.8 for static builds
 
 
 Version 0.5 (2018-04-19)
