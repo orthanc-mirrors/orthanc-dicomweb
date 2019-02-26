@@ -49,6 +49,17 @@ static void TokenizeAndNormalize(std::vector<std::string>& tokens,
 }
 
 
+static void RemoveSurroundingQuotes(std::string& value)
+{
+  if (!value.empty() &&
+      value[0] == '\"' &&
+      value[value.size() - 1] == '\"')
+  {
+    value = value.substr(1, value.size() - 2);
+  }  
+}
+
+
 
 static gdcm::TransferSyntax ParseTransferSyntax(const OrthancPluginHttpRequest* request)
 {
@@ -89,11 +100,13 @@ static gdcm::TransferSyntax ParseTransferSyntax(const OrthancPluginHttpRequest* 
         if (parsed[0] == "type")
         {
           type = parsed[1];
+          RemoveSurroundingQuotes(type);
         }
 
         if (parsed[0] == "transfer-syntax")
         {
           transferSyntax = parsed[1];
+          RemoveSurroundingQuotes(transferSyntax);
         }
       }
 

@@ -6,9 +6,10 @@ Pending changes in the mainline
 * Sending "HttpHeaders" of the "DicomWeb.Servers" configuration to remote DICOMweb servers
 * Improved WADO-RS compatibility if Orthanc is acting as a DICOMweb client
 * More detailed information about errors is provided in the HTTP answers
-* Fix issue #111/#3 (QIDO-RS: wrong serialization of empty values)
-* Fix issue #112/#4 (QIDO-RS: wrong serialization of number values)
-* Fix issue #113/#2 (QIDO-RS: wrong serialization of PN VR)
+* Fix issue #96 / #5 (WADO-RS: RetrieveFrames rejects valid accept headers)
+* Fix issue #111 / #3 (QIDO-RS: wrong serialization of empty values)
+* Fix issue #112 / #4 (QIDO-RS: wrong serialization of number values)
+* Fix issue #113 / #2 (QIDO-RS: wrong serialization of PN VR)
 * Upgrade to GDCM 2.8.8 in static builds
 
 
