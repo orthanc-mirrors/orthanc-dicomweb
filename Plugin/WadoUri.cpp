@@ -48,9 +48,9 @@ static bool MapWadoToOrthancIdentifier(std::string& orthanc,
 }
 
 
-static bool LocateInstance(std::string& instance,
-                           std::string& contentType,
-                           const OrthancPluginHttpRequest* request)
+static bool LocateInstanceWadoUri(std::string& instance,
+                                  std::string& contentType,
+                                  const OrthancPluginHttpRequest* request)
 {
   std::string requestType, studyUid, seriesUid, objectUid;
 
@@ -232,7 +232,7 @@ void WadoUriCallback(OrthancPluginRestOutput* output,
 
   std::string instance;
   std::string contentType = "image/jpg";  // By default, JPEG image will be returned
-  if (!LocateInstance(instance, contentType, request))
+  if (!LocateInstanceWadoUri(instance, contentType, request))
   {
     throw Orthanc::OrthancException(Orthanc::ErrorCode_UnknownResource);
   }
