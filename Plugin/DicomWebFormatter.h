@@ -23,6 +23,7 @@
 
 #include <orthanc/OrthancCPlugin.h>
 
+#include <boost/noncopyable.hpp>
 #include <boost/thread/mutex.hpp>
 
 

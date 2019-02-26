@@ -290,6 +290,15 @@ namespace OrthancPlugins
   }
 
 
+  std::string ParsedDicomFile::GetRawTagWithDefault(const Orthanc::DicomTag& tag,
+                                                    const std::string& defaultValue,
+                                                    bool stripSpaces) const
+  {
+    gdcm::Tag t(tag.GetGroup(), tag.GetElement());
+    return GetRawTagWithDefault(t, defaultValue, stripSpaces);
+  }
+
+
   bool ParsedDicomFile::GetStringTag(std::string& result,
                                      const gdcm::Dict& dictionary,
                                      const gdcm::Tag& tag,

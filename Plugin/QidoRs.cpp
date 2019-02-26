@@ -27,6 +27,7 @@
 #include "DicomResults.h"
 #include "Configuration.h"
 
+#include <Core/DicomFormat/DicomTag.h>
 #include <Core/Toolbox.h>
 
 #include <gdcmTag.h>
@@ -43,7 +44,7 @@
 
 namespace
 {
-  static std::string FormatOrthancTag(const gdcm::Tag& tag)
+  static std::string FormatOrthancTag(const Orthanc::DicomTag& tag)
   {
     char b[16];
     sprintf(b, "%04x,%04x", tag.GetGroup(), tag.GetElement());
@@ -52,7 +53,7 @@ namespace
 
 
   static std::string GetOrthancTag(const Json::Value& source,
-                                   const gdcm::Tag& tag,
+                                   const Orthanc::DicomTag& tag,
                                    const std::string& defaultValue)
   {
     std::string s = FormatOrthancTag(tag);
@@ -73,82 +74,74 @@ namespace
   }
 
 
-  enum QueryLevel
-  {
-    QueryLevel_Study,
-    QueryLevel_Series,
-    QueryLevel_Instance
-  };
-
-
   class ModuleMatcher
   {
   public:
-    typedef std::map<gdcm::Tag, std::string>  Filters;
+    typedef std::map<Orthanc::DicomTag, std::string>  Filters;
 
   private:
     bool                  fuzzy_;
     unsigned int          offset_;
     unsigned int          limit_;
-    std::list<gdcm::Tag>  includeFields_;
+    std::list<Orthanc::DicomTag>  includeFields_;
     bool                  includeAllFields_;
     Filters               filters_;
 
 
-    static void AddResultAttributesForLevel(std::list<gdcm::Tag>& result,
-                                            QueryLevel level)
+    static void AddResultAttributesForLevel(std::list<Orthanc::DicomTag>& result,
+                                            Orthanc::ResourceType level)
     {
       switch (level)
       {
-        case QueryLevel_Study:
+        case Orthanc::ResourceType_Study:
           // http://medical.nema.org/medical/dicom/current/output/html/part18.html#table_6.7.1-2
-          result.push_back(gdcm::Tag(0x0008, 0x0005));  // Specific Character Set
-          result.push_back(gdcm::Tag(0x0008, 0x0020));  // Study Date
-          result.push_back(gdcm::Tag(0x0008, 0x0030));  // Study Time
-          result.push_back(gdcm::Tag(0x0008, 0x0050));  // Accession Number
-          result.push_back(gdcm::Tag(0x0008, 0x0056));  // Instance Availability
-          //result.push_back(gdcm::Tag(0x0008, 0x0061));  // Modalities in Study  => SPECIAL CASE
-          result.push_back(gdcm::Tag(0x0008, 0x0090));  // Referring Physician's Name
-          result.push_back(gdcm::Tag(0x0008, 0x0201));  // Timezone Offset From UTC
-          //result.push_back(gdcm::Tag(0x0008, 0x1190));  // Retrieve URL  => SPECIAL CASE
-          result.push_back(gdcm::Tag(0x0010, 0x0010));  // Patient's Name
-          result.push_back(gdcm::Tag(0x0010, 0x0020));  // Patient ID
-          result.push_back(gdcm::Tag(0x0010, 0x0030));  // Patient's Birth Date
-          result.push_back(gdcm::Tag(0x0010, 0x0040));  // Patient's Sex
-          result.push_back(gdcm::Tag(0x0020, 0x000D));  // Study Instance UID
-          result.push_back(gdcm::Tag(0x0020, 0x0010));  // Study ID
-          //result.push_back(gdcm::Tag(0x0020, 0x1206));  // Number of Study Related Series  => SPECIAL CASE
-          //result.push_back(gdcm::Tag(0x0020, 0x1208));  // Number of Study Related Instances  => SPECIAL CASE
+          result.push_back(Orthanc::DicomTag(0x0008, 0x0005));  // Specific Character Set
+          result.push_back(Orthanc::DicomTag(0x0008, 0x0020));  // Study Date
+          result.push_back(Orthanc::DicomTag(0x0008, 0x0030));  // Study Time
+          result.push_back(Orthanc::DicomTag(0x0008, 0x0050));  // Accession Number
+          result.push_back(Orthanc::DicomTag(0x0008, 0x0056));  // Instance Availability
+          //result.push_back(Orthanc::DicomTag(0x0008, 0x0061));  // Modalities in Study  => SPECIAL CASE
+          result.push_back(Orthanc::DicomTag(0x0008, 0x0090));  // Referring Physician's Name
+          result.push_back(Orthanc::DicomTag(0x0008, 0x0201));  // Timezone Offset From UTC
+          //result.push_back(Orthanc::DicomTag(0x0008, 0x1190));  // Retrieve URL  => SPECIAL CASE
+          result.push_back(Orthanc::DicomTag(0x0010, 0x0010));  // Patient's Name
+          result.push_back(Orthanc::DicomTag(0x0010, 0x0020));  // Patient ID
+          result.push_back(Orthanc::DicomTag(0x0010, 0x0030));  // Patient's Birth Date
+          result.push_back(Orthanc::DicomTag(0x0010, 0x0040));  // Patient's Sex
+          result.push_back(Orthanc::DicomTag(0x0020, 0x000D));  // Study Instance UID
+          result.push_back(Orthanc::DicomTag(0x0020, 0x0010));  // Study ID
+          //result.push_back(Orthanc::DicomTag(0x0020, 0x1206));  // Number of Study Related Series  => SPECIAL CASE
+          //result.push_back(Orthanc::DicomTag(0x0020, 0x1208));  // Number of Study Related Instances  => SPECIAL CASE
           break;
 
-        case QueryLevel_Series:
+        case Orthanc::ResourceType_Series:
           // http://medical.nema.org/medical/dicom/current/output/html/part18.html#table_6.7.1-2a
-          result.push_back(gdcm::Tag(0x0008, 0x0005));  // Specific Character Set
-          result.push_back(gdcm::Tag(0x0008, 0x0060));  // Modality
-          result.push_back(gdcm::Tag(0x0008, 0x0201));  // Timezone Offset From UTC
-          result.push_back(gdcm::Tag(0x0008, 0x103E));  // Series Description
-          //result.push_back(gdcm::Tag(0x0008, 0x1190));  // Retrieve URL  => SPECIAL CASE
-          result.push_back(gdcm::Tag(0x0020, 0x000E));  // Series Instance UID
-          result.push_back(gdcm::Tag(0x0020, 0x0011));  // Series Number
-          //result.push_back(gdcm::Tag(0x0020, 0x1209));  // Number of Series Related Instances  => SPECIAL CASE
-          result.push_back(gdcm::Tag(0x0040, 0x0244));  // Performed Procedure Step Start Date
-          result.push_back(gdcm::Tag(0x0040, 0x0245));  // Performed Procedure Step Start Time
-          result.push_back(gdcm::Tag(0x0040, 0x0275));  // Request Attribute Sequence
+          result.push_back(Orthanc::DicomTag(0x0008, 0x0005));  // Specific Character Set
+          result.push_back(Orthanc::DicomTag(0x0008, 0x0060));  // Modality
+          result.push_back(Orthanc::DicomTag(0x0008, 0x0201));  // Timezone Offset From UTC
+          result.push_back(Orthanc::DicomTag(0x0008, 0x103E));  // Series Description
+          //result.push_back(Orthanc::DicomTag(0x0008, 0x1190));  // Retrieve URL  => SPECIAL CASE
+          result.push_back(Orthanc::DicomTag(0x0020, 0x000E));  // Series Instance UID
+          result.push_back(Orthanc::DicomTag(0x0020, 0x0011));  // Series Number
+          //result.push_back(Orthanc::DicomTag(0x0020, 0x1209));  // Number of Series Related Instances  => SPECIAL CASE
+          result.push_back(Orthanc::DicomTag(0x0040, 0x0244));  // Performed Procedure Step Start Date
+          result.push_back(Orthanc::DicomTag(0x0040, 0x0245));  // Performed Procedure Step Start Time
+          result.push_back(Orthanc::DicomTag(0x0040, 0x0275));  // Request Attribute Sequence
           break;
 
-        case QueryLevel_Instance:
+        case Orthanc::ResourceType_Instance:
           // http://medical.nema.org/medical/dicom/current/output/html/part18.html#table_6.7.1-2b
-          result.push_back(gdcm::Tag(0x0008, 0x0005));  // Specific Character Set
-          result.push_back(gdcm::Tag(0x0008, 0x0016));  // SOP Class UID
-          result.push_back(gdcm::Tag(0x0008, 0x0018));  // SOP Instance UID
-          result.push_back(gdcm::Tag(0x0008, 0x0056));  // Instance Availability
-          result.push_back(gdcm::Tag(0x0008, 0x0201));  // Timezone Offset From UTC
-          result.push_back(gdcm::Tag(0x0008, 0x1190));  // Retrieve URL
-          result.push_back(gdcm::Tag(0x0020, 0x0013));  // Instance Number
-          result.push_back(gdcm::Tag(0x0028, 0x0010));  // Rows
-          result.push_back(gdcm::Tag(0x0028, 0x0011));  // Columns
-          result.push_back(gdcm::Tag(0x0028, 0x0100));  // Bits Allocated
-          result.push_back(gdcm::Tag(0x0028, 0x0008));  // Number of Frames
+          result.push_back(Orthanc::DicomTag(0x0008, 0x0005));  // Specific Character Set
+          result.push_back(Orthanc::DicomTag(0x0008, 0x0016));  // SOP Class UID
+          result.push_back(Orthanc::DicomTag(0x0008, 0x0018));  // SOP Instance UID
+          result.push_back(Orthanc::DicomTag(0x0008, 0x0056));  // Instance Availability
+          result.push_back(Orthanc::DicomTag(0x0008, 0x0201));  // Timezone Offset From UTC
+          result.push_back(Orthanc::DicomTag(0x0008, 0x1190));  // Retrieve URL
+          result.push_back(Orthanc::DicomTag(0x0020, 0x0013));  // Instance Number
+          result.push_back(Orthanc::DicomTag(0x0028, 0x0010));  // Rows
+          result.push_back(Orthanc::DicomTag(0x0028, 0x0011));  // Columns
+          result.push_back(Orthanc::DicomTag(0x0028, 0x0100));  // Bits Allocated
+          result.push_back(Orthanc::DicomTag(0x0028, 0x0008));  // Number of Frames
           break;
 
         default:
@@ -210,13 +203,15 @@ namespace
             Orthanc::Toolbox::TokenizeString(tags, value, ',');
             for (size_t i = 0; i < tags.size(); i++)
             {
-              includeFields_.push_back(OrthancPlugins::ParseTag(*dictionary_, tags[i]));
+              const gdcm::Tag tag = OrthancPlugins::ParseTag(*dictionary_, tags[i]);
+              includeFields_.push_back(Orthanc::DicomTag(tag.GetGroup(), tag.GetElement()));
             }
           }
         }
         else
         {
-          filters_[OrthancPlugins::ParseTag(*dictionary_, key)] = value;
+          const gdcm::Tag tag = OrthancPlugins::ParseTag(*dictionary_, key);
+          filters_[Orthanc::DicomTag(tag.GetGroup(), tag.GetElement())] = value;
         }
       }
 
@@ -233,7 +228,7 @@ namespace
       return offset_;
     }
 
-    void AddFilter(const gdcm::Tag& tag,
+    void AddFilter(const Orthanc::DicomTag& tag,
                    const std::string& constraint)
     {
       filters_[tag] = constraint;
@@ -249,21 +244,21 @@ namespace
     }
 
     void ConvertToOrthanc(Json::Value& result,
-                          QueryLevel level) const
+                          Orthanc::ResourceType level) const
     {
       result = Json::objectValue;
 
       switch (level)
       {
-        case QueryLevel_Study:
+        case Orthanc::ResourceType_Study:
           result["Level"] = "Study";
           break;
 
-        case QueryLevel_Series:
+        case Orthanc::ResourceType_Series:
           result["Level"] = "Series";
           break;
 
-        case QueryLevel_Instance:
+        case Orthanc::ResourceType_Instance:
           result["Level"] = "Instance";
           break;
 
@@ -294,24 +289,24 @@ namespace
 
 
     void ComputeDerivedTags(Filters& target,
-                            QueryLevel level,
+                            Orthanc::ResourceType level,
                             const std::string& resource) const
     {
       target.clear();
 
       switch (level)
       {
-        case QueryLevel_Study:
+        case Orthanc::ResourceType_Study:
         {
           Json::Value series, instances;
           if (OrthancPlugins::RestApiGet(series, "/studies/" + resource + "/series?expand", false) &&
               OrthancPlugins::RestApiGet(instances, "/studies/" + resource + "/instances", false))
           {
             // Number of Study Related Series
-            target[gdcm::Tag(0x0020, 0x1206)] = boost::lexical_cast<std::string>(series.size());
+            target[Orthanc::DicomTag(0x0020, 0x1206)] = boost::lexical_cast<std::string>(series.size());
 
             // Number of Study Related Instances
-            target[gdcm::Tag(0x0020, 0x1208)] = boost::lexical_cast<std::string>(instances.size());
+            target[Orthanc::DicomTag(0x0020, 0x1208)] = boost::lexical_cast<std::string>(instances.size());
 
             // Collect the Modality of all the child series
             std::set<std::string> modalities;
@@ -336,29 +331,29 @@ namespace
               s += *it;
             }
 
-            target[gdcm::Tag(0x0008, 0x0061)] = s;  // Modalities in Study
+            target[Orthanc::DicomTag(0x0008, 0x0061)] = s;  // Modalities in Study
           }
           else
           {
-            target[gdcm::Tag(0x0008, 0x0061)] = "";   // Modalities in Study
-            target[gdcm::Tag(0x0020, 0x1206)] = "0";  // Number of Study Related Series
-            target[gdcm::Tag(0x0020, 0x1208)] = "0";  // Number of Study Related Instances
+            target[Orthanc::DicomTag(0x0008, 0x0061)] = "";   // Modalities in Study
+            target[Orthanc::DicomTag(0x0020, 0x1206)] = "0";  // Number of Study Related Series
+            target[Orthanc::DicomTag(0x0020, 0x1208)] = "0";  // Number of Study Related Instances
           }
 
           break;
         }
 
-        case QueryLevel_Series:
+        case Orthanc::ResourceType_Series:
         {
           Json::Value instances;
           if (OrthancPlugins::RestApiGet(instances, "/series/" + resource + "/instances", false))
           {
             // Number of Series Related Instances
-            target[gdcm::Tag(0x0020, 0x1209)] = boost::lexical_cast<std::string>(instances.size());
+            target[Orthanc::DicomTag(0x0020, 0x1209)] = boost::lexical_cast<std::string>(instances.size());
           }
           else
           {
-            target[gdcm::Tag(0x0020, 0x1209)] = "0";  // Number of Series Related Instances
+            target[Orthanc::DicomTag(0x0020, 0x1209)] = "0";  // Number of Series Related Instances
           }
 
           break;
@@ -373,9 +368,9 @@ namespace
     void ExtractFields(gdcm::DataSet& result,
                        const OrthancPlugins::ParsedDicomFile& dicom,
                        const std::string& wadoBase,
-                       QueryLevel level) const
+                       Orthanc::ResourceType level) const
     {
-      std::list<gdcm::Tag> fields = includeFields_;
+      std::list<Orthanc::DicomTag> fields = includeFields_;
 
       // The list of attributes for this query level
       AddResultAttributesForLevel(fields, level);
@@ -389,48 +384,51 @@ namespace
 
       // For instances and series, add all Study-level attributes if
       // {StudyInstanceUID} is not specified.
-      if ((level == QueryLevel_Instance  || level == QueryLevel_Series) 
-          && filters_.find(OrthancPlugins::DICOM_TAG_STUDY_INSTANCE_UID) == filters_.end()
+      if ((level == Orthanc::ResourceType_Instance  || level == Orthanc::ResourceType_Series) 
+          && filters_.find(Orthanc::DICOM_TAG_STUDY_INSTANCE_UID) == filters_.end()
         )
       {
-        AddResultAttributesForLevel(fields, QueryLevel_Study);
+        AddResultAttributesForLevel(fields, Orthanc::ResourceType_Study);
       }
 
       // For instances, add all Series-level attributes if
       // {SeriesInstanceUID} is not specified.
-      if (level == QueryLevel_Instance
-          && filters_.find(OrthancPlugins::DICOM_TAG_SERIES_INSTANCE_UID) == filters_.end()
+      if (level == Orthanc::ResourceType_Instance
+          && filters_.find(Orthanc::DICOM_TAG_SERIES_INSTANCE_UID) == filters_.end()
         )
       {
-        AddResultAttributesForLevel(fields, QueryLevel_Series);
+        AddResultAttributesForLevel(fields, Orthanc::ResourceType_Series);
       }
 
       // Copy all the required fields to the target
-      for (std::list<gdcm::Tag>::const_iterator
+      for (std::list<Orthanc::DicomTag>::const_iterator
              it = fields.begin(); it != fields.end(); ++it)
       {
-        if (dicom.GetDataSet().FindDataElement(*it))
+        gdcm::Tag tag(it->GetGroup(), it->GetElement());
+
+        if (dicom.GetDataSet().FindDataElement(tag))
         {
-          const gdcm::DataElement& element = dicom.GetDataSet().GetDataElement(*it);
+          const gdcm::DataElement& element = dicom.GetDataSet().GetDataElement(tag);
           result.Replace(element);
         }
       }
 
       // Set the retrieve URL for WADO-RS
       std::string url = (wadoBase + "studies/" + 
-                         dicom.GetRawTagWithDefault(OrthancPlugins::DICOM_TAG_STUDY_INSTANCE_UID, "", true));
+                         dicom.GetRawTagWithDefault(Orthanc::DICOM_TAG_STUDY_INSTANCE_UID, "", true));
 
-      if (level == QueryLevel_Series || level == QueryLevel_Instance)
+      if (level == Orthanc::ResourceType_Series || level == Orthanc::ResourceType_Instance)
       {
-        url += "/series/" + dicom.GetRawTagWithDefault(OrthancPlugins::DICOM_TAG_SERIES_INSTANCE_UID, "", true);
+        url += "/series/" + dicom.GetRawTagWithDefault(Orthanc::DICOM_TAG_SERIES_INSTANCE_UID, "", true);
       }
 
-      if (level == QueryLevel_Instance)
+      if (level == Orthanc::ResourceType_Instance)
       {
-        url += "/instances/" + dicom.GetRawTagWithDefault(OrthancPlugins::DICOM_TAG_SOP_INSTANCE_UID, "", true);
+        url += "/instances/" + dicom.GetRawTagWithDefault(Orthanc::DICOM_TAG_SOP_INSTANCE_UID, "", true);
       }
     
-      gdcm::DataElement element(OrthancPlugins::DICOM_TAG_RETRIEVE_URL);
+      static const gdcm::Tag DICOM_TAG_RETRIEVE_URL(0x0008, 0x1190);
+      gdcm::DataElement element(DICOM_TAG_RETRIEVE_URL);
       element.SetByteValue(url.c_str(), url.size());
       result.Replace(element);
     }
@@ -439,10 +437,10 @@ namespace
     void ExtractFields(Json::Value& result,
                        const Json::Value& source,
                        const std::string& wadoBase,
-                       QueryLevel level) const
+                       Orthanc::ResourceType level) const
     {
       result = Json::objectValue;
-      std::list<gdcm::Tag> fields = includeFields_;
+      std::list<Orthanc::DicomTag> fields = includeFields_;
 
       // The list of attributes for this query level
       AddResultAttributesForLevel(fields, level);
@@ -456,24 +454,24 @@ namespace
 
       // For instances and series, add all Study-level attributes if
       // {StudyInstanceUID} is not specified.
-      if ((level == QueryLevel_Instance  || level == QueryLevel_Series) 
-          && filters_.find(OrthancPlugins::DICOM_TAG_STUDY_INSTANCE_UID) == filters_.end()
+      if ((level == Orthanc::ResourceType_Instance  || level == Orthanc::ResourceType_Series) 
+          && filters_.find(Orthanc::DICOM_TAG_STUDY_INSTANCE_UID) == filters_.end()
         )
       {
-        AddResultAttributesForLevel(fields, QueryLevel_Study);
+        AddResultAttributesForLevel(fields, Orthanc::ResourceType_Study);
       }
 
       // For instances, add all Series-level attributes if
       // {SeriesInstanceUID} is not specified.
-      if (level == QueryLevel_Instance
-          && filters_.find(OrthancPlugins::DICOM_TAG_SERIES_INSTANCE_UID) == filters_.end()
+      if (level == Orthanc::ResourceType_Instance
+          && filters_.find(Orthanc::DICOM_TAG_SERIES_INSTANCE_UID) == filters_.end()
         )
       {
-        AddResultAttributesForLevel(fields, QueryLevel_Series);
+        AddResultAttributesForLevel(fields, Orthanc::ResourceType_Series);
       }
 
       // Copy all the required fields to the target
-      for (std::list<gdcm::Tag>::const_iterator
+      for (std::list<Orthanc::DicomTag>::const_iterator
              it = fields.begin(); it != fields.end(); ++it)
       {
         std::string tag = FormatOrthancTag(*it);
@@ -485,16 +483,17 @@ namespace
 
       // Set the retrieve URL for WADO-RS
       std::string url = (wadoBase + "studies/" + 
-                         GetOrthancTag(source, OrthancPlugins::DICOM_TAG_STUDY_INSTANCE_UID, ""));
+                         GetOrthancTag(source, Orthanc::DICOM_TAG_STUDY_INSTANCE_UID, ""));
 
-      if (level == QueryLevel_Series || level == QueryLevel_Instance)
+      if (level == Orthanc::ResourceType_Series || 
+          level == Orthanc::ResourceType_Instance)
       {
-        url += "/series/" + GetOrthancTag(source, OrthancPlugins::DICOM_TAG_SERIES_INSTANCE_UID, "");
+        url += "/series/" + GetOrthancTag(source, Orthanc::DICOM_TAG_SERIES_INSTANCE_UID, "");
       }
 
-      if (level == QueryLevel_Instance)
+      if (level == Orthanc::ResourceType_Instance)
       {
-        url += "/instances/" + GetOrthancTag(source, OrthancPlugins::DICOM_TAG_SOP_INSTANCE_UID, "");
+        url += "/instances/" + GetOrthancTag(source, Orthanc::DICOM_TAG_SOP_INSTANCE_UID, "");
       }
     
       Json::Value tmp = Json::objectValue;
@@ -502,7 +501,8 @@ namespace
       tmp["Type"] = "String";
       tmp["Value"] = url;
 
-      result[FormatOrthancTag(OrthancPlugins::DICOM_TAG_RETRIEVE_URL)] = tmp;
+      static const Orthanc::DicomTag DICOM_TAG_RETRIEVE_URL(0x0008, 0x1190);
+      result[FormatOrthancTag(DICOM_TAG_RETRIEVE_URL)] = tmp;
     }
   };
 }
@@ -512,7 +512,7 @@ namespace
 static void ApplyMatcher(OrthancPluginRestOutput* output,
                          const OrthancPluginHttpRequest* request,
                          const ModuleMatcher& matcher,
-                         QueryLevel level)
+                         Orthanc::ResourceType level)
 {
   Json::Value find;
   matcher.ConvertToOrthanc(find, level);
@@ -530,14 +530,14 @@ static void ApplyMatcher(OrthancPluginRestOutput* output,
   typedef std::list< std::pair<std::string, std::string> > ResourcesAndInstances;
 
   ResourcesAndInstances resourcesAndInstances;
-  std::string root = (level == QueryLevel_Study ? "/studies/" : "/series/");
+  std::string root = (level == Orthanc::ResourceType_Study ? "/studies/" : "/series/");
     
   for (Json::Value::ArrayIndex i = 0; i < resources.size(); i++)
   {
     const std::string resource = resources[i].asString();
 
-    if (level == QueryLevel_Study ||
-        level == QueryLevel_Series)
+    if (level == Orthanc::ResourceType_Study ||
+        level == Orthanc::ResourceType_Series)
     {
       // Find one child instance of this resource
       Json::Value tmp;
@@ -558,42 +558,6 @@ static void ApplyMatcher(OrthancPluginRestOutput* output,
 
   OrthancPlugins::DicomResults results(output, wadoBase, *dictionary_, IsXmlExpected(request), true);
 
-#if 0
-  // Implementation up to version 0.2 of the plugin. Each instance is
-  // downloaded and decoded using GDCM, which slows down things
-  // wrt. the new implementation below that directly uses the Orthanc
-  // pre-computed JSON summary.
-  for (ResourcesAndInstances::const_iterator
-         it = resourcesAndInstances.begin(); it != resourcesAndInstances.end(); ++it)
-  {
-    ModuleMatcher::Filters derivedTags;
-    matcher.ComputeDerivedTags(derivedTags, level, it->first);
-
-    std::string file;
-    if (OrthancPlugins::RestApiGetString(file, context, "/instances/" + it->second + "/file", false))
-    {
-      OrthancPlugins::ParsedDicomFile dicom(file);
-
-      std::auto_ptr<gdcm::DataSet> result(new gdcm::DataSet);
-      matcher.ExtractFields(*result, dicom, wadoBase, level);
-
-      // Inject the derived tags
-      ModuleMatcher::Filters derivedTags;
-      matcher.ComputeDerivedTags(derivedTags, level, it->first);
-
-      for (ModuleMatcher::Filters::const_iterator
-             tag = derivedTags.begin(); tag != derivedTags.end(); ++tag)
-      {
-        gdcm::DataElement element(tag->first);
-        element.SetByteValue(tag->second.c_str(), tag->second.size());
-        result->Replace(element);
-      }
-
-      results.Add(dicom.GetFile(), *result);
-    }
-  }
-
-#else
   // Fix of issue #13
   for (ResourcesAndInstances::const_iterator
          it = resourcesAndInstances.begin(); it != resourcesAndInstances.end(); ++it)
@@ -603,9 +567,9 @@ static void ApplyMatcher(OrthancPluginRestOutput* output,
     {
       std::string wadoUrl = OrthancPlugins::Configuration::GetWadoUrl(
         wadoBase, 
-        GetOrthancTag(tags, OrthancPlugins::DICOM_TAG_STUDY_INSTANCE_UID, ""),
-        GetOrthancTag(tags, OrthancPlugins::DICOM_TAG_SERIES_INSTANCE_UID, ""),
-        GetOrthancTag(tags, OrthancPlugins::DICOM_TAG_SOP_INSTANCE_UID, ""));
+        GetOrthancTag(tags, Orthanc::DICOM_TAG_STUDY_INSTANCE_UID, ""),
+        GetOrthancTag(tags, Orthanc::DICOM_TAG_SERIES_INSTANCE_UID, ""),
+        GetOrthancTag(tags, Orthanc::DICOM_TAG_SOP_INSTANCE_UID, ""));
 
       Json::Value result;
       matcher.ExtractFields(result, tags, wadoBase, level);
@@ -617,8 +581,10 @@ static void ApplyMatcher(OrthancPluginRestOutput* output,
       for (ModuleMatcher::Filters::const_iterator
              tag = derivedTags.begin(); tag != derivedTags.end(); ++tag)
       {
+        const gdcm::Tag t(tag->first.GetGroup(), tag->first.GetElement());
+
         Json::Value tmp = Json::objectValue;
-        tmp["Name"] = OrthancPlugins::GetKeyword(*dictionary_, tag->first);
+        tmp["Name"] = OrthancPlugins::GetKeyword(*dictionary_, t);
         tmp["Type"] = "String";
         tmp["Value"] = tag->second;
         result[FormatOrthancTag(tag->first)] = tmp;
@@ -627,7 +593,6 @@ static void ApplyMatcher(OrthancPluginRestOutput* output,
       results.AddFromOrthanc(result, wadoUrl);
     }
   }
-#endif
 
   results.Answer();
 }
@@ -645,7 +610,7 @@ void SearchForStudies(OrthancPluginRestOutput* output,
   else
   {
     ModuleMatcher matcher(request);
-    ApplyMatcher(output, request, matcher, QueryLevel_Study);
+    ApplyMatcher(output, request, matcher, Orthanc::ResourceType_Study);
   }
 }
 
@@ -665,10 +630,10 @@ void SearchForSeries(OrthancPluginRestOutput* output,
     if (request->groupsCount == 1)
     {
       // The "StudyInstanceUID" is provided by the regular expression
-      matcher.AddFilter(OrthancPlugins::DICOM_TAG_STUDY_INSTANCE_UID, request->groups[0]);
+      matcher.AddFilter(Orthanc::DICOM_TAG_STUDY_INSTANCE_UID, request->groups[0]);
     }
 
-    ApplyMatcher(output, request, matcher, QueryLevel_Series);
+    ApplyMatcher(output, request, matcher, Orthanc::ResourceType_Series);
   }
 }
 
@@ -685,18 +650,19 @@ void SearchForInstances(OrthancPluginRestOutput* output,
   {
     ModuleMatcher matcher(request);
 
-    if (request->groupsCount == 1 || request->groupsCount == 2)
+    if (request->groupsCount == 1 || 
+        request->groupsCount == 2)
     {
       // The "StudyInstanceUID" is provided by the regular expression
-      matcher.AddFilter(OrthancPlugins::DICOM_TAG_STUDY_INSTANCE_UID, request->groups[0]);
+      matcher.AddFilter(Orthanc::DICOM_TAG_STUDY_INSTANCE_UID, request->groups[0]);
     }
 
     if (request->groupsCount == 2)
     {
       // The "SeriesInstanceUID" is provided by the regular expression
-      matcher.AddFilter(OrthancPlugins::DICOM_TAG_SERIES_INSTANCE_UID, request->groups[1]);
+      matcher.AddFilter(Orthanc::DICOM_TAG_SERIES_INSTANCE_UID, request->groups[1]);
     }
 
-    ApplyMatcher(output, request, matcher, QueryLevel_Instance);
+    ApplyMatcher(output, request, matcher, Orthanc::ResourceType_Instance);
   }
 }

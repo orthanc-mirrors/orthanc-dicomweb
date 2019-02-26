@@ -25,6 +25,7 @@
 
 #include <Core/ChunkedBuffer.h>
 #include <Core/Enumerations.h>
+#include <Core/DicomFormat/DicomTag.h>
 #include <Plugins/Samples/Common/OrthancPluginCppWrapper.h>
 
 #include <gdcmReader.h>
@@ -47,7 +48,6 @@ namespace OrthancPlugins
   static const gdcm::Tag DICOM_TAG_FAILURE_REASON(0x0008, 0x1197);
   static const gdcm::Tag DICOM_TAG_WARNING_REASON(0x0008, 0x1196);
   static const gdcm::Tag DICOM_TAG_REFERENCED_SOP_SEQUENCE(0x0008, 0x1199);
-  static const gdcm::Tag DICOM_TAG_ACCESSION_NUMBER(0x0008, 0x0050);
   static const gdcm::Tag DICOM_TAG_SPECIFIC_CHARACTER_SET(0x0008, 0x0005);
   static const gdcm::Tag DICOM_TAG_PIXEL_DATA(0x7fe0, 0x0010);
   static const gdcm::Tag DICOM_TAG_SAMPLES_PER_PIXEL(0x0028, 0x0002);
@@ -87,6 +87,10 @@ namespace OrthancPlugins
                    bool stripSpaces) const;
 
     std::string GetRawTagWithDefault(const gdcm::Tag& tag,
+                                     const std::string& defaultValue,
+                                     bool stripSpaces) const;
+
+    std::string GetRawTagWithDefault(const Orthanc::DicomTag& tag,
                                      const std::string& defaultValue,
                                      bool stripSpaces) const;
 
