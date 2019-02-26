@@ -22,9 +22,8 @@
 #include "Plugin.h"
 
 #include "Configuration.h"
-#include "Dicom.h"
-#include "DicomResults.h"
 
+#include <Core/ChunkedBuffer.h>
 #include <Core/Toolbox.h>
 
 #include <memory>
@@ -240,9 +239,6 @@ static void AnswerListOfDicomInstances(OrthancPluginRestOutput* output,
 
 
 
-
-
-#if 0
 #include <boost/thread/mutex.hpp>
 
 class DicomWebFormatter : public boost::noncopyable
@@ -281,7 +277,7 @@ private:
     for (size_t i = 0; i < levelDepth; i++)
     {
       uri += ("/" + FormatTag(levelTagGroup[i], levelTagElement[i]) + "/" +
-              boost::lexical_cast<std::string>(levelIndex[i]));
+              boost::lexical_cast<std::string>(levelIndex[i] + 1));
     }
 
     uri += "/" + FormatTag(tagGroup, tagElement);
@@ -364,7 +360,6 @@ static bool GetDicomIdentifiers(std::string& studyInstanceUid,
     return false;
   }
 }
-#endif
 
 
 
@@ -377,48 +372,6 @@ static void AnswerMetadata(OrthancPluginRestOutput* output,
 {
   OrthancPluginContext* context = OrthancPlugins::GetGlobalContext();
 
-#if 1
-  std::string tmp = GetResourceUri(level, resource);
-  
-  std::list<std::string> files;
-  if (isInstance)
-  {
-    files.push_back(tmp + "/file");
-  }
-  else
-  {
-    Json::Value instances;
-    if (!OrthancPlugins::RestApiGet(instances, tmp + "/instances", false))
-    {
-      // Internal error
-      OrthancPluginSendHttpStatusCode(context, output, 400);
-      return;
-    }
-
-    for (Json::Value::ArrayIndex i = 0; i < instances.size(); i++)
-    {
-      files.push_back("/instances/" + instances[i]["ID"].asString() + "/file");
-    }
-  }
-
-  const std::string wadoBase = OrthancPlugins::Configuration::GetBaseUrl(request);
-
-  OrthancPlugins::DicomResults results(output, wadoBase, *dictionary_, isXml, true);
-  
-  for (std::list<std::string>::const_iterator
-         it = files.begin(); it != files.end(); ++it)
-  {
-    OrthancPlugins::MemoryBuffer content;
-    if (content.RestApiGet(*it, false))
-    {
-      OrthancPlugins::ParsedDicomFile dicom(content);
-      results.Add(dicom.GetFile());
-    }
-  }
-
-  results.Answer();
-
-#else
   std::list<std::string> instances;
   if (isInstance)
   {
@@ -498,7 +451,6 @@ static void AnswerMetadata(OrthancPluginRestOutput* output,
     buffer.Flatten(answer);
     OrthancPluginAnswerBuffer(context, output, answer.c_str(), answer.size(), "application/dicom+json");
   }
-#endif
 }
 
 
@@ -614,8 +566,8 @@ bool LocateInstance(OrthancPluginRestOutput* output,
   {
     throw Orthanc::OrthancException(Orthanc::ErrorCode_InexistentItem,
                                     "No instance " + std::string(request->groups[2]) + 
-                                    " in study " + std::string(request->groups[0]) + " or " +
-                                    " in series " + std::string(request->groups[1]));
+                                    " in study " + std::string(request->groups[0]) +
+                                    " or in series " + std::string(request->groups[1]));
   }
   else
   {
@@ -755,78 +707,6 @@ void RetrieveInstanceMetadata(OrthancPluginRestOutput* output,
 }
 
 
-
-static uint32_t Hex2Dec(char c)
-{
-  return (c >= '0' && c <= '9') ? c - '0' : c - 'a' + 10;
-}
-
-
-static bool ParseBulkTag(gdcm::Tag& tag,
-                         const std::string& s)
-{
-  if (s.size() != 8)
-  {
-    return false;
-  }
-
-  for (size_t i = 0; i < 8; i++)
-  {
-    if ((s[i] < '0' || s[i] > '9') &&
-        (s[i] < 'a' || s[i] > 'f'))
-    {
-      return false;
-    }
-  }
-
-  uint32_t g = ((Hex2Dec(s[0]) << 12) +
-                (Hex2Dec(s[1]) << 8) +
-                (Hex2Dec(s[2]) << 4) +
-                Hex2Dec(s[3]));
-
-  uint32_t e = ((Hex2Dec(s[4]) << 12) +
-                (Hex2Dec(s[5]) << 8) +
-                (Hex2Dec(s[6]) << 4) +
-                Hex2Dec(s[7]));
-
-  tag = gdcm::Tag(g, e);
-  return true;
-}
-
-
-static bool ExploreBulkData(std::string& content,
-                            const std::vector<std::string>& path,
-                            size_t position,
-                            const gdcm::DataSet& dataset)
-{
-  gdcm::Tag tag;
-  if (!ParseBulkTag(tag, path[position]) ||
-      !dataset.FindDataElement(tag))
-  {
-    return false;
-  }
-
-  const gdcm::DataElement& element = dataset.GetDataElement(tag);
-
-  if (position + 1 == path.size())
-  {
-    const gdcm::ByteValue* data = element.GetByteValue();
-    if (!data)
-    {
-      content.clear();
-    }
-    else
-    {
-      content.assign(data->GetPointer(), data->GetLength());
-    }
-
-    return true;
-  }
-
-  return false;
-}
-
-
 void RetrieveBulkData(OrthancPluginRestOutput* output,
                       const char* url,
                       const OrthancPluginHttpRequest* request)
@@ -839,19 +719,46 @@ void RetrieveBulkData(OrthancPluginRestOutput* output,
     return;
   }
 
-  std::string uri;
+  std::string publicId;
   OrthancPlugins::MemoryBuffer content;
-  if (LocateInstance(output, uri, request) &&
-      content.RestApiGet(uri + "/file", false))
+  if (LocateInstance(output, publicId, request) &&
+      content.RestApiGet("/instances/" + publicId + "/file", false))
   {
-    OrthancPlugins::ParsedDicomFile dicom(content);
+    std::string bulk(request->groups[3]);
 
     std::vector<std::string> path;
-    Orthanc::Toolbox::TokenizeString(path, request->groups[3], '/');
-      
-    std::string result;
-    if (path.size() % 2 == 1 &&
-        ExploreBulkData(result, path, 0, dicom.GetDataSet()))
+    Orthanc::Toolbox::TokenizeString(path, bulk, '/');
+
+    // Map the bulk data URI to the Orthanc "/instances/.../content/..." built-in URI
+    std::string orthanc = "/instances/" + publicId + "/content";
+
+    if (path.size() % 2 != 1)
+    {
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest,
+                                      "Bulk data URI in WADO-RS should have an odd number of items: " + bulk);
+    }
+
+    for (size_t i = 0; i < path.size() / 2; i++)
+    {
+      int index;
+
+      try
+      {
+        index = boost::lexical_cast<int>(path[2 * i + 1]);
+      }
+      catch (boost::bad_lexical_cast&)
+      {
+        throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest,
+                                        "Bad sequence index in bulk data URI: " + bulk);
+      }
+
+      orthanc += "/" + path[2 * i] + "/" + boost::lexical_cast<std::string>(index - 1);
+    }
+
+    orthanc += "/" + path.back();
+
+    std::string result; 
+    if (OrthancPlugins::RestApiGetString(result, orthanc, false))
     {
       if (OrthancPluginStartMultipartAnswer(context, output, "related", "application/octet-stream") != 0 ||
           OrthancPluginSendMultipartItem(context, output, result.c_str(), result.size()) != 0)
@@ -861,7 +768,7 @@ void RetrieveBulkData(OrthancPluginRestOutput* output,
     }
     else
     {
-      OrthancPluginSendHttpStatusCode(context, output, 400 /* Bad request */);
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_InexistentItem);
     }      
   }
 }
