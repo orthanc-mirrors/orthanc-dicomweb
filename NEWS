@@ -6,9 +6,10 @@ Pending changes in the mainline
 * Sending "HttpHeaders" of the "DicomWeb.Servers" configuration to remote DICOMweb servers
 * Improved WADO-RS compatibility if Orthanc is acting as a DICOMweb client
 * More detailed information about errors is provided in the HTTP answers
-* Fix issue #111/3 (QIDO-RS: wrong serialization of empty values)
-* Fix issue #112/4 (QIDO-RS: wrong serialization of number values)
-* Upgrade to GDCM 2.8.8 for static builds
+* Fix issue #111/#3 (QIDO-RS: wrong serialization of empty values)
+* Fix issue #112/#4 (QIDO-RS: wrong serialization of number values)
+* Fix issue #113/#2 (QIDO-RS: wrong serialization of PN VR)
+* Upgrade to GDCM 2.8.8 in static builds
 
 
 Version 0.5 (2018-04-19)
@@ -21,7 +22,7 @@ Version 0.5 (2018-04-19)
 * Fix generation of numeric tags part of sequences for ".../metadata" routes
 * Support for OpenBSD
 * Support for Linux Standard Base
-* Upgrade to GDCM 2.8.4 for static builds
+* Upgrade to GDCM 2.8.4 in static builds
 * Resort to Orthanc framework
 
 
