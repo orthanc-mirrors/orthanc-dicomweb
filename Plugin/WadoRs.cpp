@@ -22,6 +22,7 @@
 #include "Plugin.h"
 
 #include "Configuration.h"
+#include "DicomWebFormatter.h"
 
 #include <Core/ChunkedBuffer.h>
 #include <Core/Toolbox.h>
@@ -238,92 +239,6 @@ static void AnswerListOfDicomInstances(OrthancPluginRestOutput* output,
 }
 
 
-
-#include <boost/thread/mutex.hpp>
-
-class DicomWebFormatter : public boost::noncopyable
-{
-private:
-  boost::mutex  mutex_;
-  std::string   wadoBase_;
-
-  static DicomWebFormatter& GetSingleton()
-  {
-    static DicomWebFormatter  formatter;
-    return formatter;
-  }
-
-
-  static std::string FormatTag(uint16_t group,
-                               uint16_t element)
-  {
-    char buf[16];
-    sprintf(buf, "%04x%04x", group, element);
-    return std::string(buf);
-  }
-
-
-  static void Callback(OrthancPluginDicomWebNode *node,
-                       OrthancPluginDicomWebSetBinaryNode setter,
-                       uint32_t levelDepth,
-                       const uint16_t *levelTagGroup,
-                       const uint16_t *levelTagElement,
-                       const uint32_t *levelIndex,
-                       uint16_t tagGroup,
-                       uint16_t tagElement,
-                       OrthancPluginValueRepresentation vr)
-  {
-    std::string uri = GetSingleton().wadoBase_;
-    for (size_t i = 0; i < levelDepth; i++)
-    {
-      uri += ("/" + FormatTag(levelTagGroup[i], levelTagElement[i]) + "/" +
-              boost::lexical_cast<std::string>(levelIndex[i] + 1));
-    }
-
-    uri += "/" + FormatTag(tagGroup, tagElement);
-    
-    setter(node, OrthancPluginDicomWebBinaryMode_BulkDataUri, uri.c_str());
-  }
-
-
-public:
-  class Locker : public boost::noncopyable
-  {
-  private:
-    DicomWebFormatter&         that_;
-    boost::mutex::scoped_lock  lock_;
-
-  public:
-    Locker(const std::string& wadoBase) :
-      that_(GetSingleton()),
-      lock_(that_.mutex_)
-    {
-      that_.wadoBase_ = wadoBase;
-    }
-
-    void Apply(std::string& target,
-               OrthancPluginContext* context,
-               const void* data,
-               size_t size,
-               bool xml)
-    {
-      OrthancPlugins::OrthancString s;
-
-      if (xml)
-      {
-        s.Assign(OrthancPluginEncodeDicomWebXml(context, data, size, Callback));
-      }
-      else
-      {
-        s.Assign(OrthancPluginEncodeDicomWebJson(context, data, size, Callback));
-      }
-
-      s.ToString(target);
-    }
-  };
-};
-
-
 static bool GetDicomIdentifiers(std::string& studyInstanceUid,
                                 std::string& seriesInstanceUid,
                                 std::string& sopInstanceUid,
@@ -411,6 +326,11 @@ static void AnswerMetadata(OrthancPluginRestOutput* output,
     std::string studyInstanceUid, seriesInstanceUid, sopInstanceUid;
     if (GetDicomIdentifiers(studyInstanceUid, seriesInstanceUid, sopInstanceUid, *it))
     {
+      const std::string bulkRoot = (wadoBase +
+                                    "studies/" + studyInstanceUid +
+                                    "/series/" + seriesInstanceUid + 
+                                    "/instances/" + sopInstanceUid + "/bulk");
+      
       OrthancPlugins::MemoryBuffer dicom;
       if (dicom.RestApiGet("/instances/" + *it + "/file", false))
       {
@@ -418,10 +338,7 @@ static void AnswerMetadata(OrthancPluginRestOutput* output,
         
         {
           // TODO - Avoid a global mutex
-          DicomWebFormatter::Locker locker(wadoBase +
-                                           "studies/" + studyInstanceUid +
-                                           "/series/" + seriesInstanceUid + 
-                                           "/instances/" + sopInstanceUid + "/bulk");
+          OrthancPlugins::DicomWebFormatter::Locker locker(bulkRoot);
           locker.Apply(item, context, dicom.GetData(), dicom.GetSize(), isXml);
         }
 

@@ -128,6 +128,7 @@ set(CORE_SOURCES
 
 add_library(OrthancDicomWeb SHARED ${CORE_SOURCES}
   ${CMAKE_SOURCE_DIR}/Plugin/DicomWebClient.cpp
+  ${CMAKE_SOURCE_DIR}/Plugin/DicomWebFormatter.cpp
   ${CMAKE_SOURCE_DIR}/Plugin/DicomWebServers.cpp
   ${CMAKE_SOURCE_DIR}/Plugin/Plugin.cpp
   ${CMAKE_SOURCE_DIR}/Plugin/QidoRs.cpp
