@@ -120,7 +120,6 @@ add_definitions(
 set(CORE_SOURCES
   Plugin/Configuration.cpp
   Plugin/Dicom.cpp
-  Plugin/DicomResults.cpp
 
   ${ORTHANC_ROOT}/Plugins/Samples/Common/OrthancPluginCppWrapper.cpp
   ${ORTHANC_CORE_SOURCES}

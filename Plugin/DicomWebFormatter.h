@@ -25,6 +25,8 @@
 
 #include <orthanc/OrthancCPlugin.h>
 
+#include <json/value.h>
+
 #include <boost/noncopyable.hpp>
 #include <boost/thread/mutex.hpp>
 
@@ -81,14 +83,23 @@ namespace OrthancPlugins
       bool                      first_;
       Orthanc::ChunkedBuffer    jsonBuffer_;
 
+      void AddInternal(const void* dicom,
+                       size_t size,
+                       OrthancPluginDicomWebBinaryMode mode,
+                       const std::string& bulkRoot);
+
     public:
       HttpWriter(OrthancPluginRestOutput* output,
                  bool isXml);
 
-      void AddRawDicom(const void* dicom,
-                       size_t size,
-                       OrthancPluginDicomWebBinaryMode mode,
-                       const std::string& bulkRoot);
+      void AddDicom(const void* dicom,
+                    size_t size,
+                    const std::string& bulkRoot)
+      {
+        AddInternal(dicom, size, OrthancPluginDicomWebBinaryMode_BulkDataUri, bulkRoot);
+      }
+
+      void AddJson(const Json::Value& value);
 
       void Send();
     };

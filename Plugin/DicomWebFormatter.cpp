@@ -128,7 +128,7 @@ namespace OrthancPlugins
   }
 
 
-  void DicomWebFormatter::HttpWriter::AddRawDicom(const void* dicom,
+  void DicomWebFormatter::HttpWriter::AddInternal(const void* dicom,
                                                   size_t size,
                                                   OrthancPluginDicomWebBinaryMode mode,
                                                   const std::string& bulkRoot)
@@ -157,6 +157,15 @@ namespace OrthancPlugins
     {
       jsonBuffer_.AddChunk(item);
     }
+  }
+
+                  
+  void DicomWebFormatter::HttpWriter::AddJson(const Json::Value& value)
+  {
+    MemoryBuffer dicom;
+    dicom.CreateDicom(value, OrthancPluginCreateDicomFlags_None);
+
+    AddInternal(dicom.GetData(), dicom.GetSize(), OrthancPluginDicomWebBinaryMode_Ignore, "");
   }
 
 

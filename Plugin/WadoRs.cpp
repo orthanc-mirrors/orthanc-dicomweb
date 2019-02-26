@@ -326,8 +326,7 @@ static void AnswerMetadata(OrthancPluginRestOutput* output,
       OrthancPlugins::MemoryBuffer dicom;
       if (dicom.RestApiGet("/instances/" + *it + "/file", false))
       {
-        writer.AddRawDicom(dicom.GetData(), dicom.GetSize(), 
-                           OrthancPluginDicomWebBinaryMode_BulkDataUri, bulkRoot);
+        writer.AddDicom(dicom.GetData(), dicom.GetSize(), bulkRoot);
       }
     }
   }

@@ -24,8 +24,8 @@
 #include "Plugin.h"
 #include "StowRs.h"  // For IsXmlExpected()
 #include "Dicom.h"
-#include "DicomResults.h"
 #include "Configuration.h"
+#include "DicomWebFormatter.h"
 
 #include <Core/DicomFormat/DicomTag.h>
 #include <Core/Toolbox.h>
@@ -56,16 +56,29 @@ namespace
                                    const Orthanc::DicomTag& tag,
                                    const std::string& defaultValue)
   {
-    std::string s = FormatOrthancTag(tag);
-      
-    if (source.isMember(s) &&
-        source[s].type() == Json::objectValue &&
-        source[s].isMember("Value") &&
-        source[s].isMember("Type") &&
-        source[s]["Type"] == "String" &&
-        source[s]["Value"].type() == Json::stringValue)
+    const std::string s = tag.Format();
+
+    if (source.isMember(s))
     {
-      return source[s]["Value"].asString();
+      switch (source[s].type())
+      {
+        case Json::stringValue:
+          return source[s].asString();
+
+          // The conversions below should *not* be necessary
+
+        case Json::intValue:
+          return boost::lexical_cast<std::string>(source[s].asInt());
+
+        case Json::uintValue:
+          return boost::lexical_cast<std::string>(source[s].asUInt());
+
+        case Json::realValue:
+          return boost::lexical_cast<std::string>(source[s].asFloat());
+
+        default:
+          return defaultValue;
+      }
     }
     else
     {
@@ -95,7 +108,7 @@ namespace
       {
         case Orthanc::ResourceType_Study:
           // http://medical.nema.org/medical/dicom/current/output/html/part18.html#table_6.7.1-2
-          result.push_back(Orthanc::DicomTag(0x0008, 0x0005));  // Specific Character Set
+          //result.push_back(Orthanc::DicomTag(0x0008, 0x0005));  // Specific Character Set  => SPECIAL CASE
           result.push_back(Orthanc::DicomTag(0x0008, 0x0020));  // Study Date
           result.push_back(Orthanc::DicomTag(0x0008, 0x0030));  // Study Time
           result.push_back(Orthanc::DicomTag(0x0008, 0x0050));  // Accession Number
@@ -116,7 +129,7 @@ namespace
 
         case Orthanc::ResourceType_Series:
           // http://medical.nema.org/medical/dicom/current/output/html/part18.html#table_6.7.1-2a
-          result.push_back(Orthanc::DicomTag(0x0008, 0x0005));  // Specific Character Set
+          //result.push_back(Orthanc::DicomTag(0x0008, 0x0005));  // Specific Character Set  => SPECIAL CASE
           result.push_back(Orthanc::DicomTag(0x0008, 0x0060));  // Modality
           result.push_back(Orthanc::DicomTag(0x0008, 0x0201));  // Timezone Offset From UTC
           result.push_back(Orthanc::DicomTag(0x0008, 0x103E));  // Series Description
@@ -131,7 +144,7 @@ namespace
 
         case Orthanc::ResourceType_Instance:
           // http://medical.nema.org/medical/dicom/current/output/html/part18.html#table_6.7.1-2b
-          result.push_back(Orthanc::DicomTag(0x0008, 0x0005));  // Specific Character Set
+          //result.push_back(Orthanc::DicomTag(0x0008, 0x0005));  // Specific Character Set  => SPECIAL CASE
           result.push_back(Orthanc::DicomTag(0x0008, 0x0016));  // SOP Class UID
           result.push_back(Orthanc::DicomTag(0x0008, 0x0018));  // SOP Instance UID
           result.push_back(Orthanc::DicomTag(0x0008, 0x0056));  // Instance Availability
@@ -496,13 +509,8 @@ namespace
         url += "/instances/" + GetOrthancTag(source, Orthanc::DICOM_TAG_SOP_INSTANCE_UID, "");
       }
     
-      Json::Value tmp = Json::objectValue;
-      tmp["Name"] = "RetrieveURL";
-      tmp["Type"] = "String";
-      tmp["Value"] = url;
-
       static const Orthanc::DicomTag DICOM_TAG_RETRIEVE_URL(0x0008, 0x1190);
-      result[FormatOrthancTag(DICOM_TAG_RETRIEVE_URL)] = tmp;
+      result[DICOM_TAG_RETRIEVE_URL.Format()] = url;
     }
   };
 }
@@ -517,8 +525,12 @@ static void ApplyMatcher(OrthancPluginRestOutput* output,
   Json::Value find;
   matcher.ConvertToOrthanc(find, level);
 
-  Json::FastWriter writer;
-  std::string body = writer.write(find);
+  std::string body;
+
+  {
+    Json::FastWriter writer;
+    body = writer.write(find);
+  }
   
   Json::Value resources;
   if (!OrthancPlugins::RestApiPost(resources, "/tools/find", body, false) ||
@@ -556,14 +568,14 @@ static void ApplyMatcher(OrthancPluginRestOutput* output,
   
   std::string wadoBase = OrthancPlugins::Configuration::GetBaseUrl(request);
 
-  OrthancPlugins::DicomResults results(output, wadoBase, *dictionary_, IsXmlExpected(request), true);
+  OrthancPlugins::DicomWebFormatter::HttpWriter writer(output, IsXmlExpected(request));
 
   // Fix of issue #13
   for (ResourcesAndInstances::const_iterator
          it = resourcesAndInstances.begin(); it != resourcesAndInstances.end(); ++it)
   {
     Json::Value tags;
-    if (OrthancPlugins::RestApiGet(tags, "/instances/" + it->second + "/tags", false))
+    if (OrthancPlugins::RestApiGet(tags, "/instances/" + it->second + "/tags?short", false))
     {
       std::string wadoUrl = OrthancPlugins::Configuration::GetWadoUrl(
         wadoBase, 
@@ -581,20 +593,14 @@ static void ApplyMatcher(OrthancPluginRestOutput* output,
       for (ModuleMatcher::Filters::const_iterator
              tag = derivedTags.begin(); tag != derivedTags.end(); ++tag)
       {
-        const gdcm::Tag t(tag->first.GetGroup(), tag->first.GetElement());
-
-        Json::Value tmp = Json::objectValue;
-        tmp["Name"] = OrthancPlugins::GetKeyword(*dictionary_, t);
-        tmp["Type"] = "String";
-        tmp["Value"] = tag->second;
-        result[FormatOrthancTag(tag->first)] = tmp;
+        result[tag->first.Format()] = tag->second;
       }
 
-      results.AddFromOrthanc(result, wadoUrl);
+      writer.AddJson(result);
     }
   }
 
-  results.Answer();
+  writer.Send();
 }
 
 
