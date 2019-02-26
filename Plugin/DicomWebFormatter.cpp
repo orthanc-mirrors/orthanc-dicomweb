@@ -45,24 +45,40 @@ namespace OrthancPlugins
                                    uint16_t tagElement,
                                    OrthancPluginValueRepresentation vr)
   {
-    std::string uri = GetSingleton().bulkRoot_;
+    const DicomWebFormatter& that = GetSingleton();
 
-    for (size_t i = 0; i < levelDepth; i++)
+    switch (that.mode_)
     {
-      uri += ("/" + FormatTag(levelTagGroup[i], levelTagElement[i]) + "/" +
-              boost::lexical_cast<std::string>(levelIndex[i] + 1));
+      case OrthancPluginDicomWebBinaryMode_Ignore:
+      case OrthancPluginDicomWebBinaryMode_InlineBinary:
+        setter(node, that.mode_, NULL);
+        break;
+
+      case OrthancPluginDicomWebBinaryMode_BulkDataUri:
+      {
+        std::string uri = GetSingleton().bulkRoot_;
+
+        for (size_t i = 0; i < levelDepth; i++)
+        {
+          uri += ("/" + FormatTag(levelTagGroup[i], levelTagElement[i]) + "/" +
+                  boost::lexical_cast<std::string>(levelIndex[i] + 1));
+        }
+    
+        uri += "/" + FormatTag(tagGroup, tagElement);
+    
+        setter(node, that.mode_, uri.c_str());
+        break;
+      }
     }
-    
-    uri += "/" + FormatTag(tagGroup, tagElement);
-    
-    setter(node, OrthancPluginDicomWebBinaryMode_BulkDataUri, uri.c_str());
   }
 
 
-  DicomWebFormatter::Locker::Locker(const std::string& bulkRoot) :
+  DicomWebFormatter::Locker::Locker(OrthancPluginDicomWebBinaryMode mode,
+                                    const std::string& bulkRoot) :
     that_(GetSingleton()),
     lock_(that_.mutex_)
   {
+    that_.mode_ = mode;
     that_.bulkRoot_ = bulkRoot;
   }
 
@@ -85,5 +101,74 @@ namespace OrthancPlugins
     }
 
     s.ToString(target);
+  }
+
+
+  DicomWebFormatter::HttpWriter::HttpWriter(OrthancPluginRestOutput* output,
+                                            bool isXml) :
+    context_(OrthancPlugins::GetGlobalContext()),
+    output_(output),
+    isXml_(isXml),
+    first_(true)
+  {
+    if (context_ == NULL ||
+        output_ == NULL)
+    {
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_NullPointer);
+    }
+
+    if (isXml_)
+    {
+      OrthancPluginStartMultipartAnswer(context_, output_, "related", "application/dicom+xml");
+    }
+    else
+    {
+      jsonBuffer_.AddChunk("[");
+    }
+  }
+
+
+  void DicomWebFormatter::HttpWriter::AddRawDicom(const void* dicom,
+                                                  size_t size,
+                                                  OrthancPluginDicomWebBinaryMode mode,
+                                                  const std::string& bulkRoot)
+  {
+    if (!first_ &&
+        !isXml_)
+    {
+      jsonBuffer_.AddChunk(",");      
+    }
+
+    first_ = false;
+
+    std::string item;
+
+    {
+      // TODO - Avoid a global mutex => Need to change Orthanc SDK
+      OrthancPlugins::DicomWebFormatter::Locker locker(mode, bulkRoot);
+      locker.Apply(item, context_, dicom, size, isXml_);
+    }
+   
+    if (isXml_)
+    {
+      OrthancPluginSendMultipartItem(context_, output_, item.c_str(), item.size());
+    }
+    else
+    {
+      jsonBuffer_.AddChunk(item);
+    }
+  }
+
+
+  void DicomWebFormatter::HttpWriter::Send()
+  {
+    if (!isXml_)
+    {
+      jsonBuffer_.AddChunk("]");
+      
+      std::string answer;
+      jsonBuffer_.Flatten(answer);
+      OrthancPluginAnswerBuffer(context_, output_, answer.c_str(), answer.size(), "application/dicom+json");
+    }
   }
 }

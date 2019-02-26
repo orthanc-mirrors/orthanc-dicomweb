@@ -302,11 +302,10 @@ namespace
           if (OrthancPlugins::RestApiGet(series, "/studies/" + resource + "/series?expand", false) &&
               OrthancPlugins::RestApiGet(instances, "/studies/" + resource + "/instances", false))
           {
-            // Number of Study Related Series
-            target[Orthanc::DicomTag(0x0020, 0x1206)] = boost::lexical_cast<std::string>(series.size());
-
-            // Number of Study Related Instances
-            target[Orthanc::DicomTag(0x0020, 0x1208)] = boost::lexical_cast<std::string>(instances.size());
+            target[Orthanc::DICOM_TAG_NUMBER_OF_STUDY_RELATED_SERIES] = 
+              boost::lexical_cast<std::string>(series.size());
+            target[Orthanc::DICOM_TAG_NUMBER_OF_STUDY_RELATED_INSTANCES] = 
+              boost::lexical_cast<std::string>(instances.size());
 
             // Collect the Modality of all the child series
             std::set<std::string> modalities;
@@ -331,13 +330,13 @@ namespace
               s += *it;
             }
 
-            target[Orthanc::DicomTag(0x0008, 0x0061)] = s;  // Modalities in Study
+            target[Orthanc::DICOM_TAG_MODALITIES_IN_STUDY] = s;
           }
           else
           {
-            target[Orthanc::DicomTag(0x0008, 0x0061)] = "";   // Modalities in Study
-            target[Orthanc::DicomTag(0x0020, 0x1206)] = "0";  // Number of Study Related Series
-            target[Orthanc::DicomTag(0x0020, 0x1208)] = "0";  // Number of Study Related Instances
+            target[Orthanc::DICOM_TAG_MODALITIES_IN_STUDY] = "";
+            target[Orthanc::DICOM_TAG_NUMBER_OF_STUDY_RELATED_SERIES] = "0";
+            target[Orthanc::DICOM_TAG_NUMBER_OF_STUDY_RELATED_INSTANCES] = "0"; 
           }
 
           break;
@@ -349,11 +348,12 @@ namespace
           if (OrthancPlugins::RestApiGet(instances, "/series/" + resource + "/instances", false))
           {
             // Number of Series Related Instances
-            target[Orthanc::DicomTag(0x0020, 0x1209)] = boost::lexical_cast<std::string>(instances.size());
+            target[Orthanc::DICOM_TAG_NUMBER_OF_SERIES_RELATED_INSTANCES] = 
+              boost::lexical_cast<std::string>(instances.size());
           }
           else
           {
-            target[Orthanc::DicomTag(0x0020, 0x1209)] = "0";  // Number of Series Related Instances
+            target[Orthanc::DICOM_TAG_NUMBER_OF_SERIES_RELATED_INSTANCES] = "0";
           }
 
           break;

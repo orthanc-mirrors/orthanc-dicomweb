@@ -21,6 +21,8 @@
 
 #pragma once
 
+#include <Core/ChunkedBuffer.h>
+
 #include <orthanc/OrthancCPlugin.h>
 
 #include <boost/noncopyable.hpp>
@@ -32,8 +34,9 @@ namespace OrthancPlugins
   class DicomWebFormatter : public boost::noncopyable
   {
   private:
-    boost::mutex  mutex_;
-    std::string   bulkRoot_;
+    boost::mutex                     mutex_;
+    OrthancPluginDicomWebBinaryMode  mode_;
+    std::string                      bulkRoot_;
 
     static DicomWebFormatter& GetSingleton()
     {
@@ -59,13 +62,35 @@ namespace OrthancPlugins
       boost::mutex::scoped_lock  lock_;
 
     public:
-      Locker(const std::string& bulkRoot);
+      Locker(OrthancPluginDicomWebBinaryMode mode,
+             const std::string& bulkRoot);
 
       void Apply(std::string& target,
                  OrthancPluginContext* context,
                  const void* data,
                  size_t size,
                  bool xml);
+    };
+
+    class HttpWriter : public boost::noncopyable
+    {
+    private:
+      OrthancPluginContext*     context_;
+      OrthancPluginRestOutput*  output_;
+      bool                      isXml_;
+      bool                      first_;
+      Orthanc::ChunkedBuffer    jsonBuffer_;
+
+    public:
+      HttpWriter(OrthancPluginRestOutput* output,
+                 bool isXml);
+
+      void AddRawDicom(const void* dicom,
+                       size_t size,
+                       OrthancPluginDicomWebBinaryMode mode,
+                       const std::string& bulkRoot);
+
+      void Send();
     };
   };
 }

@@ -310,15 +310,7 @@ static void AnswerMetadata(OrthancPluginRestOutput* output,
 
   const std::string wadoBase = OrthancPlugins::Configuration::GetBaseUrl(request);
 
-  // For JSON
-  Orthanc::ChunkedBuffer buffer;
-  buffer.AddChunk("[");
-  bool first = true;
-
-  if (isXml)
-  {
-    OrthancPluginStartMultipartAnswer(context, output, "related", "application/dicom+xml");
-  }
+  OrthancPlugins::DicomWebFormatter::HttpWriter writer(output, isXml);
 
   for (std::list<std::string>::const_iterator
          it = instances.begin(); it != instances.end(); ++it)
@@ -334,40 +326,13 @@ static void AnswerMetadata(OrthancPluginRestOutput* output,
       OrthancPlugins::MemoryBuffer dicom;
       if (dicom.RestApiGet("/instances/" + *it + "/file", false))
       {
-        std::string item;
-        
-        {
-          // TODO - Avoid a global mutex
-          OrthancPlugins::DicomWebFormatter::Locker locker(bulkRoot);
-          locker.Apply(item, context, dicom.GetData(), dicom.GetSize(), isXml);
-        }
-
-        if (isXml)
-        {
-          OrthancPluginSendMultipartItem(context, output, item.c_str(), item.size());
-        }
-        else
-        {
-          if (!first)
-          {
-            buffer.AddChunk(",");
-            first = false;
-          }
-
-          buffer.AddChunk(item);
-        }
+        writer.AddRawDicom(dicom.GetData(), dicom.GetSize(), 
+                           OrthancPluginDicomWebBinaryMode_BulkDataUri, bulkRoot);
       }
     }
   }
 
-  if (!isXml)
-  {
-    buffer.AddChunk("]");
-
-    std::string answer;
-    buffer.Flatten(answer);
-    OrthancPluginAnswerBuffer(context, output, answer.c_str(), answer.size(), "application/dicom+json");
-  }
+  writer.Send();
 }
 
 
