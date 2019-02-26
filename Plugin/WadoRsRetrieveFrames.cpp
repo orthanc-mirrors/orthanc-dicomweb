@@ -472,14 +472,14 @@ void RetrieveFrames(OrthancPluginRestOutput* output,
   ParseFrameList(frames, request);
 
   Json::Value header;
-  std::string uri;
+  std::string publicId;
   OrthancPlugins::MemoryBuffer content;
-  if (LocateInstance(output, uri, request) &&
-      content.RestApiGet(uri + "/file", false) &&
-      OrthancPlugins::RestApiGet(header, uri + "/header?simplify", false))
+  if (LocateInstance(output, publicId, request) &&
+      content.RestApiGet("/instances/" + publicId + "/file", false) &&
+      OrthancPlugins::RestApiGet(header, "/instances/" + publicId + "/header?simplify", false))
   {
     {
-      std::string s = "DICOMweb RetrieveFrames on " + uri + ", frames: ";
+      std::string s = "DICOMweb RetrieveFrames on " + publicId + ", frames: ";
       for (std::list<unsigned int>::const_iterator 
              frame = frames.begin(); frame != frames.end(); ++frame)
       {
@@ -522,7 +522,7 @@ void RetrieveFrames(OrthancPluginRestOutput* output,
       // Need to convert the transfer syntax
 
       {
-        OrthancPlugins::LogInfo("DICOMweb RetrieveFrames: Transcoding " + uri + 
+        OrthancPlugins::LogInfo("DICOMweb RetrieveFrames: Transcoding instance " + publicId + 
                                 " from transfer syntax " + std::string(sourceSyntax.GetString()) + 
                                 " to " + std::string(targetSyntax.GetString()));
       }
