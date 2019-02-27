@@ -21,7 +21,6 @@
 
 #include "DicomWebClient.h"
 
-#include "Plugin.h"
 #include "DicomWebServers.h"
 
 #include <json/reader.h>

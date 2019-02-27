@@ -21,19 +21,44 @@
 
 #include "GdcmParsedDicomFile.h"
 
-#include "Plugin.h"
 #include "ChunkedBuffer.h"
 
 #include <Core/Toolbox.h>
 
+#include <gdcmDict.h>
 #include <gdcmDictEntry.h>
+#include <gdcmDicts.h>
+#include <gdcmGlobal.h>
 #include <gdcmStringFilter.h>
+
 #include <boost/lexical_cast.hpp>
 #include <json/writer.h>
 
 
 namespace OrthancPlugins
 {
+  static const gdcm::Dict* dictionary_ = NULL;
+
+  
+  void GdcmParsedDicomFile::Initialize()
+  {
+    if (dictionary_ != NULL)
+    {
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadSequenceOfCalls);
+    }
+    else
+    {
+      dictionary_ = &gdcm::Global::GetInstance().GetDicts().GetPublicDict();
+
+      if (dictionary_ == NULL)
+      {
+        throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError,
+                                        "Cannot initialize the DICOM dictionary of GDCM");
+      }
+    }
+  }
+  
+
   static std::string MyStripSpaces(const std::string& source)
   {
     size_t first = 0;
@@ -65,13 +90,18 @@ namespace OrthancPlugins
 
 
   static const char* GetVRName(bool& isSequence,
-                               const gdcm::Dict& dictionary,
                                const gdcm::Tag& tag,
                                gdcm::VR vr)
   {
+    if (dictionary_ == NULL)
+    {
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadSequenceOfCalls,
+                                      "GDCM has not been initialized");
+    }
+    
     if (vr == gdcm::VR::INVALID)
     {
-      const gdcm::DictEntry &entry = dictionary.GetDictEntry(tag);
+      const gdcm::DictEntry &entry = dictionary_->GetDictEntry(tag);
       vr = entry.GetVR();
 
       if (vr == gdcm::VR::OB_OW)
@@ -103,10 +133,9 @@ namespace OrthancPlugins
 
 
   static const char* GetVRName(bool& isSequence,
-                               const gdcm::Dict& dictionary,
                                const gdcm::DataElement& element)
   {
-    return GetVRName(isSequence, dictionary, element.GetTag(), element.GetVR());
+    return GetVRName(isSequence, element.GetTag(), element.GetVR());
   }
 
 
@@ -138,7 +167,6 @@ namespace OrthancPlugins
 
 
   static bool ConvertDicomStringToUtf8(std::string& result,
-                                       const gdcm::Dict& dictionary,
                                        const gdcm::DataElement& element,
                                        const Orthanc::Encoding sourceEncoding)
   {
@@ -149,7 +177,7 @@ namespace OrthancPlugins
     }
 
     bool isSequence;
-    std::string vr = GetVRName(isSequence, dictionary, element);
+    std::string vr = GetVRName(isSequence, element);
 
     if (!isSequence)
     {
@@ -285,7 +313,6 @@ namespace OrthancPlugins
 
 
   bool GdcmParsedDicomFile::GetStringTag(std::string& result,
-                                         const gdcm::Dict& dictionary,
                                          const gdcm::Tag& tag,
                                          bool stripSpaces) const
   {
@@ -296,7 +323,7 @@ namespace OrthancPlugins
 
     const gdcm::DataElement& element = GetDataSet().GetDataElement(tag);
 
-    if (!ConvertDicomStringToUtf8(result, dictionary, element, GetEncoding()))
+    if (!ConvertDicomStringToUtf8(result, element, GetEncoding()))
     {
       return false;
     }
@@ -311,11 +338,10 @@ namespace OrthancPlugins
 
 
   bool GdcmParsedDicomFile::GetIntegerTag(int& result,
-                                          const gdcm::Dict& dictionary,
                                           const gdcm::Tag& tag) const
   {
     std::string tmp;
-    if (!GetStringTag(tmp, dictionary, tag, true))
+    if (!GetStringTag(tmp, tag, true))
     {
       return false;
     }

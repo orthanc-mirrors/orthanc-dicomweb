@@ -19,27 +19,16 @@
  **/
 
 
-#include "Plugin.h"
-
+#include "DicomWebClient.h"
+#include "DicomWebServers.h"
+#include "GdcmParsedDicomFile.h"
 #include "QidoRs.h"
 #include "StowRs.h"
-#include "DicomWebClient.h"
 #include "WadoRs.h"
 #include "WadoUri.h"
-#include "Configuration.h"
-#include "DicomWebServers.h"
 
 #include <Plugins/Samples/Common/OrthancPluginCppWrapper.h>
 #include <Core/Toolbox.h>
-
-#include <gdcmDictEntry.h>
-#include <gdcmDict.h>
-#include <gdcmDicts.h>
-#include <gdcmGlobal.h>
-
-
-// Global state
-const gdcm::Dict* dictionary_ = NULL;
 
 
 void SwitchStudies(OrthancPluginRestOutput* output,
@@ -210,7 +199,7 @@ extern "C"
       OrthancPlugins::Configuration::Initialize();
 
       // Initialize GDCM
-      dictionary_ = &gdcm::Global::GetInstance().GetDicts().GetPublicDict();
+      OrthancPlugins::GdcmParsedDicomFile::Initialize();
 
       // Configure the DICOMweb callbacks
       if (OrthancPlugins::Configuration::GetBooleanValue("Enable", true))

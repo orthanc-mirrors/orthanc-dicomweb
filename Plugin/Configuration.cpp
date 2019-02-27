@@ -26,7 +26,6 @@
 #include <boost/regex.hpp>
 #include <boost/lexical_cast.hpp>
 
-#include "Plugin.h"
 #include "DicomWebServers.h"
 
 #include <Plugins/Samples/Common/OrthancPluginCppWrapper.h>

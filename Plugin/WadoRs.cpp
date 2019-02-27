@@ -19,13 +19,12 @@
  **/
 
 
-#include "Plugin.h"
-
 #include "Configuration.h"
 #include "DicomWebFormatter.h"
 
 #include <Core/ChunkedBuffer.h>
 #include <Core/Toolbox.h>
+#include <Plugins/Samples/Common/OrthancPluginCppWrapper.h>
 
 #include <memory>
 

@@ -22,9 +22,9 @@
 #include "WadoRs.h"
 
 #include "GdcmParsedDicomFile.h"
-#include "Plugin.h"
 
 #include <Core/Toolbox.h>
+#include <Plugins/Samples/Common/OrthancPluginCppWrapper.h>
 
 #include <memory>
 #include <list>
@@ -395,10 +395,10 @@ static bool AnswerFrames(OrthancPluginRestOutput* output,
 
     int width, height, bits, samplesPerPixel;
 
-    if (!dicom.GetIntegerTag(height, *dictionary_, DICOM_TAG_ROWS) ||
-        !dicom.GetIntegerTag(width, *dictionary_, DICOM_TAG_COLUMNS) ||
-        !dicom.GetIntegerTag(bits, *dictionary_, DICOM_TAG_BITS_ALLOCATED) || 
-        !dicom.GetIntegerTag(samplesPerPixel, *dictionary_, DICOM_TAG_SAMPLES_PER_PIXEL))
+    if (!dicom.GetIntegerTag(height, DICOM_TAG_ROWS) ||
+        !dicom.GetIntegerTag(width, DICOM_TAG_COLUMNS) ||
+        !dicom.GetIntegerTag(bits, DICOM_TAG_BITS_ALLOCATED) || 
+        !dicom.GetIntegerTag(samplesPerPixel, DICOM_TAG_SAMPLES_PER_PIXEL))
     {
       throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
     }

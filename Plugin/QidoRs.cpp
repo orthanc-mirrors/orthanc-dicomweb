@@ -21,16 +21,15 @@
 
 #include "QidoRs.h"
 
-#include "Plugin.h"
 #include "StowRs.h"  // For IsXmlExpected()
 #include "Configuration.h"
 #include "DicomWebFormatter.h"
 
 #include <Core/DicomFormat/DicomTag.h>
 #include <Core/Toolbox.h>
+#include <Plugins/Samples/Common/OrthancPluginCppWrapper.h>
 
 #include <list>
-#include <stdexcept>
 #include <boost/lexical_cast.hpp>
 #include <boost/regex.hpp>
 #include <boost/algorithm/string/replace.hpp>

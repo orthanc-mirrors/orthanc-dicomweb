@@ -23,7 +23,6 @@
 #include <boost/lexical_cast.hpp>
 
 #include "../Plugin/Configuration.h"
-#include "../Plugin/Plugin.h"
 
 using namespace OrthancPlugins;
 

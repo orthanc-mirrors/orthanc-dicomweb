@@ -20,9 +20,10 @@
 
 
 #include "WadoUri.h"
-#include "Plugin.h"
 
 #include "Configuration.h"
+
+#include <Plugins/Samples/Common/OrthancPluginCppWrapper.h>
 
 #include <string>
 

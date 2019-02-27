@@ -20,15 +20,12 @@
 
 
 #include "StowRs.h"
-#include "Plugin.h"
 
 #include "Configuration.h"
 #include "DicomWebFormatter.h"
 
 #include <Core/Toolbox.h>
-
-#include <stdexcept>
-
+#include <Plugins/Samples/Common/OrthancPluginCppWrapper.h>
 
 bool IsXmlExpected(const OrthancPluginHttpRequest* request)
 {

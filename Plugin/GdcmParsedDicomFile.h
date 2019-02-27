@@ -31,7 +31,6 @@
 #include <gdcmReader.h>
 #include <gdcmDataSet.h>
 #include <pugixml.hpp>
-#include <gdcmDict.h>
 #include <list>
 
 
@@ -47,6 +46,8 @@ namespace OrthancPlugins
     Orthanc::Encoding  GetEncoding() const;
 
   public:
+    static void Initialize();
+    
     explicit GdcmParsedDicomFile(const OrthancPlugins::MemoryBuffer& item);
 
     explicit GdcmParsedDicomFile(const std::string& dicom)
@@ -77,12 +78,10 @@ namespace OrthancPlugins
                                      bool stripSpaces) const;
 
     bool GetStringTag(std::string& result,
-                      const gdcm::Dict& dictionary,
                       const gdcm::Tag& tag,
                       bool stripSpaces) const;
 
     bool GetIntegerTag(int& result,
-                       const gdcm::Dict& dictionary,
                        const gdcm::Tag& tag) const;
 
     std::string GetWadoUrl(const OrthancPluginHttpRequest* request) const;
