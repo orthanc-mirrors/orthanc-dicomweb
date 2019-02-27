@@ -1,6 +1,10 @@
 Pending changes in the mainline
 ===============================
 
+
+Version 0.6 (2019-02-27)
+========================
+
 => Minimum SDK version: 1.5.4 <=
 
 * Sending "HttpHeaders" of the "DicomWeb.Servers" configuration to remote DICOMweb servers
