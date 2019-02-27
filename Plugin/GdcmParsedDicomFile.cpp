@@ -19,7 +19,7 @@
  **/
 
 
-#include "Dicom.h"
+#include "GdcmParsedDicomFile.h"
 
 #include "Plugin.h"
 #include "ChunkedBuffer.h"
@@ -201,7 +201,7 @@ namespace OrthancPlugins
 
 
 
-  void ParsedDicomFile::Setup(const std::string& dicom)
+  void GdcmParsedDicomFile::Setup(const std::string& dicom)
   {
     // Prepare a memory stream over the DICOM instance
     std::stringstream stream(dicom);
@@ -218,7 +218,7 @@ namespace OrthancPlugins
   }
 
 
-  ParsedDicomFile::ParsedDicomFile(const OrthancPlugins::MemoryBuffer& buffer)
+  GdcmParsedDicomFile::GdcmParsedDicomFile(const OrthancPlugins::MemoryBuffer& buffer)
   {
     // TODO Avoid this unnecessary memcpy by defining a stream over the MemoryBuffer
     std::string dicom(buffer.GetData(), buffer.GetData() + buffer.GetSize());
@@ -251,17 +251,17 @@ namespace OrthancPlugins
   }
 
 
-  bool ParsedDicomFile::GetRawTag(std::string& result,
-                                  const gdcm::Tag& tag,
-                                  bool stripSpaces) const
+  bool GdcmParsedDicomFile::GetRawTag(std::string& result,
+                                      const gdcm::Tag& tag,
+                                      bool stripSpaces) const
   {
     return OrthancPlugins::GetRawTag(result, GetDataSet(), tag, stripSpaces);
   }
 
 
-  std::string ParsedDicomFile::GetRawTagWithDefault(const gdcm::Tag& tag,
-                                                    const std::string& defaultValue,
-                                                    bool stripSpaces) const
+  std::string GdcmParsedDicomFile::GetRawTagWithDefault(const gdcm::Tag& tag,
+                                                        const std::string& defaultValue,
+                                                        bool stripSpaces) const
   {
     std::string result;
     if (!GetRawTag(result, tag, stripSpaces))
@@ -275,19 +275,19 @@ namespace OrthancPlugins
   }
 
 
-  std::string ParsedDicomFile::GetRawTagWithDefault(const Orthanc::DicomTag& tag,
-                                                    const std::string& defaultValue,
-                                                    bool stripSpaces) const
+  std::string GdcmParsedDicomFile::GetRawTagWithDefault(const Orthanc::DicomTag& tag,
+                                                        const std::string& defaultValue,
+                                                        bool stripSpaces) const
   {
     gdcm::Tag t(tag.GetGroup(), tag.GetElement());
     return GetRawTagWithDefault(t, defaultValue, stripSpaces);
   }
 
 
-  bool ParsedDicomFile::GetStringTag(std::string& result,
-                                     const gdcm::Dict& dictionary,
-                                     const gdcm::Tag& tag,
-                                     bool stripSpaces) const
+  bool GdcmParsedDicomFile::GetStringTag(std::string& result,
+                                         const gdcm::Dict& dictionary,
+                                         const gdcm::Tag& tag,
+                                         bool stripSpaces) const
   {
     if (!GetDataSet().FindDataElement(tag))
     {
@@ -310,9 +310,9 @@ namespace OrthancPlugins
   }
 
 
-  bool ParsedDicomFile::GetIntegerTag(int& result,
-                                      const gdcm::Dict& dictionary,
-                                      const gdcm::Tag& tag) const
+  bool GdcmParsedDicomFile::GetIntegerTag(int& result,
+                                          const gdcm::Dict& dictionary,
+                                          const gdcm::Tag& tag) const
   {
     std::string tmp;
     if (!GetStringTag(tmp, dictionary, tag, true))
@@ -395,13 +395,13 @@ namespace OrthancPlugins
   }
 
 
-  Orthanc::Encoding  ParsedDicomFile::GetEncoding() const
+  Orthanc::Encoding  GdcmParsedDicomFile::GetEncoding() const
   {
     return DetectEncoding(GetDataSet());
   }
   
 
-  std::string ParsedDicomFile::GetWadoUrl(const OrthancPluginHttpRequest* request) const
+  std::string GdcmParsedDicomFile::GetWadoUrl(const OrthancPluginHttpRequest* request) const
   {
     const std::string base = OrthancPlugins::Configuration::GetBaseUrl(request);
     return OrthancPlugins::GetWadoUrl(base, GetDataSet());

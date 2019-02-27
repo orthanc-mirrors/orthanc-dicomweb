@@ -21,7 +21,7 @@
 
 #include "WadoRs.h"
 
-#include "Dicom.h"
+#include "GdcmParsedDicomFile.h"
 #include "Plugin.h"
 
 #include <Core/Toolbox.h>
@@ -333,7 +333,7 @@ static const char* GetMimeType(const gdcm::TransferSyntax& syntax)
 
 static void AnswerSingleFrame(OrthancPluginRestOutput* output,
                               const OrthancPluginHttpRequest* request,
-                              const OrthancPlugins::ParsedDicomFile& dicom,
+                              const OrthancPlugins::GdcmParsedDicomFile& dicom,
                               const char* frame,
                               size_t size,
                               unsigned int frameIndex)
@@ -359,7 +359,7 @@ static void AnswerSingleFrame(OrthancPluginRestOutput* output,
 
 static bool AnswerFrames(OrthancPluginRestOutput* output,
                          const OrthancPluginHttpRequest* request,
-                         const OrthancPlugins::ParsedDicomFile& dicom,
+                         const OrthancPlugins::GdcmParsedDicomFile& dicom,
                          const gdcm::TransferSyntax& syntax,
                          std::list<unsigned int>& frames)
 {
@@ -509,7 +509,7 @@ void RetrieveFrames(OrthancPluginRestOutput* output,
       OrthancPlugins::LogInfo(s);
     }
 
-    std::auto_ptr<OrthancPlugins::ParsedDicomFile> source;
+    std::auto_ptr<OrthancPlugins::GdcmParsedDicomFile> source;
 
     gdcm::TransferSyntax sourceSyntax;
 
@@ -520,7 +520,7 @@ void RetrieveFrames(OrthancPluginRestOutput* output,
     }
     else
     {
-      source.reset(new OrthancPlugins::ParsedDicomFile(content));
+      source.reset(new OrthancPlugins::GdcmParsedDicomFile(content));
       sourceSyntax = source->GetFile().GetHeader().GetDataSetTransferSyntax();
     }
 
@@ -532,7 +532,7 @@ void RetrieveFrames(OrthancPluginRestOutput* output,
 
       if (source.get() == NULL)
       {
-        source.reset(new OrthancPlugins::ParsedDicomFile(content));
+        source.reset(new OrthancPlugins::GdcmParsedDicomFile(content));
       }
 
       AnswerFrames(output, request, *source, targetSyntax, frames);
@@ -580,7 +580,7 @@ void RetrieveFrames(OrthancPluginRestOutput* output,
         throw Orthanc::OrthancException(Orthanc::ErrorCode_NotEnoughMemory);
       }
 
-      OrthancPlugins::ParsedDicomFile transcoded(ss.str());
+      OrthancPlugins::GdcmParsedDicomFile transcoded(ss.str());
       AnswerFrames(output, request, transcoded, targetSyntax, frames);
     }
   }    

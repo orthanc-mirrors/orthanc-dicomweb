@@ -37,7 +37,7 @@
 
 namespace OrthancPlugins
 {
-  class ParsedDicomFile
+  class GdcmParsedDicomFile : public boost::noncopyable
   {
   private:
     gdcm::Reader reader_;
@@ -47,9 +47,9 @@ namespace OrthancPlugins
     Orthanc::Encoding  GetEncoding() const;
 
   public:
-    explicit ParsedDicomFile(const OrthancPlugins::MemoryBuffer& item);
+    explicit GdcmParsedDicomFile(const OrthancPlugins::MemoryBuffer& item);
 
-    explicit ParsedDicomFile(const std::string& dicom)
+    explicit GdcmParsedDicomFile(const std::string& dicom)
     {
       Setup(dicom);
     }
