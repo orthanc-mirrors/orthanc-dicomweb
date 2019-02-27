@@ -37,6 +37,14 @@
 
 namespace OrthancPlugins
 {
+  static const Orthanc::DicomTag DICOM_TAG_RETRIEVE_URL(0x0008, 0x1190);
+  static const Orthanc::DicomTag DICOM_TAG_FAILURE_REASON(0x0008, 0x1197);
+  static const Orthanc::DicomTag DICOM_TAG_WARNING_REASON(0x0008, 0x1196);
+  static const Orthanc::DicomTag DICOM_TAG_FAILED_SOP_SEQUENCE(0x0008, 0x1198);
+  static const Orthanc::DicomTag DICOM_TAG_REFERENCED_SOP_SEQUENCE(0x0008, 0x1199);
+  static const Orthanc::DicomTag DICOM_TAG_REFERENCED_SOP_CLASS_UID(0x0008, 0x1150);
+  static const Orthanc::DicomTag DICOM_TAG_REFERENCED_SOP_INSTANCE_UID(0x0008, 0x1155);
+
   struct MultipartItem
   {
     const char*   data_;

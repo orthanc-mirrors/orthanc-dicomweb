@@ -82,15 +82,23 @@ static bool GetSequenceSize(size_t& result,
   }
 
   if (value->type() != Json::objectValue ||
-      !value->isMember("Value") ||
-      (*value) ["Value"].type() != Json::arrayValue)
+      (value->isMember("Value") &&
+       (*value) ["Value"].type() != Json::arrayValue))
   {
     throw Orthanc::OrthancException(
       Orthanc::ErrorCode_NetworkProtocol,
       "Unable to parse STOW-RS JSON response from DICOMweb server " + server);
   }
 
-  result = (*value) ["Value"].size();
+  if (value->isMember("Value"))
+  {
+    result = (*value) ["Value"].size();
+  }
+  else
+  {
+    result = 0;
+  }
+
   return true;
 }
 

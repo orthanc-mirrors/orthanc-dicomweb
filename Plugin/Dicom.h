@@ -37,23 +37,16 @@
 
 namespace OrthancPlugins
 {
+  static const gdcm::Tag DICOM_TAG_BITS_ALLOCATED(0x0028, 0x0100);
+  static const gdcm::Tag DICOM_TAG_COLUMNS(0x0028, 0x0011);
+  static const gdcm::Tag DICOM_TAG_PIXEL_DATA(0x7fe0, 0x0010);
+  static const gdcm::Tag DICOM_TAG_ROWS(0x0028, 0x0010);
+  static const gdcm::Tag DICOM_TAG_SAMPLES_PER_PIXEL(0x0028, 0x0002);
+  static const gdcm::Tag DICOM_TAG_SERIES_INSTANCE_UID(0x0020, 0x000e);
   static const gdcm::Tag DICOM_TAG_SOP_CLASS_UID(0x0008, 0x0016);
   static const gdcm::Tag DICOM_TAG_SOP_INSTANCE_UID(0x0008, 0x0018);
-  static const gdcm::Tag DICOM_TAG_STUDY_INSTANCE_UID(0x0020, 0x000d);
-  static const gdcm::Tag DICOM_TAG_SERIES_INSTANCE_UID(0x0020, 0x000e);
-  static const gdcm::Tag DICOM_TAG_REFERENCED_SOP_CLASS_UID(0x0008, 0x1150);
-  static const gdcm::Tag DICOM_TAG_REFERENCED_SOP_INSTANCE_UID(0x0008, 0x1155);
-  static const gdcm::Tag DICOM_TAG_RETRIEVE_URL(0x0008, 0x1190);
-  static const gdcm::Tag DICOM_TAG_FAILED_SOP_SEQUENCE(0x0008, 0x1198);
-  static const gdcm::Tag DICOM_TAG_FAILURE_REASON(0x0008, 0x1197);
-  static const gdcm::Tag DICOM_TAG_WARNING_REASON(0x0008, 0x1196);
-  static const gdcm::Tag DICOM_TAG_REFERENCED_SOP_SEQUENCE(0x0008, 0x1199);
   static const gdcm::Tag DICOM_TAG_SPECIFIC_CHARACTER_SET(0x0008, 0x0005);
-  static const gdcm::Tag DICOM_TAG_PIXEL_DATA(0x7fe0, 0x0010);
-  static const gdcm::Tag DICOM_TAG_SAMPLES_PER_PIXEL(0x0028, 0x0002);
-  static const gdcm::Tag DICOM_TAG_COLUMNS(0x0028, 0x0011);
-  static const gdcm::Tag DICOM_TAG_ROWS(0x0028, 0x0010);
-  static const gdcm::Tag DICOM_TAG_BITS_ALLOCATED(0x0028, 0x0100);
+  static const gdcm::Tag DICOM_TAG_STUDY_INSTANCE_UID(0x0020, 0x000d);
 
   class ParsedDicomFile
   {

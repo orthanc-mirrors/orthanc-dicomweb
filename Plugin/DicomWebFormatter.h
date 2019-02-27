@@ -72,6 +72,11 @@ namespace OrthancPlugins
                  const void* data,
                  size_t size,
                  bool xml);
+
+      void Apply(std::string& target,
+                 OrthancPluginContext* context,
+                 const Json::Value& value,
+                 bool xml);
     };
 
     class HttpWriter : public boost::noncopyable

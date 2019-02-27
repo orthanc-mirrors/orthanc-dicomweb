@@ -24,36 +24,11 @@
 
 #include "Configuration.h"
 #include "Dicom.h"
+#include "DicomWebFormatter.h"
 
 #include <Core/Toolbox.h>
 
 #include <stdexcept>
-
-
-static void SetTag(gdcm::DataSet& dataset,
-                   const gdcm::Tag& tag,
-                   const gdcm::VR& vr,
-                   const std::string& value)
-{
-  gdcm::DataElement element(tag);
-  element.SetVR(vr);
-  element.SetByteValue(value.c_str(), value.size());
-  dataset.Insert(element);
-}
-
-
-static void SetSequenceTag(gdcm::DataSet& dataset,
-                           const gdcm::Tag& tag,
-                           gdcm::SmartPointer<gdcm::SequenceOfItems>& sequence)
-{
-  gdcm::DataElement element;
-  element.SetTag(tag);
-  element.SetVR(gdcm::VR::SQ);
-  element.SetValue(*sequence);
-  element.SetVLToUndefined();
-  dataset.Insert(element);
-}
-
 
 
 bool IsXmlExpected(const OrthancPluginHttpRequest* request)
@@ -117,8 +92,6 @@ void StowCallback(OrthancPluginRestOutput* output,
     OrthancPlugins::LogInfo("STOW-RS request restricted to study UID " + expectedStudy);
   }
 
-  bool isXml = IsXmlExpected(request);
-
   std::string header;
   if (!OrthancPlugins::LookupHttpHeader(header, request, "content-type"))
   {
@@ -152,9 +125,10 @@ void StowCallback(OrthancPluginRestOutput* output,
 
 
   bool isFirst = true;
-  gdcm::DataSet result;
-  gdcm::SmartPointer<gdcm::SequenceOfItems> success = new gdcm::SequenceOfItems();
-  gdcm::SmartPointer<gdcm::SequenceOfItems> failed = new gdcm::SequenceOfItems();
+
+  Json::Value result = Json::objectValue;
+  Json::Value success = Json::arrayValue;
+  Json::Value failed = Json::arrayValue;
   
   std::vector<OrthancPlugins::MultipartItem> items;
   OrthancPlugins::ParseMultipartBody(items, request->body, request->bodySize, boundary);
@@ -183,12 +157,9 @@ void StowCallback(OrthancPluginRestOutput* output,
     std::string sopClassUid = dicom.GetRawTagWithDefault(OrthancPlugins::DICOM_TAG_SOP_CLASS_UID, "", true);
     std::string sopInstanceUid = dicom.GetRawTagWithDefault(OrthancPlugins::DICOM_TAG_SOP_INSTANCE_UID, "", true);
 
-    gdcm::Item item;
-    item.SetVLToUndefined();
-    gdcm::DataSet &status = item.GetNestedDataSet();
-
-    SetTag(status, OrthancPlugins::DICOM_TAG_REFERENCED_SOP_CLASS_UID, gdcm::VR::UI, sopClassUid);
-    SetTag(status, OrthancPlugins::DICOM_TAG_REFERENCED_SOP_INSTANCE_UID, gdcm::VR::UI, sopInstanceUid);
+    Json::Value item = Json::objectValue;
+    item[OrthancPlugins::DICOM_TAG_REFERENCED_SOP_CLASS_UID.Format()] = sopClassUid;
+    item[OrthancPlugins::DICOM_TAG_REFERENCED_SOP_INSTANCE_UID.Format()] = sopInstanceUid;
 
     if (!expectedStudy.empty() &&
         studyInstanceUid != expectedStudy)
@@ -196,15 +167,15 @@ void StowCallback(OrthancPluginRestOutput* output,
       OrthancPlugins::LogInfo("STOW-RS request restricted to study [" + expectedStudy + 
                               "]: Ignoring instance from study [" + studyInstanceUid + "]");
 
-      SetTag(status, OrthancPlugins::DICOM_TAG_WARNING_REASON, gdcm::VR::US, "B006");  // Elements discarded
-      success->AddItem(item);      
+      item[OrthancPlugins::DICOM_TAG_WARNING_REASON.Format()] = "B006";  // Elements discarded
+      success.append(item);      
     }
     else
     {
       if (isFirst)
       {
         std::string url = wadoBase + "studies/" + studyInstanceUid;
-        SetTag(result, OrthancPlugins::DICOM_TAG_RETRIEVE_URL, gdcm::VR::UT, url);
+        result[OrthancPlugins::DICOM_TAG_RETRIEVE_URL.Format()] = url;
         isFirst = false;
       }
 
@@ -219,20 +190,29 @@ void StowCallback(OrthancPluginRestOutput* output,
                            "/series/" + dicom.GetRawTagWithDefault(OrthancPlugins::DICOM_TAG_SERIES_INSTANCE_UID, "", true) +
                            "/instances/" + sopInstanceUid);
 
-        SetTag(status, OrthancPlugins::DICOM_TAG_RETRIEVE_URL, gdcm::VR::UT, url);
-        success->AddItem(item);
+        item[OrthancPlugins::DICOM_TAG_RETRIEVE_URL.Format()] = url;
+        success.append(item);      
       }
       else
       {
         OrthancPlugins::LogError("Orthanc was unable to store instance through STOW-RS request");
-        SetTag(status, OrthancPlugins::DICOM_TAG_FAILURE_REASON, gdcm::VR::US, "0110");  // Processing failure
-        failed->AddItem(item);
+        item[OrthancPlugins::DICOM_TAG_FAILURE_REASON.Format()] = "0110";  // Processing failure
+        failed.append(item);      
       }
     }
   }
 
-  SetSequenceTag(result, OrthancPlugins::DICOM_TAG_FAILED_SOP_SEQUENCE, failed);
-  SetSequenceTag(result, OrthancPlugins::DICOM_TAG_REFERENCED_SOP_SEQUENCE, success);
+  result[OrthancPlugins::DICOM_TAG_FAILED_SOP_SEQUENCE.Format()] = failed;
+  result[OrthancPlugins::DICOM_TAG_REFERENCED_SOP_SEQUENCE.Format()] = success;
 
-  OrthancPlugins::AnswerDicom(output, wadoBase, *dictionary_, result, isXml, false);
+  const bool isXml = IsXmlExpected(request);
+  std::string answer;
+  
+  {
+    OrthancPlugins::DicomWebFormatter::Locker locker(OrthancPluginDicomWebBinaryMode_Ignore, "");
+    locker.Apply(answer, context, result, isXml);
+  }
+
+  OrthancPluginAnswerBuffer(context, output, answer.c_str(), answer.size(),
+                            isXml ? "application/dicom+xml" : "application/dicom+json");
 }

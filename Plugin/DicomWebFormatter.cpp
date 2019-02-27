@@ -104,6 +104,17 @@ namespace OrthancPlugins
   }
 
 
+  void DicomWebFormatter::Locker::Apply(std::string& target,
+                                        OrthancPluginContext* context,
+                                        const Json::Value& value,
+                                        bool xml)
+  {
+    MemoryBuffer dicom;
+    dicom.CreateDicom(value, OrthancPluginCreateDicomFlags_None);
+    Apply(target, context, dicom.GetData(), dicom.GetSize(), xml);
+  }
+
+
   DicomWebFormatter::HttpWriter::HttpWriter(OrthancPluginRestOutput* output,
                                             bool isXml) :
     context_(OrthancPlugins::GetGlobalContext()),

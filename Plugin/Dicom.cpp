@@ -31,8 +31,12 @@
 #include <boost/lexical_cast.hpp>
 #include <json/writer.h>
 
+
 namespace OrthancPlugins
 {
+  static const gdcm::Tag GDCM_TAG_RETRIEVE_URL(0x0008, 0x1190);
+
+
   static std::string MyStripSpaces(const std::string& source)
   {
     size_t first = 0;
@@ -367,7 +371,7 @@ namespace OrthancPlugins
       return keyword;
     }
 
-    if (tag == DICOM_TAG_RETRIEVE_URL)
+    if (tag == GDCM_TAG_RETRIEVE_URL)
     {
       return "RetrieveURL";
     }
@@ -475,7 +479,7 @@ namespace OrthancPlugins
 
       bool isSequence = false;
       std::string vr;
-      if (it->GetTag() == DICOM_TAG_RETRIEVE_URL)
+      if (it->GetTag() == GDCM_TAG_RETRIEVE_URL)
       {
         // The VR of this attribute has changed from UT to UR.
         vr = "UR";
@@ -581,7 +585,7 @@ namespace OrthancPlugins
 
       bool isSequence = false;
       std::string vr;
-      if (it->GetTag() == DICOM_TAG_RETRIEVE_URL)
+      if (it->GetTag() == GDCM_TAG_RETRIEVE_URL)
       {
         // The VR of this attribute has changed from UT to UR.
         vr = "UR";
