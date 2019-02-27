@@ -606,43 +606,82 @@ void RetrieveBulkData(OrthancPluginRestOutput* output,
     // Map the bulk data URI to the Orthanc "/instances/.../content/..." built-in URI
     std::string orthanc = "/instances/" + publicId + "/content";
 
-    if (path.size() % 2 != 1)
+    Orthanc::DicomTag tmp(0, 0);
+    
+    if (path.size() == 1 &&
+        Orthanc::DicomTag::ParseHexadecimal(tmp, path[0].c_str()) &&
+        tmp == Orthanc::DICOM_TAG_PIXEL_DATA)
     {
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest,
-                                      "Bulk data URI in WADO-RS should have an odd number of items: " + bulk);
-    }
+      // Accessing pixel data: Return the raw content of the fragments in a multipart stream.
+      // TODO - Is this how DICOMweb should work?
+      orthanc += "/" + Orthanc::DICOM_TAG_PIXEL_DATA.Format();
 
-    for (size_t i = 0; i < path.size() / 2; i++)
-    {
-      int index;
-
-      try
+      Json::Value frames;
+      if (OrthancPlugins::RestApiGet(frames, orthanc, false))
       {
-        index = boost::lexical_cast<int>(path[2 * i + 1]);
+        if (frames.type() != Json::arrayValue ||
+            OrthancPluginStartMultipartAnswer(context, output, "related", "application/octet-stream") != 0)
+        {
+          throw Orthanc::OrthancException(Orthanc::ErrorCode_Plugin);
+        }
+
+        for (Json::Value::ArrayIndex i = 0; i < frames.size(); i++)
+        {
+          std::string frame;
+          
+          if (frames[i].type() != Json::stringValue ||
+              !OrthancPlugins::RestApiGetString(frame, orthanc + "/" + frames[i].asString(), false) ||
+              OrthancPluginSendMultipartItem(context, output, frame.c_str(), frame.size()) != 0)
+          {
+            throw Orthanc::OrthancException(Orthanc::ErrorCode_Plugin);
+          }
+        }
       }
-      catch (boost::bad_lexical_cast&)
+      else
       {
-        throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest,
-                                        "Bad sequence index in bulk data URI: " + bulk);
-      }
-
-      orthanc += "/" + path[2 * i] + "/" + boost::lexical_cast<std::string>(index - 1);
-    }
-
-    orthanc += "/" + path.back();
-
-    std::string result; 
-    if (OrthancPlugins::RestApiGetString(result, orthanc, false))
-    {
-      if (OrthancPluginStartMultipartAnswer(context, output, "related", "application/octet-stream") != 0 ||
-          OrthancPluginSendMultipartItem(context, output, result.c_str(), result.size()) != 0)
-      {
-        throw Orthanc::OrthancException(Orthanc::ErrorCode_Plugin);
-      }
+        throw Orthanc::OrthancException(Orthanc::ErrorCode_InexistentItem);
+      }      
     }
     else
     {
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_InexistentItem);
-    }      
+      if (path.size() % 2 != 1)
+      {
+        throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest,
+                                        "Bulk data URI in WADO-RS should have an odd number of items: " + bulk);
+      }
+
+      for (size_t i = 0; i < path.size() / 2; i++)
+      {
+        int index;
+
+        try
+        {
+          index = boost::lexical_cast<int>(path[2 * i + 1]);
+        }
+        catch (boost::bad_lexical_cast&)
+        {
+          throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest,
+                                          "Bad sequence index in bulk data URI: " + bulk);
+        }
+
+        orthanc += "/" + path[2 * i] + "/" + boost::lexical_cast<std::string>(index - 1);
+      }
+
+      orthanc += "/" + path.back();
+
+      std::string result; 
+      if (OrthancPlugins::RestApiGetString(result, orthanc, false))
+      {
+        if (OrthancPluginStartMultipartAnswer(context, output, "related", "application/octet-stream") != 0 ||
+            OrthancPluginSendMultipartItem(context, output, result.c_str(), result.size()) != 0)
+        {
+          throw Orthanc::OrthancException(Orthanc::ErrorCode_Plugin);
+        }
+      }
+      else
+      {
+        throw Orthanc::OrthancException(Orthanc::ErrorCode_InexistentItem);
+      }
+    }
   }
 }
