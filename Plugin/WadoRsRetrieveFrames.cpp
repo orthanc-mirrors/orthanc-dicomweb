@@ -35,6 +35,7 @@
 #include <boost/lexical_cast.hpp>
 
 
+
 static void TokenizeAndNormalize(std::vector<std::string>& tokens,
                                  const std::string& source,
                                  char separator)
@@ -362,12 +363,18 @@ static bool AnswerFrames(OrthancPluginRestOutput* output,
                          const gdcm::TransferSyntax& syntax,
                          std::list<unsigned int>& frames)
 {
-  if (!dicom.GetDataSet().FindDataElement(OrthancPlugins::DICOM_TAG_PIXEL_DATA))
+  static const gdcm::Tag DICOM_TAG_BITS_ALLOCATED(0x0028, 0x0100);
+  static const gdcm::Tag DICOM_TAG_COLUMNS(0x0028, 0x0011);
+  static const gdcm::Tag DICOM_TAG_PIXEL_DATA(0x7fe0, 0x0010);
+  static const gdcm::Tag DICOM_TAG_ROWS(0x0028, 0x0010);
+  static const gdcm::Tag DICOM_TAG_SAMPLES_PER_PIXEL(0x0028, 0x0002);
+
+  if (!dicom.GetDataSet().FindDataElement(DICOM_TAG_PIXEL_DATA))
   {
     throw Orthanc::OrthancException(Orthanc::ErrorCode_IncompatibleImageFormat);
   }
 
-  const gdcm::DataElement& pixelData = dicom.GetDataSet().GetDataElement(OrthancPlugins::DICOM_TAG_PIXEL_DATA);
+  const gdcm::DataElement& pixelData = dicom.GetDataSet().GetDataElement(DICOM_TAG_PIXEL_DATA);
   const gdcm::SequenceOfFragments* fragments = pixelData.GetSequenceOfFragments();
 
   if (OrthancPluginStartMultipartAnswer(OrthancPlugins::GetGlobalContext(), 
@@ -388,10 +395,10 @@ static bool AnswerFrames(OrthancPluginRestOutput* output,
 
     int width, height, bits, samplesPerPixel;
 
-    if (!dicom.GetIntegerTag(height, *dictionary_, OrthancPlugins::DICOM_TAG_ROWS) ||
-        !dicom.GetIntegerTag(width, *dictionary_, OrthancPlugins::DICOM_TAG_COLUMNS) ||
-        !dicom.GetIntegerTag(bits, *dictionary_, OrthancPlugins::DICOM_TAG_BITS_ALLOCATED) || 
-        !dicom.GetIntegerTag(samplesPerPixel, *dictionary_, OrthancPlugins::DICOM_TAG_SAMPLES_PER_PIXEL))
+    if (!dicom.GetIntegerTag(height, *dictionary_, DICOM_TAG_ROWS) ||
+        !dicom.GetIntegerTag(width, *dictionary_, DICOM_TAG_COLUMNS) ||
+        !dicom.GetIntegerTag(bits, *dictionary_, DICOM_TAG_BITS_ALLOCATED) || 
+        !dicom.GetIntegerTag(samplesPerPixel, *dictionary_, DICOM_TAG_SAMPLES_PER_PIXEL))
     {
       throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
     }

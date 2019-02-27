@@ -37,17 +37,6 @@
 
 namespace OrthancPlugins
 {
-  static const gdcm::Tag DICOM_TAG_BITS_ALLOCATED(0x0028, 0x0100);
-  static const gdcm::Tag DICOM_TAG_COLUMNS(0x0028, 0x0011);
-  static const gdcm::Tag DICOM_TAG_PIXEL_DATA(0x7fe0, 0x0010);
-  static const gdcm::Tag DICOM_TAG_ROWS(0x0028, 0x0010);
-  static const gdcm::Tag DICOM_TAG_SAMPLES_PER_PIXEL(0x0028, 0x0002);
-  static const gdcm::Tag DICOM_TAG_SERIES_INSTANCE_UID(0x0020, 0x000e);
-  static const gdcm::Tag DICOM_TAG_SOP_CLASS_UID(0x0008, 0x0016);
-  static const gdcm::Tag DICOM_TAG_SOP_INSTANCE_UID(0x0008, 0x0018);
-  static const gdcm::Tag DICOM_TAG_SPECIFIC_CHARACTER_SET(0x0008, 0x0005);
-  static const gdcm::Tag DICOM_TAG_STUDY_INSTANCE_UID(0x0020, 0x000d);
-
   class ParsedDicomFile
   {
   private:
@@ -55,9 +44,9 @@ namespace OrthancPlugins
 
     void Setup(const std::string& dicom);
 
-  public:
-    explicit ParsedDicomFile(const OrthancPlugins::MultipartItem& item);
+    Orthanc::Encoding  GetEncoding() const;
 
+  public:
     explicit ParsedDicomFile(const OrthancPlugins::MemoryBuffer& item);
 
     explicit ParsedDicomFile(const std::string& dicom)
@@ -96,55 +85,6 @@ namespace OrthancPlugins
                        const gdcm::Dict& dictionary,
                        const gdcm::Tag& tag) const;
 
-    Orthanc::Encoding  GetEncoding() const;
-
     std::string GetWadoUrl(const OrthancPluginHttpRequest* request) const;
-  };
-
-
-  const char* GetVRName(bool& isSequence /* out */,
-                        const gdcm::Dict& dictionary,
-                        const gdcm::Tag& tag);
-
-  void GenerateSingleDicomAnswer(std::string& result,
-                                 const std::string& wadoBase,
-                                 const gdcm::Dict& dictionary,
-                                 const gdcm::DataSet& dicom,
-                                 bool isXml,
-                                 bool isBulkAccessible);
-
-  void AnswerDicom(OrthancPluginRestOutput* output,
-                   const std::string& wadoBase,
-                   const gdcm::Dict& dictionary,
-                   const gdcm::DataSet& dicom,
-                   bool isXml,
-                   bool isBulkAccessible);
-
-  gdcm::Tag ParseTag(const gdcm::Dict& dictionary,
-                     const std::string& key);
-
-  std::string FormatTag(const gdcm::Tag& tag);
-
-  const char* GetKeyword(const gdcm::Dict& dictionary,
-                         const gdcm::Tag& tag);
-
-  class ChunkedBufferWriter : public pugi::xml_writer
-  {
-  private:
-    Orthanc::ChunkedBuffer buffer_;
-
-  public:
-    virtual void write(const void *data, size_t size)
-    {
-      if (size > 0)
-      {
-        buffer_.AddChunk(reinterpret_cast<const char*>(data), size);
-      }
-    }
-
-    void Flatten(std::string& s)
-    {
-      buffer_.Flatten(s);
-    }
   };
 }
