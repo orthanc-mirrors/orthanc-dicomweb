@@ -30,28 +30,15 @@
 #include <Core/DicomFormat/DicomTag.h>
 #include <Core/Toolbox.h>
 
-#include <gdcmTag.h>
 #include <list>
 #include <stdexcept>
 #include <boost/lexical_cast.hpp>
-#include <gdcmDict.h>
-#include <gdcmDicts.h>
-#include <gdcmGlobal.h>
-#include <gdcmDictEntry.h>
 #include <boost/regex.hpp>
 #include <boost/algorithm/string/replace.hpp>
 
 
 namespace
 {
-  static std::string FormatOrthancTag(const Orthanc::DicomTag& tag)
-  {
-    char b[16];
-    sprintf(b, "%04x,%04x", tag.GetGroup(), tag.GetElement());
-    return std::string(b);
-  }
-
-
   static std::string GetOrthancTag(const Json::Value& source,
                                    const Orthanc::DicomTag& tag,
                                    const std::string& defaultValue)
@@ -93,12 +80,12 @@ namespace
     typedef std::map<Orthanc::DicomTag, std::string>  Filters;
 
   private:
-    bool                  fuzzy_;
-    unsigned int          offset_;
-    unsigned int          limit_;
+    bool                          fuzzy_;
+    unsigned int                  offset_;
+    unsigned int                  limit_;
     std::list<Orthanc::DicomTag>  includeFields_;
-    bool                  includeAllFields_;
-    Filters               filters_;
+    bool                          includeAllFields_;
+    Filters                       filters_;
 
 
     static void AddResultAttributesForLevel(std::list<Orthanc::DicomTag>& result,
@@ -214,17 +201,24 @@ namespace
             // Split a comma-separated list of tags
             std::vector<std::string> tags;
             Orthanc::Toolbox::TokenizeString(tags, value, ',');
+            
             for (size_t i = 0; i < tags.size(); i++)
             {
-              const gdcm::Tag tag = OrthancPlugins::ParseTag(*dictionary_, tags[i]);
-              includeFields_.push_back(Orthanc::DicomTag(tag.GetGroup(), tag.GetElement()));
+              Orthanc::DicomTag tag(0, 0);
+              if (OrthancPlugins::ParseTag(tag, tags[i]))
+              {
+                includeFields_.push_back(tag);
+              }
             }
           }
         }
         else
         {
-          const gdcm::Tag tag = OrthancPlugins::ParseTag(*dictionary_, key);
-          filters_[Orthanc::DicomTag(tag.GetGroup(), tag.GetElement())] = value;
+          Orthanc::DicomTag tag(0, 0);
+          if (OrthancPlugins::ParseTag(tag, key))
+          {
+            filters_[tag] = value;
+          }
         }
       }
 
@@ -296,7 +290,7 @@ namespace
       for (Filters::const_iterator it = filters_.begin(); 
            it != filters_.end(); ++it)
       {
-        result["Query"][FormatOrthancTag(it->first)] = it->second;
+        result["Query"][it->first.Format()] = it->second;
       }
     }
 
@@ -378,75 +372,6 @@ namespace
     }                              
 
 
-    void ExtractFields(gdcm::DataSet& result,
-                       const OrthancPlugins::ParsedDicomFile& dicom,
-                       const std::string& wadoBase,
-                       Orthanc::ResourceType level) const
-    {
-      std::list<Orthanc::DicomTag> fields = includeFields_;
-
-      // The list of attributes for this query level
-      AddResultAttributesForLevel(fields, level);
-
-      // All other attributes passed as query keys
-      for (Filters::const_iterator it = filters_.begin();
-           it != filters_.end(); ++it)
-      {
-        fields.push_back(it->first);
-      }
-
-      // For instances and series, add all Study-level attributes if
-      // {StudyInstanceUID} is not specified.
-      if ((level == Orthanc::ResourceType_Instance  || level == Orthanc::ResourceType_Series) 
-          && filters_.find(Orthanc::DICOM_TAG_STUDY_INSTANCE_UID) == filters_.end()
-        )
-      {
-        AddResultAttributesForLevel(fields, Orthanc::ResourceType_Study);
-      }
-
-      // For instances, add all Series-level attributes if
-      // {SeriesInstanceUID} is not specified.
-      if (level == Orthanc::ResourceType_Instance
-          && filters_.find(Orthanc::DICOM_TAG_SERIES_INSTANCE_UID) == filters_.end()
-        )
-      {
-        AddResultAttributesForLevel(fields, Orthanc::ResourceType_Series);
-      }
-
-      // Copy all the required fields to the target
-      for (std::list<Orthanc::DicomTag>::const_iterator
-             it = fields.begin(); it != fields.end(); ++it)
-      {
-        gdcm::Tag tag(it->GetGroup(), it->GetElement());
-
-        if (dicom.GetDataSet().FindDataElement(tag))
-        {
-          const gdcm::DataElement& element = dicom.GetDataSet().GetDataElement(tag);
-          result.Replace(element);
-        }
-      }
-
-      // Set the retrieve URL for WADO-RS
-      std::string url = (wadoBase + "studies/" + 
-                         dicom.GetRawTagWithDefault(Orthanc::DICOM_TAG_STUDY_INSTANCE_UID, "", true));
-
-      if (level == Orthanc::ResourceType_Series || level == Orthanc::ResourceType_Instance)
-      {
-        url += "/series/" + dicom.GetRawTagWithDefault(Orthanc::DICOM_TAG_SERIES_INSTANCE_UID, "", true);
-      }
-
-      if (level == Orthanc::ResourceType_Instance)
-      {
-        url += "/instances/" + dicom.GetRawTagWithDefault(Orthanc::DICOM_TAG_SOP_INSTANCE_UID, "", true);
-      }
-    
-      static const gdcm::Tag DICOM_TAG_RETRIEVE_URL(0x0008, 0x1190);
-      gdcm::DataElement element(DICOM_TAG_RETRIEVE_URL);
-      element.SetByteValue(url.c_str(), url.size());
-      result.Replace(element);
-    }
-
-
     void ExtractFields(Json::Value& result,
                        const Json::Value& source,
                        const std::string& wadoBase,
@@ -487,7 +412,10 @@ namespace
       for (std::list<Orthanc::DicomTag>::const_iterator
              it = fields.begin(); it != fields.end(); ++it)
       {
-        std::string tag = FormatOrthancTag(*it);
+        // Complies to the JSON produced internally by Orthanc
+        char tag[16];
+        sprintf(tag, "%04x,%04x", it->GetGroup(), it->GetElement());
+        
         if (source.isMember(tag))
         {
           result[tag] = source[tag];

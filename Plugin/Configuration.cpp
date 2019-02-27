@@ -286,6 +286,23 @@ namespace OrthancPlugins
   }
 
 
+  bool ParseTag(Orthanc::DicomTag& target,
+                const std::string& name)
+  {
+    OrthancPluginDictionaryEntry entry;
+    
+    if (OrthancPluginLookupDictionary(OrthancPlugins::GetGlobalContext(), &entry, name.c_str()) == OrthancPluginErrorCode_Success)
+    {
+      target = Orthanc::DicomTag(entry.group, entry.element);
+      return true;
+    }
+    else
+    {
+      return false;
+    }
+  }
+
+
   namespace Configuration
   {
     // Assume Latin-1 encoding by default (as in the Orthanc core)
