@@ -23,7 +23,6 @@
 #include "Plugin.h"
 
 #include "Configuration.h"
-#include "Dicom.h"
 #include "DicomWebFormatter.h"
 
 #include <Core/Toolbox.h>
@@ -151,11 +150,41 @@ void StowCallback(OrthancPluginRestOutput* output,
       return;
     }
 
-    OrthancPlugins::ParsedDicomFile dicom(items[i]);
+    Json::Value dicom;
 
-    std::string studyInstanceUid = dicom.GetRawTagWithDefault(OrthancPlugins::DICOM_TAG_STUDY_INSTANCE_UID, "", true);
-    std::string sopClassUid = dicom.GetRawTagWithDefault(OrthancPlugins::DICOM_TAG_SOP_CLASS_UID, "", true);
-    std::string sopInstanceUid = dicom.GetRawTagWithDefault(OrthancPlugins::DICOM_TAG_SOP_INSTANCE_UID, "", true);
+    try
+    {
+      OrthancPlugins::OrthancString s;
+      s.Assign(OrthancPluginDicomBufferToJson(context, items[i].data_, items[i].size_,
+                                              OrthancPluginDicomToJsonFormat_Short,
+                                              OrthancPluginDicomToJsonFlags_None, 256));
+      s.ToJson(dicom);
+    }
+    catch (Orthanc::OrthancException&)
+    {
+      // Bad DICOM file => TODO add to error
+      OrthancPlugins::LogWarning("STOW-RS cannot parse an incoming DICOM file");
+      continue;
+    }           
+
+    if (dicom.type() != Json::objectValue ||
+        !dicom.isMember(Orthanc::DICOM_TAG_SERIES_INSTANCE_UID.Format()) ||
+        !dicom.isMember(Orthanc::DICOM_TAG_SOP_CLASS_UID.Format()) ||
+        !dicom.isMember(Orthanc::DICOM_TAG_SOP_INSTANCE_UID.Format()) ||
+        !dicom.isMember(Orthanc::DICOM_TAG_STUDY_INSTANCE_UID.Format()) ||
+        dicom[Orthanc::DICOM_TAG_SERIES_INSTANCE_UID.Format()].type() != Json::stringValue ||
+        dicom[Orthanc::DICOM_TAG_SOP_CLASS_UID.Format()].type() != Json::stringValue ||
+        dicom[Orthanc::DICOM_TAG_SOP_INSTANCE_UID.Format()].type() != Json::stringValue ||
+        dicom[Orthanc::DICOM_TAG_STUDY_INSTANCE_UID.Format()].type() != Json::stringValue)
+    {
+      OrthancPlugins::LogWarning("STOW-RS: Missing a mandatory tag in incoming DICOM file");
+      continue;
+    }
+
+    const std::string seriesInstanceUid = dicom[Orthanc::DICOM_TAG_SERIES_INSTANCE_UID.Format()].asString();
+    const std::string sopClassUid = dicom[Orthanc::DICOM_TAG_SOP_CLASS_UID.Format()].asString();
+    const std::string sopInstanceUid = dicom[Orthanc::DICOM_TAG_SOP_INSTANCE_UID.Format()].asString();
+    const std::string studyInstanceUid = dicom[Orthanc::DICOM_TAG_STUDY_INSTANCE_UID.Format()].asString();
 
     Json::Value item = Json::objectValue;
     item[OrthancPlugins::DICOM_TAG_REFERENCED_SOP_CLASS_UID.Format()] = sopClassUid;
@@ -167,8 +196,9 @@ void StowCallback(OrthancPluginRestOutput* output,
       OrthancPlugins::LogInfo("STOW-RS request restricted to study [" + expectedStudy + 
                               "]: Ignoring instance from study [" + studyInstanceUid + "]");
 
-      item[OrthancPlugins::DICOM_TAG_WARNING_REASON.Format()] = "B006";  // Elements discarded
-      success.append(item);      
+      /*item[OrthancPlugins::DICOM_TAG_WARNING_REASON.Format()] =
+        boost::lexical_cast<std::string>(0xB006);  // Elements discarded
+        success.append(item);*/
     }
     else
     {
@@ -187,7 +217,7 @@ void StowCallback(OrthancPluginRestOutput* output,
       {
         std::string url = (wadoBase + 
                            "studies/" + studyInstanceUid +
-                           "/series/" + dicom.GetRawTagWithDefault(OrthancPlugins::DICOM_TAG_SERIES_INSTANCE_UID, "", true) +
+                           "/series/" + seriesInstanceUid +
                            "/instances/" + sopInstanceUid);
 
         item[OrthancPlugins::DICOM_TAG_RETRIEVE_URL.Format()] = url;
@@ -196,7 +226,8 @@ void StowCallback(OrthancPluginRestOutput* output,
       else
       {
         OrthancPlugins::LogError("Orthanc was unable to store instance through STOW-RS request");
-        item[OrthancPlugins::DICOM_TAG_FAILURE_REASON.Format()] = "0110";  // Processing failure
+        item[OrthancPlugins::DICOM_TAG_FAILURE_REASON.Format()] =
+          boost::lexical_cast<std::string>(0x0110);  // Processing failure
         failed.append(item);      
       }
     }

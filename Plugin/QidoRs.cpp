@@ -23,7 +23,6 @@
 
 #include "Plugin.h"
 #include "StowRs.h"  // For IsXmlExpected()
-#include "Dicom.h"
 #include "Configuration.h"
 #include "DicomWebFormatter.h"
 

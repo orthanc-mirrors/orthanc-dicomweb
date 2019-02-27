@@ -251,23 +251,17 @@ static bool GetDicomIdentifiers(std::string& studyInstanceUid,
   static const char* const SOP_INSTANCE_UID = "0008,0018";
   
   Json::Value dicom;
-  if (OrthancPlugins::RestApiGet(dicom, "/instances/" + orthancId + "/tags", false) &&
+  if (OrthancPlugins::RestApiGet(dicom, "/instances/" + orthancId + "/tags?short", false) &&
       dicom.isMember(STUDY_INSTANCE_UID) &&
       dicom.isMember(SERIES_INSTANCE_UID) &&
       dicom.isMember(SOP_INSTANCE_UID) &&
-      dicom[STUDY_INSTANCE_UID].type() == Json::objectValue &&
-      dicom[SERIES_INSTANCE_UID].type() == Json::objectValue &&
-      dicom[SOP_INSTANCE_UID].type() == Json::objectValue &&
-      dicom[STUDY_INSTANCE_UID].isMember("Value") &&
-      dicom[SERIES_INSTANCE_UID].isMember("Value") &&
-      dicom[SOP_INSTANCE_UID].isMember("Value") &&
-      dicom[STUDY_INSTANCE_UID]["Value"].isString() &&
-      dicom[SERIES_INSTANCE_UID]["Value"].isString() &&
-      dicom[SOP_INSTANCE_UID]["Value"].isString())
+      dicom[STUDY_INSTANCE_UID].type() == Json::stringValue &&
+      dicom[SERIES_INSTANCE_UID].type() == Json::stringValue &&
+      dicom[SOP_INSTANCE_UID].type() == Json::stringValue)
   {
-    studyInstanceUid = dicom[STUDY_INSTANCE_UID]["Value"].asString();
-    seriesInstanceUid = dicom[SERIES_INSTANCE_UID]["Value"].asString();
-    sopInstanceUid = dicom[SOP_INSTANCE_UID]["Value"].asString();
+    studyInstanceUid = dicom[STUDY_INSTANCE_UID].asString();
+    seriesInstanceUid = dicom[SERIES_INSTANCE_UID].asString();
+    sopInstanceUid = dicom[SOP_INSTANCE_UID].asString();
     return true;
   }
   else

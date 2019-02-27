@@ -294,7 +294,7 @@ void StowClient(OrthancPluginRestOutput* output,
     OrthancPluginFreeString(context, uuid);
   }
 
-  std::string mime = "multipart/related; type=application/dicom; boundary=" + boundary;
+  std::string mime = "multipart/related; type=\"application/dicom\"; boundary=" + boundary;
 
   std::map<std::string, std::string> queryArguments;
   std::map<std::string, std::string> httpHeaders;
