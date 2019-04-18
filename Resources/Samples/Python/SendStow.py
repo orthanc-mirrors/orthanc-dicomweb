@@ -31,8 +31,7 @@ import sys
 import json
 import uuid
 
-#if len(sys.argv) < 2:
-if len(sys.argv) < 1:
+if len(sys.argv) < 2:
     print('Usage: %s <StowUri> <file>...' % sys.argv[0])
     print('')
     print('Example: %s http://localhost:8042/dicom-web/studies hello.dcm world.dcm' % sys.argv[0])
