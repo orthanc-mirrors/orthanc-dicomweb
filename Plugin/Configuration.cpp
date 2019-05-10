@@ -395,11 +395,69 @@ namespace OrthancPlugins
     }
 
 
-    std::string  GetBaseUrl(const OrthancPluginHttpRequest* request)
+    static bool IsHttpsProto(const std::string& proto,
+                             bool defaultValue)
+    {
+      if (proto == "http")
+      {
+        return false;
+      }
+      else if (proto == "https")
+      {
+        return true;
+      }
+      else
+      {
+        return defaultValue;
+      }
+    }
+
+
+    std::string GetBaseUrl(const OrthancPluginHttpRequest* request)
     {
       assert(configuration_.get() != NULL);
       std::string host = configuration_->GetStringValue("Host", "");
-      bool ssl = configuration_->GetBooleanValue("Ssl", false);
+      bool https = configuration_->GetBooleanValue("Ssl", false);
+
+      std::string forwarded;
+      if (host.empty() &&
+          LookupHttpHeader(forwarded, request, "forwarded"))
+      {
+        // There is a "Forwarded" HTTP header in the query
+        // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Forwarded
+        
+        std::vector<std::string> forwarders;
+        Orthanc::Toolbox::TokenizeString(forwarders, forwarded, ',');
+
+        // Only consider the first forwarder, if any
+        if (!forwarders.empty())
+        {
+          std::vector<std::string> tokens;
+          Orthanc::Toolbox::TokenizeString(tokens, forwarders[0], ';');
+
+          for (size_t j = 0; j < tokens.size(); j++)
+          {
+            std::vector<std::string> args;
+            Orthanc::Toolbox::TokenizeString(args, tokens[j], '=');
+            
+            if (args.size() == 2)
+            {
+              std::string key = Orthanc::Toolbox::StripSpaces(args[0]);
+              std::string value = Orthanc::Toolbox::StripSpaces(args[1]);
+
+              Orthanc::Toolbox::ToLowerCase(key);
+              if (key == "host")
+              {
+                host = value;
+              }
+              else if (key == "proto")
+              {
+                https = IsHttpsProto(value, https);
+              }
+            }
+          }
+        }
+      }
 
       if (host.empty() &&
           !LookupHttpHeader(host, request, "host"))
@@ -409,7 +467,7 @@ namespace OrthancPlugins
         host = "localhost:8042";
       }
 
-      return (ssl ? "https://" : "http://") + host + GetRoot();
+      return (https ? "https://" : "http://") + host + GetRoot();
     }
 
 
