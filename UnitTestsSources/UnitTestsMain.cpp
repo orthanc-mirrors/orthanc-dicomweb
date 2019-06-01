@@ -61,18 +61,222 @@ TEST(ContentType, Parse)
 
 
 #include <Core/ChunkedBuffer.h>
-#include <Core/Toolbox.h>
+#include <Core/OrthancException.h>
 #include <Core/SystemToolbox.h>
-#include <boost/date_time/posix_time/posix_time.hpp>
+#include <Core/Toolbox.h>
 #include <boost/algorithm/searching/boyer_moore.hpp>
+#include <boost/algorithm/searching/boyer_moore_horspool.hpp>
+#include <boost/algorithm/searching/knuth_morris_pratt.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/version.hpp>
+
+
+namespace Orthanc
+{
+  class MultipartStreamParser : public boost::noncopyable
+  {
+  public:
+    class IHandler : public boost::noncopyable
+    {
+    public:
+      virtual ~IHandler()
+      {
+      }
+      
+      virtual void Handle(const std::string& part) = 0;
+    };
+    
+    
+  private:
+    typedef boost::algorithm::boyer_moore<std::string::const_iterator>  Search;
+    //typedef boost::algorithm::boyer_moore_horspool<std::string::const_iterator>  Search;
+    //typedef boost::algorithm::knuth_morris_pratt<std::string::const_iterator>  Search;
+
+    IHandler*              handler_;
+    std::auto_ptr<Search>  search_;
+    std::string            pattern_;
+    ChunkedBuffer          buffer_;
+    size_t                 blockSize_;
+
+
+    void ParsePart(const char* part,
+                   size_t size)
+    {
+      printf("%d \n", size);
+      
+      // TODO - Parse headers
+      //handler_->Handle(part);
+    }
+    
+
+    void ParseStream()
+    {
+      printf("."); fflush(stdout);
+      if (search_.get() == NULL ||
+          handler_ == NULL)
+      {
+        return;
+      }
+      
+      std::string corpus;
+      buffer_.Flatten(corpus);
+
+      std::string::iterator previous = corpus.end();
+
+#if BOOST_VERSION >= 106200
+      std::string::iterator current = (*search_) (corpus.begin(), corpus.end()).first;
+#else
+      std::string::iterator current = (*search_) (corpus.begin(), corpus.end());
+#endif
+
+      while (current != corpus.end())
+      {
+        if (previous == corpus.end() &&
+            std::distance(current, corpus.begin()) != 0)
+        {
+          // TODO - There is heading garbage! => Decide what to do!
+          throw OrthancException(ErrorCode_NetworkProtocol);
+        }
+        
+        if (previous != corpus.end())
+        {
+          std::string::iterator start = previous + pattern_.size();
+          size_t size = std::distance(start, current);
+
+          if (size > 0)
+          {
+            ParsePart(&start[0], size);
+          }
+        }
+
+        previous = current;
+        current += pattern_.size();
+        
+#if BOOST_VERSION >= 106200
+        current = (*search_) (current, corpus.end()).first;
+#else
+        current = (*search_) (current, corpus.end());
+#endif
+      }
+
+      if (previous == corpus.end())
+      {
+        // No part found, recycle the entire corpus for next iteration
+        buffer_.AddChunk(corpus);
+      }
+      else
+      {
+        std::string reminder(previous, corpus.end());
+        buffer_.AddChunk(reminder);
+      }
+    }
+
+
+  public:
+    MultipartStreamParser() :
+      handler_(NULL),
+      blockSize_(10 * 1024 * 1024)
+    {
+    }
+
+    void SetBlockSize(size_t size)
+    {
+      if (size == 0)
+      {
+        throw OrthancException(ErrorCode_ParameterOutOfRange);
+      }
+      else
+      {
+        blockSize_ = size;
+      }        
+    }
+
+    size_t GetBlockSize() const
+    {
+      return blockSize_;
+    }
+
+    void SetHandler(IHandler& handler)
+    {
+      handler_ = &handler;
+    }
+    
+    void SetSeparator(const std::string& separator)
+    {
+      pattern_ = "--" + separator;
+      search_.reset(new Search(pattern_.begin(), pattern_.end()));
+    }
+    
+    void AddChunk(const void* chunk,
+                  size_t size)
+    {
+      if (size != 0)
+      {
+        size_t oldSize = buffer_.GetNumBytes();
+      
+        buffer_.AddChunk(chunk, size);
+
+        if (oldSize / blockSize_ != buffer_.GetNumBytes() / blockSize_)
+        {
+          ParseStream();
+        }
+      }
+    }
+
+    void AddChunk(const std::string& chunk)
+    {
+      if (!chunk.empty())
+      {
+        AddChunk(chunk.c_str(), chunk.size());
+      }
+    }
+
+    void CloseStream()
+    {
+      if (buffer_.GetNumBytes() != 0)
+      {
+        ParseStream();
+      }
+
+      std::string tmp;
+      buffer_.Flatten(tmp);
+      printf("Reminder: [%s]\n", tmp.c_str());
+    }
+  };
+
+
+  class Toto : public MultipartStreamParser::IHandler
+  {
+  private:
+    unsigned int count_;
+    
+  public:
+    Toto() : count_(0)
+    {
+    }
+    
+    virtual void Handle(const std::string& part)
+    {
+      //printf(">> %d\n", part.size());
+      count_++;
+    }
+
+    unsigned int GetCount() const
+    {
+      return count_;
+    }
+  };
+}
+
+
 
 TEST(Multipart, Optimization)
 {
-  std::string separator = Orthanc::Toolbox::GenerateUuid();
+  std::string separator = "123456789123456789";
 
   std::string corpus;
 
+  if (1)
   {
     std::string f;
     f.resize(512*512*2);
@@ -81,7 +285,7 @@ TEST(Multipart, Optimization)
   
     Orthanc::ChunkedBuffer buffer;
 
-    for (size_t i = 0; i < 100; i++)
+    for (size_t i = 0; i < 10; i++)
     {
       std::string s = "--" + separator + "\r\n\r\n\r\n";
 
@@ -94,55 +298,144 @@ TEST(Multipart, Optimization)
 
     buffer.AddChunk("\r\n--" + separator + "--");
     buffer.Flatten(corpus);
+
+    Orthanc::SystemToolbox::WriteFile(corpus, "tutu");
   }
+  else
+  {
+    Orthanc::SystemToolbox::ReadFile(corpus, "tutu");
+  }
+
+  if (1)
+  {
+    boost::posix_time::ptime start = boost::posix_time::microsec_clock::local_time();
+
+    {
+      std::vector<OrthancPlugins::MultipartItem> items;
+      OrthancPlugins::ParseMultipartBody(items, corpus.c_str(), corpus.size(), separator);
+      printf(">> %d\n", (int) items.size());
+    }
+
+    boost::posix_time::ptime end = boost::posix_time::microsec_clock::local_time();
+
+    printf("Parsing 1: %d ms\n", (int) (end - start).total_milliseconds());
+  }
+
+  if (0)
+  {
+    boost::posix_time::ptime start = boost::posix_time::microsec_clock::local_time();
+
+    {
+      std::string pattern("--" + separator + "\r\n");
+
+      boost::algorithm::boyer_moore<std::string::const_iterator>
+        search(pattern.begin(), pattern.end());
+
+#if BOOST_VERSION >= 106200
+      std::string::iterator it = search(corpus.begin(), corpus.end()).first;
+#else
+      std::string::iterator it = search(corpus.begin(), corpus.end());
+#endif
+
+      unsigned int c = 0;
+      while (it != corpus.end())
+      {
+        std::string t(it, it + pattern.size());
+        //printf("[%s]\n", t.c_str());
+      
+        c++;
+      
+#if BOOST_VERSION >= 106200
+        it = search(std::next(it, pattern.size()), corpus.end()).first;
+#else
+        it = search(std::next(it, pattern.size()), corpus.end());
+#endif
+      }
+
+      printf("count: %d\n", c);
+    }
+
+    boost::posix_time::ptime end = boost::posix_time::microsec_clock::local_time();
+
+    printf("Parsing 2: %d ms\n", (int) (end - start).total_milliseconds());
+  }
+
+  if (1)
+  {
+    boost::posix_time::ptime start = boost::posix_time::microsec_clock::local_time();
+
+    {
+      Orthanc::Toto toto;
+
+      Orthanc::MultipartStreamParser parser;
+
+      //parser.SetBlockSize(127);
+      parser.SetSeparator(separator);
+      parser.SetHandler(toto);
+
+#if 1
+      size_t bs = corpus.size() / 101;
+
+      const char* pos = corpus.c_str();
+      for (size_t i = 0; i < corpus.size() / bs; i++, pos += bs)
+      {
+        parser.AddChunk(pos, bs);
+      }
+
+      parser.AddChunk(pos, corpus.size() % bs);
+#else
+      parser.AddChunk(corpus);
+#endif
+
+      parser.CloseStream();
+
+      printf("%d\n", toto.GetCount());
+    }
+
+    boost::posix_time::ptime end = boost::posix_time::microsec_clock::local_time();
+
+    printf("Parsing 3: %d ms\n", (int) (end - start).total_milliseconds());
+  }
+}
+
+
+
+TEST(Multipart, Optimization2)
+{
+  std::string separator = "123456789123456789";
+
+  std::string f;
+  f.resize(512*512*2);
+  for (size_t i = 0; i < f.size(); i++)
+    f[i] = i % 256;
   
+
   boost::posix_time::ptime start = boost::posix_time::microsec_clock::local_time();
 
   {
-    std::vector<OrthancPlugins::MultipartItem> items;
-    OrthancPlugins::ParseMultipartBody(items, corpus.c_str(), corpus.size(), separator);
-    printf(">> %d\n", (int) items.size());
+    Orthanc::Toto toto;
+
+    Orthanc::MultipartStreamParser parser;
+
+      //parser.SetBlockSize(127);
+    parser.SetSeparator(separator);
+    parser.SetHandler(toto);
+
+    for (size_t i = 0; i < 10; i++)
+    {
+      parser.AddChunk("--" + separator + "\r\n\r\n");
+      parser.AddChunk(f);
+    }
+
+    parser.AddChunk("--" + separator + "--");
+    parser.CloseStream();
+    
+    printf("%d\n", toto.GetCount());
   }
 
   boost::posix_time::ptime end = boost::posix_time::microsec_clock::local_time();
 
-  printf("Parsing 1: %d ms\n", (int) (end - start).total_milliseconds());
-
-  start = boost::posix_time::microsec_clock::local_time();
-
-  {
-    std::string pattern("--" + separator + "\r\n");
-
-    boost::algorithm::boyer_moore<std::string::const_iterator>
-      search(pattern.begin(), pattern.end());
-
-#if BOOST_VERSION >= 106200
-    std::string::iterator it = search(corpus.begin(), corpus.end()).first;
-#else
-    std::string::iterator it = search(corpus.begin(), corpus.end());
-#endif
-
-    unsigned int c = 0;
-    while (it != corpus.end())
-    {
-      std::string t(it, it + pattern.size());
-      printf("[%s]\n", t.c_str());
-      
-      c++;
-      
-#if BOOST_VERSION >= 106200
-      it = search(std::next(it, pattern.size()), corpus.end()).first;
-#else
-      it = search(std::next(it, pattern.size()), corpus.end());
-#endif
-    }
-
-    printf("count: %d\n", c);
-  }
-
-  end = boost::posix_time::microsec_clock::local_time();
-
-  printf("Parsing 2: %d ms\n", (int) (end - start).total_milliseconds());
+  printf("Parsing: %d ms\n", (int) (end - start).total_milliseconds());
 }
 
 
