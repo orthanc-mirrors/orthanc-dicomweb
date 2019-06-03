@@ -73,6 +73,96 @@ TEST(ContentType, Parse)
 
 namespace Orthanc
 {
+  // Convenience class that wraps a Boost algorithm for string matching
+  class StringMatcher : public boost::noncopyable
+  {
+  public:
+    typedef std::string::const_iterator Iterator;
+
+  private:
+    typedef boost::algorithm::boyer_moore<Iterator>  Search;
+    //typedef boost::algorithm::boyer_moore_horspool<std::string::const_iterator>  Search;
+
+    // WARNING - The lifetime of "pattern_" must be larger than
+    // "search_", as the latter references "pattern_"
+    std::string  pattern_;
+    Search       search_;
+    bool         valid_;
+    Iterator     matchBegin_;
+    Iterator     matchEnd_;
+    
+  public:
+    StringMatcher(const std::string& pattern) :
+      pattern_(pattern),
+      search_(pattern_.begin(), pattern_.end()),
+      valid_(false)
+    {
+    }
+
+    size_t GetPatternSize() const
+    {
+      return pattern_.size();
+    }
+
+    bool IsValid() const
+    {
+      return valid_;
+    }
+
+    bool Apply(Iterator start,
+               Iterator end)
+    {
+#if BOOST_VERSION >= 106200
+      matchBegin_ = search_(start, end).first;
+#else
+      matchBegin_ = search_(start, end);
+#endif
+
+      if (matchBegin_ == end)
+      {
+        valid_ = false;
+      }
+      else
+      {
+        matchEnd_ = matchBegin_ + pattern_.size();
+        assert(matchEnd_ <= end);
+        valid_ = true;
+      }
+
+      return valid_;
+    }
+
+    bool Apply(const std::string& corpus)
+    {
+      return Apply(corpus.begin(), corpus.end());
+    }
+
+    Iterator GetMatchBegin() const
+    {
+      if (valid_)
+      {
+        return matchBegin_;
+      }
+      else
+      {
+        throw OrthancException(ErrorCode_BadSequenceOfCalls);
+      }
+    }
+
+    Iterator GetMatchEnd() const
+    {
+      if (valid_)
+      {
+        return matchEnd_;
+      }
+      else
+      {
+        throw OrthancException(ErrorCode_BadSequenceOfCalls);
+      }
+    }
+  };
+
+  
   class MultipartStreamParser : public boost::noncopyable
   {
   public:
@@ -94,9 +184,9 @@ namespace Orthanc
     //typedef boost::algorithm::knuth_morris_pratt<std::string::const_iterator>  Search;
 
     IHandler*              handler_;
-    std::auto_ptr<Search>  searchHeadersEnd_;
-    std::auto_ptr<Search>  searchPattern_;
-    std::string            pattern_;
+    StringMatcher           searchHeadersEnd_;
+    std::auto_ptr<StringMatcher>  patternMatcher_;
+    //std::auto_ptr<Search>  patternMatcher_;
     ChunkedBuffer          buffer_;
     size_t                 blockSize_;
 
@@ -104,26 +194,31 @@ namespace Orthanc
     void ParsePart(std::string::const_iterator start,
                    std::string::const_iterator end)
     {
-#if BOOST_VERSION >= 106200
-      std::string::const_iterator pos = (*searchHeadersEnd_) (start, end).first;
-#else
-      std::string::const_iterator pos = (*searchHeadersEnd_) (start, end);
-#endif
+      searchHeadersEnd_.Apply(start, end);
 
-      std::string s(start, pos);
-      printf("[%s]\n", s.c_str());
+#if 0
+      if (searchHeadersEnd_.GetIterator() != end)
+      {
+        std::string s(start, searchHeadersEnd_.GetIterator());
+        printf("[%s]\n", s.c_str());
+
+        //std::map<std::string, std::string> headers;
+        //std::string part(searchHeadersEnd_.GetIterator(), end);
+        //std::string part;
+        //handler_->Handle(headers, part);
+      }
       
       //printf("%d \n", size);
       
       // TODO - Parse headers
-      //handler_->Handle(part);
+#endif
     }
     
 
     void ParseStream()
     {
       printf("."); fflush(stdout);
-      if (searchPattern_.get() == NULL ||
+      if (patternMatcher_.get() == NULL ||
           handler_ == NULL)
       {
         return;
@@ -132,12 +227,25 @@ namespace Orthanc
       std::string corpus;
       buffer_.Flatten(corpus);
 
+      printf("------------------------------\n"); fflush(stdout);
+
+      StringMatcher::Iterator start = corpus.begin();
+
+      while (patternMatcher_->Apply(start, corpus.end()))
+      {
+        std::string s(patternMatcher_->GetMatchBegin(), patternMatcher_->GetMatchEnd());
+        printf("ICI [%s]\n", s.c_str());
+
+        start = patternMatcher_->GetMatchEnd();
+      }
+
+#if 0
       std::string::const_iterator previous = corpus.end();
 
 #if BOOST_VERSION >= 106200
-      std::string::const_iterator current = (*searchPattern_) (corpus.begin(), corpus.end()).first;
+      std::string::const_iterator current = (*patternMatcher_) (corpus.begin(), corpus.end()).first;
 #else
-      std::string::const_iterator current = (*searchPattern_) (corpus.begin(), corpus.end());
+      std::string::const_iterator current = (*patternMatcher_) (corpus.begin(), corpus.end());
 #endif
 
       while (current != corpus.end())
@@ -164,9 +272,9 @@ namespace Orthanc
         current += pattern_.size();
         
 #if BOOST_VERSION >= 106200
-        current = (*searchPattern_) (current, reinterpret_cast<const std::string&>(corpus).end()).first;
+        current = (*patternMatcher_) (current, reinterpret_cast<const std::string&>(corpus).end()).first;
 #else
-        current = (*searchPattern_) (current, reinterpret_cast<const std::string&>(corpus).end());
+        current = (*patternMatcher_) (current, reinterpret_cast<const std::string&>(corpus).end());
 #endif
       }
 
@@ -180,16 +288,16 @@ namespace Orthanc
         std::string reminder(previous, reinterpret_cast<const std::string&>(corpus).end());
         buffer_.AddChunkDestructive(reminder);
       }
+#endif
     }
 
 
   public:
     MultipartStreamParser() :
       handler_(NULL),
+      searchHeadersEnd_("\r\n\r\n"),
       blockSize_(10 * 1024 * 1024)
     {
-      const std::string s = "\r\n\r\n";
-      searchHeadersEnd_.reset(new Search(s.begin(), s.end()));
     }
 
     void SetBlockSize(size_t size)
@@ -216,8 +324,7 @@ namespace Orthanc
     
     void SetSeparator(const std::string& separator)
     {
-      pattern_ = "--" + separator;
-      searchPattern_.reset(new Search(pattern_.begin(), pattern_.end()));
+      patternMatcher_.reset(new StringMatcher("--" + separator));
     }
     
     void AddChunk(const void* chunk,
@@ -419,9 +526,10 @@ TEST(Multipart, Optimization2)
   std::string separator = "123456789123456789";
 
   std::string f;
-  f.resize(512*512*2);
+  /*f.resize(512*512*2);
   for (size_t i = 0; i < f.size(); i++)
-    f[i] = i % 256;
+  f[i] = i % 256;*/
+  f = "hello";
   
 
   boost::posix_time::ptime start = boost::posix_time::microsec_clock::local_time();
@@ -435,7 +543,7 @@ TEST(Multipart, Optimization2)
     parser.SetSeparator(separator);
     parser.SetHandler(toto);
 
-    for (size_t i = 0; i < 100; i++)
+    for (size_t i = 0; i < 2; i++)
     {
       parser.AddChunk("--" + separator + "\r\n");
       parser.AddChunk("Content-Type: toto\r\n");
@@ -452,6 +560,37 @@ TEST(Multipart, Optimization2)
   boost::posix_time::ptime end = boost::posix_time::microsec_clock::local_time();
 
   printf("Parsing: %d ms\n", (int) (end - start).total_milliseconds());
+}
+
+
+TEST(StringMatcher, Basic)
+{
+  Orthanc::StringMatcher matcher("---");
+
+  ASSERT_THROW(matcher.GetMatchBegin(), Orthanc::OrthancException);
+
+  {
+    const std::string s = "abc----def";
+    ASSERT_TRUE(matcher.Apply(s));
+    ASSERT_EQ(3, std::distance(s.begin(), matcher.GetMatchBegin()));
+    ASSERT_EQ("---", std::string(matcher.GetMatchBegin(), matcher.GetMatchEnd()));
+  }
+
+  {
+    const std::string s = "abc---";
+    ASSERT_TRUE(matcher.Apply(s));
+    ASSERT_EQ(3, std::distance(s.begin(), matcher.GetMatchBegin()));
+    ASSERT_EQ(s.end(), matcher.GetMatchEnd());
+    ASSERT_EQ("---", std::string(matcher.GetMatchBegin(), matcher.GetMatchEnd()));
+    ASSERT_EQ("", std::string(matcher.GetMatchEnd(), s.end()));
+  }
+
+  {
+    const std::string s = "abc--def";
+    ASSERT_FALSE(matcher.Apply(s));
+    ASSERT_THROW(matcher.GetMatchBegin(), Orthanc::OrthancException);
+    ASSERT_THROW(matcher.GetMatchEnd(), Orthanc::OrthancException);
+  }
 }
 
 
