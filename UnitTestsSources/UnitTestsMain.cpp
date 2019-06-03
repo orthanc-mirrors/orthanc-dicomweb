@@ -346,9 +346,9 @@ TEST(Multipart, Optimization)
         c++;
       
 #if BOOST_VERSION >= 106200
-        it = search(std::next(it, pattern.size()), corpus.end()).first;
+        it = search(it + pattern.size(), corpus.end()).first;
 #else
-        it = search(std::next(it, pattern.size()), corpus.end());
+        it = search(it + pattern.size(), corpus.end());
 #endif
       }
 
