@@ -83,7 +83,8 @@ namespace Orthanc
       {
       }
       
-      virtual void Handle(const std::string& part) = 0;
+      virtual void Handle(const std::map<std::string, std::string>& headers,
+                          const std::string& part) = 0;
     };
     
     
@@ -93,16 +94,26 @@ namespace Orthanc
     //typedef boost::algorithm::knuth_morris_pratt<std::string::const_iterator>  Search;
 
     IHandler*              handler_;
-    std::auto_ptr<Search>  search_;
+    std::auto_ptr<Search>  searchHeadersEnd_;
+    std::auto_ptr<Search>  searchPattern_;
     std::string            pattern_;
     ChunkedBuffer          buffer_;
     size_t                 blockSize_;
 
 
-    void ParsePart(const char* part,
-                   size_t size)
+    void ParsePart(std::string::const_iterator start,
+                   std::string::const_iterator end)
     {
-      printf("%d \n", size);
+#if BOOST_VERSION >= 106200
+      std::string::const_iterator pos = (*searchHeadersEnd_) (start, end).first;
+#else
+      std::string::const_iterator pos = (*searchHeadersEnd_) (start, end);
+#endif
+
+      std::string s(start, pos);
+      printf("[%s]\n", s.c_str());
+      
+      //printf("%d \n", size);
       
       // TODO - Parse headers
       //handler_->Handle(part);
@@ -112,7 +123,7 @@ namespace Orthanc
     void ParseStream()
     {
       printf("."); fflush(stdout);
-      if (search_.get() == NULL ||
+      if (searchPattern_.get() == NULL ||
           handler_ == NULL)
       {
         return;
@@ -121,18 +132,18 @@ namespace Orthanc
       std::string corpus;
       buffer_.Flatten(corpus);
 
-      std::string::iterator previous = corpus.end();
+      std::string::const_iterator previous = corpus.end();
 
 #if BOOST_VERSION >= 106200
-      std::string::iterator current = (*search_) (corpus.begin(), corpus.end()).first;
+      std::string::const_iterator current = (*searchPattern_) (corpus.begin(), corpus.end()).first;
 #else
-      std::string::iterator current = (*search_) (corpus.begin(), corpus.end());
+      std::string::const_iterator current = (*searchPattern_) (corpus.begin(), corpus.end());
 #endif
 
       while (current != corpus.end())
       {
         if (previous == corpus.end() &&
-            std::distance(current, corpus.begin()) != 0)
+            std::distance(current, reinterpret_cast<const std::string&>(corpus).begin()) != 0)
         {
           // TODO - There is heading garbage! => Decide what to do!
           throw OrthancException(ErrorCode_NetworkProtocol);
@@ -140,12 +151,12 @@ namespace Orthanc
         
         if (previous != corpus.end())
         {
-          std::string::iterator start = previous + pattern_.size();
+          std::string::const_iterator start = previous + pattern_.size();
           size_t size = std::distance(start, current);
 
           if (size > 0)
           {
-            ParsePart(&start[0], size);
+            ParsePart(start, current);
           }
         }
 
@@ -153,21 +164,21 @@ namespace Orthanc
         current += pattern_.size();
         
 #if BOOST_VERSION >= 106200
-        current = (*search_) (current, corpus.end()).first;
+        current = (*searchPattern_) (current, reinterpret_cast<const std::string&>(corpus).end()).first;
 #else
-        current = (*search_) (current, corpus.end());
+        current = (*searchPattern_) (current, reinterpret_cast<const std::string&>(corpus).end());
 #endif
       }
 
       if (previous == corpus.end())
       {
         // No part found, recycle the entire corpus for next iteration
-        buffer_.AddChunk(corpus);
+        buffer_.AddChunkDestructive(corpus);
       }
       else
       {
-        std::string reminder(previous, corpus.end());
-        buffer_.AddChunk(reminder);
+        std::string reminder(previous, reinterpret_cast<const std::string&>(corpus).end());
+        buffer_.AddChunkDestructive(reminder);
       }
     }
 
@@ -177,6 +188,8 @@ namespace Orthanc
       handler_(NULL),
       blockSize_(10 * 1024 * 1024)
     {
+      const std::string s = "\r\n\r\n";
+      searchHeadersEnd_.reset(new Search(s.begin(), s.end()));
     }
 
     void SetBlockSize(size_t size)
@@ -204,7 +217,7 @@ namespace Orthanc
     void SetSeparator(const std::string& separator)
     {
       pattern_ = "--" + separator;
-      search_.reset(new Search(pattern_.begin(), pattern_.end()));
+      searchPattern_.reset(new Search(pattern_.begin(), pattern_.end()));
     }
     
     void AddChunk(const void* chunk,
@@ -255,7 +268,8 @@ namespace Orthanc
     {
     }
     
-    virtual void Handle(const std::string& part)
+    virtual void Handle(const std::map<std::string, std::string>& headers,
+                        const std::string& part)
     {
       //printf(">> %d\n", part.size());
       count_++;
@@ -417,13 +431,15 @@ TEST(Multipart, Optimization2)
 
     Orthanc::MultipartStreamParser parser;
 
-      //parser.SetBlockSize(127);
+    //parser.SetBlockSize(127);
     parser.SetSeparator(separator);
     parser.SetHandler(toto);
 
-    for (size_t i = 0; i < 10; i++)
+    for (size_t i = 0; i < 100; i++)
     {
-      parser.AddChunk("--" + separator + "\r\n\r\n");
+      parser.AddChunk("--" + separator + "\r\n");
+      parser.AddChunk("Content-Type: toto\r\n");
+      parser.AddChunk("Content-Length: " + boost::lexical_cast<std::string>(f.size()) + "\r\n\r\n");
       parser.AddChunk(f);
     }
 
