@@ -184,8 +184,8 @@ namespace Orthanc
       }
       
       virtual void Apply(const std::map<std::string, std::string>& headers,
-                          const void* part,
-                          size_t size) = 0;
+                         const void* part,
+                         size_t size) = 0;
     };
     
     
@@ -577,6 +577,23 @@ namespace Orthanc
     {
       return contentType_;
     }
+
+    void SetContentType(const std::string& contentType)
+    {
+      // This method can be used if the multipart stream does not
+      // contain the HTTP headers
+      
+      if (state_ != State_MainHeaders)
+      {
+        throw OrthancException(ErrorCode_BadSequenceOfCalls);
+      }
+      
+      Dictionary headers;
+      headers["content-type"] = contentType;
+      InitializeMultipart(headers);
+      
+      state_ = State_Content;
+    }
   };
 
 
@@ -596,8 +613,13 @@ namespace Orthanc
     {
       //printf(">> %d\n", part.size());
 
+      char buf[1024];
+      sprintf(buf, "/tmp/google-%06d.dcm", count_);
+
       std::string s((const char*) part, size);
-      printf("[%s]\n", s.c_str());
+      Orthanc::SystemToolbox::WriteFile(s, buf);
+      
+      //printf("[%s]\n", s.c_str());
       count_++;
     }
 
@@ -744,6 +766,9 @@ TEST(Multipart, Optimization2)
 {
   std::string stream;
 
+  Orthanc::MultipartStreamParser parser;
+
+  if (1)
   {
     std::string boundary = "123456789123456789";
 
@@ -767,14 +792,17 @@ TEST(Multipart, Optimization2)
 
     printf("[%s]\n", stream.c_str());
   }
+  else
+  {
+    Orthanc::SystemToolbox::ReadFile(stream, "/tmp/google");
+    parser.SetContentType("multipart/mixed; boundary=d662975a84c2c29efa3cee6e45f2c4766dca1d74800feb2952a8cf64058f");
+  }
 
 
   boost::posix_time::ptime start = boost::posix_time::microsec_clock::local_time();
 
   {
     Orthanc::Toto toto;
-
-    Orthanc::MultipartStreamParser parser;
 
     parser.SetBlockSize(1);
     parser.SetHandler(toto);
