@@ -99,9 +99,9 @@ namespace Orthanc
     {
     }
 
-    size_t GetPatternSize() const
+    const std::string& GetPattern() const
     {
-      return pattern_.size();
+      return pattern_;
     }
 
     bool IsValid() const
@@ -160,6 +160,16 @@ namespace Orthanc
         throw OrthancException(ErrorCode_BadSequenceOfCalls);
       }
     }
+
+    const void* GetPointerBegin() const
+    {
+      return &GetMatchBegin()[0];
+    }
+
+    const void* GetPointerEnd() const
+    {
+      return &GetMatchEnd()[0];
+    }
   };
 
   
@@ -173,39 +183,173 @@ namespace Orthanc
       {
       }
       
-      virtual void Handle(const std::map<std::string, std::string>& headers,
-                          const std::string& part) = 0;
+      virtual void Apply(const std::map<std::string, std::string>& headers,
+                          const void* part,
+                          size_t size) = 0;
     };
     
     
   private:
+    enum State
+    {
+      State_MainHeaders,
+      State_UnusedArea,
+      State_Content,
+      State_Done
+    };
+
+    
+    typedef std::map<std::string, std::string>  Dictionary;
+    
     typedef boost::algorithm::boyer_moore<std::string::const_iterator>  Search;
     //typedef boost::algorithm::boyer_moore_horspool<std::string::const_iterator>  Search;
     //typedef boost::algorithm::knuth_morris_pratt<std::string::const_iterator>  Search;
 
+    State  state_;
+    Dictionary  mainHeaders_;
     IHandler*              handler_;
-    StringMatcher           searchHeadersEnd_;
-    std::auto_ptr<StringMatcher>  patternMatcher_;
-    //std::auto_ptr<Search>  patternMatcher_;
+    StringMatcher           headersMatcher_;
+    std::auto_ptr<StringMatcher>  boundaryMatcher_;
+    //std::auto_ptr<Search>  boundaryMatcher_;
     ChunkedBuffer          buffer_;
     size_t                 blockSize_;
 
 
+    static void ParseHeaders(Dictionary& headers,
+                             StringMatcher::Iterator start,
+                             StringMatcher::Iterator end)
+    {
+      std::string tmp(start, end);
+
+      std::vector<std::string> lines;
+      Toolbox::TokenizeString(lines, tmp, '\n');
+
+      headers.clear();
+
+      for (size_t i = 0; i < lines.size(); i++)
+      {
+        size_t separator = lines[i].find(':');
+        if (separator != std::string::npos)
+        {
+          std::string key = Toolbox::StripSpaces(lines[i].substr(0, separator));
+          std::string value = Toolbox::StripSpaces(lines[i].substr(separator + 1));
+
+          Toolbox::ToLowerCase(key);
+          headers[key] = value;
+        }
+      }
+    }
+
+
+    static bool LookupHeaderSizeValue(size_t& target,
+                                      const Dictionary& headers,
+                                      const std::string& key)
+    {
+      Dictionary::const_iterator it = headers.find(key);
+      if (it == headers.end())
+      {
+        return false;
+      }
+      else
+      {
+        int64_t value;
+        
+        try
+        {
+          value = boost::lexical_cast<int64_t>(it->second);
+        }
+        catch (boost::bad_lexical_cast&)
+        {
+          throw OrthancException(ErrorCode_ParameterOutOfRange);
+        }
+
+        if (value < 0)
+        {
+          throw OrthancException(ErrorCode_ParameterOutOfRange);
+        }
+        else
+        {
+          target = static_cast<size_t>(value);
+          return true;
+        }
+      }
+    }
+
+
+    static bool ParseHeaderValues(Dictionary& values,
+                                  const Dictionary& headers,
+                                  const std::string& key)
+    {
+      Dictionary::const_iterator it = headers.find(key);
+
+      if (it == headers.end())
+      {
+        return false;
+      }
+      else
+      {
+        values.clear();
+        
+        std::vector<std::string> tokens;
+        Toolbox::TokenizeString(tokens, it->second, ';');
+
+        for (size_t i = 0; i < tokens.size(); i++)
+        {
+          size_t separator = tokens[i].find('=');
+          if (separator != std::string::npos)
+          {
+            std::string key = Toolbox::StripSpaces(tokens[i].substr(0, separator));
+            std::string value = Toolbox::StripSpaces(tokens[i].substr(separator + 1));
+
+            if (!key.empty())
+            {
+              Toolbox::ToLowerCase(key);
+              values[key] = value;
+            }
+          }
+        }
+        
+        return true;
+      }
+    }
+
+
+    void InitializeMultipart(const Dictionary& headers)
+    {
+      Dictionary values;
+      if (!ParseHeaderValues(values, headers, "content-type"))
+      {
+        throw OrthancException(ErrorCode_NetworkProtocol,
+                               "Multipart stream without a Content-Type");
+      }
+
+      Dictionary::const_iterator boundary = values.find("boundary");
+      if (boundary == values.end())
+      {
+        throw OrthancException(ErrorCode_NetworkProtocol,
+                               "Missing boundary in the Content-Type of a multipart stream");
+      }
+
+      LOG(INFO) << "Starting decoding of a multipart stream with boundary: " << boundary->second;
+      boundaryMatcher_.reset(new StringMatcher("--" + boundary->second));        
+    }
+    
+
     void ParsePart(std::string::const_iterator start,
                    std::string::const_iterator end)
     {
-      searchHeadersEnd_.Apply(start, end);
+      headersMatcher_.Apply(start, end);
 
 #if 0
-      if (searchHeadersEnd_.GetIterator() != end)
+      if (headersMatcher_.GetIterator() != end)
       {
-        std::string s(start, searchHeadersEnd_.GetIterator());
+        std::string s(start, headersMatcher_.GetIterator());
         printf("[%s]\n", s.c_str());
 
         //std::map<std::string, std::string> headers;
-        //std::string part(searchHeadersEnd_.GetIterator(), end);
+        //std::string part(headersMatcher_.GetIterator(), end);
         //std::string part;
-        //handler_->Handle(headers, part);
+        //handler_->Apply(headers, part);
       }
       
       //printf("%d \n", size);
@@ -218,8 +362,7 @@ namespace Orthanc
     void ParseStream()
     {
       printf("."); fflush(stdout);
-      if (patternMatcher_.get() == NULL ||
-          handler_ == NULL)
+      if (handler_ == NULL)
       {
         return;
       }
@@ -227,75 +370,132 @@ namespace Orthanc
       std::string corpus;
       buffer_.Flatten(corpus);
 
-      printf("------------------------------\n"); fflush(stdout);
+      StringMatcher::Iterator current = corpus.begin();
+      StringMatcher::Iterator corpusEnd = corpus.end();
 
-      StringMatcher::Iterator start = corpus.begin();
-
-      while (patternMatcher_->Apply(start, corpus.end()))
+      if (state_ == State_MainHeaders)
       {
-        std::string s(patternMatcher_->GetMatchBegin(), patternMatcher_->GetMatchEnd());
-        printf("ICI [%s]\n", s.c_str());
-
-        start = patternMatcher_->GetMatchEnd();
+        if (headersMatcher_.Apply(corpus))
+        {
+          ParseHeaders(mainHeaders_, current, headersMatcher_.GetMatchBegin());
+          InitializeMultipart(mainHeaders_);  // (*)
+          state_ = State_UnusedArea;
+          current = headersMatcher_.GetMatchEnd();
+        }
+        else
+        {
+          // The headers are not completely received yet, recycle the corpus for next iteration
+          buffer_.AddChunk(corpus);
+          return;
+        }
       }
 
-#if 0
-      std::string::const_iterator previous = corpus.end();
-
-#if BOOST_VERSION >= 106200
-      std::string::const_iterator current = (*patternMatcher_) (corpus.begin(), corpus.end()).first;
-#else
-      std::string::const_iterator current = (*patternMatcher_) (corpus.begin(), corpus.end());
-#endif
-
-      while (current != corpus.end())
+      assert(boundaryMatcher_.get() != NULL);  // This is initialized at (*)
+      
+      if (state_ == State_UnusedArea)
       {
-        if (previous == corpus.end() &&
-            std::distance(current, reinterpret_cast<const std::string&>(corpus).begin()) != 0)
+        /**
+         * "Before the first boundary is an area that is ignored by
+         * MIME-compliant clients. This area is generally used to put
+         * a message to users of old non-MIME clients."
+         * https://en.wikipedia.org/wiki/MIME#Multipart_messages
+         **/
+
+        if (boundaryMatcher_->Apply(current, corpusEnd))
         {
-          // TODO - There is heading garbage! => Decide what to do!
-          throw OrthancException(ErrorCode_NetworkProtocol);
+          current = boundaryMatcher_->GetMatchBegin();
+          state_ = State_Content;
+        }
+        else
+        {
+          // We have not seen the end of the unused area yet
+          return;
+        }          
+      }
+
+      StringMatcher::Iterator processed = current;
+
+      for (;;)
+      {
+        size_t patternSize = boundaryMatcher_->GetPattern().size();
+        size_t remainingSize = std::distance(current, corpusEnd);
+        if (remainingSize < patternSize + 2)
+        {
+          break;  // Not enough data available
         }
         
-        if (previous != corpus.end())
+        std::string boundary(current, current + patternSize + 2);
+        if (boundary == boundaryMatcher_->GetPattern() + "--")
         {
-          std::string::const_iterator start = previous + pattern_.size();
-          size_t size = std::distance(start, current);
+          state_ = State_Done;
+          return;
+        }
+        
+        if (boundary != boundaryMatcher_->GetPattern() + "\r\n")
+        {
+          throw OrthancException(ErrorCode_NetworkProtocol,
+                                 "Garbage between two items in a multipart stream");
+        }
 
-          if (size > 0)
+        StringMatcher::Iterator start = processed + patternSize + 2;
+        
+        if (!headersMatcher_.Apply(start, corpusEnd))
+        {
+          break;  // Not enough data available
+        }
+
+        Dictionary headers;
+        ParseHeaders(headers, start, headersMatcher_.GetMatchBegin());
+
+        size_t contentLength;
+        if (LookupHeaderSizeValue(contentLength, headers, "content-length"))
+        {
+          if (headersMatcher_.GetMatchEnd() + contentLength <= corpusEnd)
           {
-            ParsePart(start, current);
+            printf("-");
+            handler_->Apply(headers, headersMatcher_.GetPointerEnd(), contentLength);
+            processed = headersMatcher_.GetMatchEnd() + contentLength;
+          }
+          else
+          {
+            break;  // Not enough data available
           }
         }
-
-        previous = current;
-        current += pattern_.size();
-        
-#if BOOST_VERSION >= 106200
-        current = (*patternMatcher_) (current, reinterpret_cast<const std::string&>(corpus).end()).first;
-#else
-        current = (*patternMatcher_) (current, reinterpret_cast<const std::string&>(corpus).end());
-#endif
+        else
+        {
+          // No "Content-Length" header: Search for the next boundary in the stream
+          if (boundaryMatcher_->Apply(headersMatcher_.GetMatchEnd(), corpusEnd))
+          {
+            printf("+");
+            handler_->Apply(headers, headersMatcher_.GetPointerEnd(),
+                            std::distance(headersMatcher_.GetMatchEnd(), boundaryMatcher_->GetMatchBegin()));
+            processed = boundaryMatcher_->GetMatchBegin();
+          }
+          else
+          {
+            break;  // Not enough data available
+          }
+        }
       }
 
-      if (previous == corpus.end())
+      if (processed == corpusEnd)
       {
         // No part found, recycle the entire corpus for next iteration
         buffer_.AddChunkDestructive(corpus);
       }
       else
       {
-        std::string reminder(previous, reinterpret_cast<const std::string&>(corpus).end());
+        std::string reminder(processed, corpusEnd);
         buffer_.AddChunkDestructive(reminder);
       }
-#endif
     }
 
 
   public:
     MultipartStreamParser() :
+      state_(State_MainHeaders),
       handler_(NULL),
-      searchHeadersEnd_("\r\n\r\n"),
+      headersMatcher_("\r\n\r\n"),
       blockSize_(10 * 1024 * 1024)
     {
     }
@@ -320,11 +520,6 @@ namespace Orthanc
     void SetHandler(IHandler& handler)
     {
       handler_ = &handler;
-    }
-    
-    void SetSeparator(const std::string& separator)
-    {
-      patternMatcher_.reset(new StringMatcher("--" + separator));
     }
     
     void AddChunk(const void* chunk,
@@ -375,10 +570,14 @@ namespace Orthanc
     {
     }
     
-    virtual void Handle(const std::map<std::string, std::string>& headers,
-                        const std::string& part)
+    virtual void Apply(const std::map<std::string, std::string>& headers,
+                       const void* part,
+                       size_t size)
     {
       //printf(">> %d\n", part.size());
+
+      std::string s((const char*) part, size);
+      printf("[%s]\n", s.c_str());
       count_++;
     }
 
@@ -391,9 +590,9 @@ namespace Orthanc
 
 
 
-TEST(Multipart, Optimization)
+TEST(Multipart, DISABLED_Optimization)
 {
-  std::string separator = "123456789123456789";
+  std::string boundary = "123456789123456789";
 
   std::string corpus;
 
@@ -408,7 +607,7 @@ TEST(Multipart, Optimization)
 
     for (size_t i = 0; i < 10; i++)
     {
-      std::string s = "--" + separator + "\r\n\r\n\r\n";
+      std::string s = "--" + boundary + "\r\n\r\n\r\n";
 
       if (i != 0)
         s = "\r\n" + s;
@@ -417,7 +616,7 @@ TEST(Multipart, Optimization)
       buffer.AddChunk(f);
     }
 
-    buffer.AddChunk("\r\n--" + separator + "--");
+    buffer.AddChunk("\r\n--" + boundary + "--");
     buffer.Flatten(corpus);
 
     Orthanc::SystemToolbox::WriteFile(corpus, "tutu");
@@ -433,7 +632,7 @@ TEST(Multipart, Optimization)
 
     {
       std::vector<OrthancPlugins::MultipartItem> items;
-      OrthancPlugins::ParseMultipartBody(items, corpus.c_str(), corpus.size(), separator);
+      OrthancPlugins::ParseMultipartBody(items, corpus.c_str(), corpus.size(), boundary);
       printf(">> %d\n", (int) items.size());
     }
 
@@ -447,7 +646,7 @@ TEST(Multipart, Optimization)
     boost::posix_time::ptime start = boost::posix_time::microsec_clock::local_time();
 
     {
-      std::string pattern("--" + separator + "\r\n");
+      std::string pattern("--" + boundary + "\r\n");
 
       boost::algorithm::boyer_moore<std::string::const_iterator>
         search(pattern.begin(), pattern.end());
@@ -491,7 +690,7 @@ TEST(Multipart, Optimization)
       Orthanc::MultipartStreamParser parser;
 
       //parser.SetBlockSize(127);
-      parser.SetSeparator(separator);
+      //parser.SetBoundary(boundary);
       parser.SetHandler(toto);
 
 #if 1
@@ -523,7 +722,7 @@ TEST(Multipart, Optimization)
 
 TEST(Multipart, Optimization2)
 {
-  std::string separator = "123456789123456789";
+  std::string boundary = "123456789123456789";
 
   std::string f;
   /*f.resize(512*512*2);
@@ -540,18 +739,24 @@ TEST(Multipart, Optimization2)
     Orthanc::MultipartStreamParser parser;
 
     //parser.SetBlockSize(127);
-    parser.SetSeparator(separator);
+    //parser.SetBoundary(boundary);
     parser.SetHandler(toto);
 
-    for (size_t i = 0; i < 2; i++)
+    parser.AddChunk("Coucou: a\r\n");
+    parser.AddChunk("Hello: b\r\n");
+    parser.AddChunk("Content-Type: multipart/mixed; boundary=" + boundary + "\r\n");
+    parser.AddChunk("World: c\r\n\r\n");
+
+    for (size_t i = 0; i < 10; i++)
     {
-      parser.AddChunk("--" + separator + "\r\n");
-      parser.AddChunk("Content-Type: toto\r\n");
-      parser.AddChunk("Content-Length: " + boost::lexical_cast<std::string>(f.size()) + "\r\n\r\n");
+      parser.AddChunk("--" + boundary + "\r\n");
+      if (i % 2 == 0)
+        parser.AddChunk("Content-Length: " + boost::lexical_cast<std::string>(f.size()) + "\r\n");
+      parser.AddChunk("Content-Type: toto\r\n\r\n");
       parser.AddChunk(f);
     }
 
-    parser.AddChunk("--" + separator + "--");
+    parser.AddChunk("--" + boundary + "--");
     parser.CloseStream();
     
     printf("%d\n", toto.GetCount());
