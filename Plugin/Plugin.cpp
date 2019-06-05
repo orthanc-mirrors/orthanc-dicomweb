@@ -170,6 +170,105 @@ static bool DisplayPerformanceWarning(OrthancPluginContext* context)
 }
 
 
+
+#include <boost/filesystem.hpp>
+#include <Core/SystemToolbox.h>
+
+class StowSender : public OrthancPlugins::HttpClient::IChunkedBody
+{
+private:
+  std::vector<std::string>  files_;
+  size_t                    position_;
+  std::string               boundary_;
+
+public:
+  StowSender(unsigned int size) :
+    position_(0),
+    boundary_(Orthanc::Toolbox::GenerateUuid())
+  {
+    boost::filesystem::path p("/home/jodogne/DICOM/Demo/KNIX/Knee (R)/AX.  FSE PD - 5");
+
+    boost::filesystem::directory_iterator end;
+
+    // cycle through the directory
+    for (boost::filesystem::directory_iterator it(p); it != end; ++it)
+    {
+      if (is_regular_file(it->path()))
+      {
+        files_.push_back(it->path().string());
+      }
+    }
+  }
+
+  const std::string& GetBoundary() const
+  {
+    return boundary_;
+  }
+
+  virtual bool ReadNextChunk(std::string& chunk)
+  {
+    if (position_ == files_.size() + 1)
+    {
+      return false;
+    }
+    else
+    {
+      if (position_ == files_.size())
+      {
+        chunk = ("--" + boundary_ + "--");
+      }
+      else
+      {
+        std::string f;
+        Orthanc::SystemToolbox::ReadFile(f, files_[position_]);
+        chunk = ("--" + boundary_ + "\r\n" +
+                 "Content-Type: application/dicom\r\n" +
+                 "Content-Length: " + boost::lexical_cast<std::string>(f.size()) + "\r\n" +
+                 "\r\n" + f + "\r\n");
+      }
+
+      position_++;
+      return true;
+    }
+  }
+};
+
+
+ORTHANC_PLUGINS_API OrthancPluginErrorCode OnChangeCallback(OrthancPluginChangeType changeType,
+                                                            OrthancPluginResourceType resourceType,
+                                                            const char* resourceId)
+{
+  if (changeType == OrthancPluginChangeType_OrthancStarted)
+  {
+    try
+    {
+      StowSender stow(1024*128);
+      
+      OrthancPlugins::HttpClient client;
+      client.SetUrl("http://localhost:8080/dicom-web/studies");
+      client.SetMethod(OrthancPluginHttpMethod_Post);
+      client.AddHeader("Accept", "application/dicom+json");
+      client.AddHeader("Transfer-Encoding", "chunked");
+      client.AddHeader("Expect", "");
+      client.AddHeader("Content-Type", "multipart/related; type=application/dicom; boundary=" + stow.GetBoundary());
+      client.SetTimeout(120);
+      client.SetBody(stow);
+      client.Execute();
+
+      Json::Value v;
+      client.GetAnswerBody().ToJson(v);
+      std::cout << v.toStyledString() << std::endl;
+    }
+    catch (Orthanc::OrthancException& e)
+    {
+      LOG(ERROR) << "EXCEPTION: " << e.What();
+    }
+  }
+
+  return OrthancPluginErrorCode_Success;
+}
+
+
 extern "C"
 {
   ORTHANC_PLUGINS_API int32_t OrthancPluginInitialize(OrthancPluginContext* context)
@@ -198,6 +297,8 @@ extern "C"
       // Read the configuration
       OrthancPlugins::Configuration::Initialize();
 
+      //OrthancPluginRegisterOnChangeCallback(context, OnChangeCallback);  // TODO => REMOVE
+      
       // Initialize GDCM
       OrthancPlugins::GdcmParsedDicomFile::Initialize();
 
