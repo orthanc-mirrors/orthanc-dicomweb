@@ -614,7 +614,7 @@ namespace Orthanc
       //printf(">> %d\n", part.size());
 
       char buf[1024];
-      sprintf(buf, "/tmp/google-%06d.dcm", count_);
+      sprintf(buf, "google-%06d.dcm", count_);
 
       std::string s((const char*) part, size);
       Orthanc::SystemToolbox::WriteFile(s, buf);
