@@ -174,7 +174,7 @@ static bool DisplayPerformanceWarning(OrthancPluginContext* context)
 #include <boost/filesystem.hpp>
 #include <Core/SystemToolbox.h>
 
-class StowSender : public OrthancPlugins::HttpClient::IChunkedBody
+class StowClientBody : public OrthancPlugins::HttpClient::IRequestBody
 {
 private:
   std::vector<std::string>  files_;
@@ -182,11 +182,12 @@ private:
   std::string               boundary_;
 
 public:
-  StowSender(unsigned int size) :
+  StowClientBody() :
     position_(0),
     boundary_(Orthanc::Toolbox::GenerateUuid())
   {
-    boost::filesystem::path p("/home/jodogne/DICOM/Demo/KNIX/Knee (R)/AX.  FSE PD - 5");
+    //boost::filesystem::path p("/home/jodogne/DICOM/Demo/KNIX/Knee (R)/AX.  FSE PD - 5");
+    boost::filesystem::path p("/tmp/dicom");
 
     boost::filesystem::directory_iterator end;
 
@@ -242,22 +243,31 @@ ORTHANC_PLUGINS_API OrthancPluginErrorCode OnChangeCallback(OrthancPluginChangeT
   {
     try
     {
-      StowSender stow(1024*128);
+      StowClientBody stow;
       
       OrthancPlugins::HttpClient client;
       client.SetUrl("http://localhost:8080/dicom-web/studies");
       client.SetMethod(OrthancPluginHttpMethod_Post);
       client.AddHeader("Accept", "application/dicom+json");
-      client.AddHeader("Transfer-Encoding", "chunked");
       client.AddHeader("Expect", "");
       client.AddHeader("Content-Type", "multipart/related; type=application/dicom; boundary=" + stow.GetBoundary());
       client.SetTimeout(120);
       client.SetBody(stow);
-      client.Execute();
+
+      OrthancPlugins::HttpClient::HttpHeaders headers;
+      std::string answer;
+      client.Execute(headers, answer);
 
       Json::Value v;
-      client.GetAnswerBody().ToJson(v);
-      std::cout << v.toStyledString() << std::endl;
+      Json::Reader reader;
+      if (reader.parse(answer, v))
+      {
+        std::cout << v["00081190"].toStyledString() << std::endl;
+      }
+      else
+      {
+        throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
+      }
     }
     catch (Orthanc::OrthancException& e)
     {
