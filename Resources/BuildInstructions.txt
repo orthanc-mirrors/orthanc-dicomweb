@@ -1,9 +1,9 @@
-Generic Linux (static linking)
-==============================
+Generic GNU/Linux (static linking)
+==================================
 
 # mkdir Build
 # cd Build
-# cmake .. -DCMAKE_BUILD_TYPE=Debug -DALLOW_DOWNLOADS=ON -DSTATIC_BUILD=ON
+# cmake .. -DCMAKE_BUILD_TYPE=Debug -DSTATIC_BUILD=ON
 # make
 
 
@@ -12,7 +12,7 @@ Dynamic linking for Ubuntu 14.04
 
 # mkdir Build
 # cd Build
-# cmake .. -DCMAKE_BUILD_TYPE=Debug -DUSE_GTEST_DEBIAN_SOURCE_PACKAGE=ON
+# cmake .. -DCMAKE_BUILD_TYPE=Debug -DUSE_GOOGLE_TEST_DEBIAN_PACKAGE=ON -DUSE_SYSTEM_ORTHANC_SDK=OFF
 # make
 
 
@@ -25,12 +25,12 @@ Dynamic linking for Ubuntu 12.10
   -DALLOW_DOWNLOADS=ON \
   -DUSE_SYSTEM_JSONCPP=OFF \
   -DUSE_SYSTEM_PUGIXML=OFF \
-  -DUSE_GTEST_DEBIAN_SOURCE_PACKAGE=ON
+  -DUSE_GOOGLE_TEST_DEBIAN_SOURCE_PACKAGE=ON
 # make
 
 
-Cross-compiling for Windows from Linux using MinGW
-==================================================
+Cross-compiling for Windows from GNU/Linux using MinGW
+======================================================
 
 # mkdir Build
 # cd Build
@@ -41,6 +41,7 @@ Cross-compiling for Windows from Linux using MinGW
 Notes
 =====
 
-List the public symbols exported by the shared library under Linux:
+List the public symbols exported by the shared library under
+GNU/Linux:
 
 # nm -C -D --defined-only ./libOrthancDicomWeb.so

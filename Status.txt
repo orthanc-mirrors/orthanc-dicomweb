@@ -50,7 +50,9 @@ Not supported
 6.5.4 WADO-RS / RetrieveFrames
 ================================
 
-Not supported.
+Almost entirely supported.
+
+The only missing feature is returning multi-frame media types (cf. Table 6.5-1).
 
 
 
@@ -77,6 +79,14 @@ Not supported
 ================================
 
 Supported.
+
+
+
+===========================================
+6.5.8 WADO-RS / RetrieveRenderedTransaction
+===========================================
+
+Not supported yet.
 
 
 
@@ -118,3 +128,19 @@ Ignored
 
 * Flag "fuzzymatching"
 * Header "Cache-control"
+
+
+
+==========================================================
+CP 1509 - Refactor media type description for web services
+==========================================================
+
+Not supported.
+
+"There are some significant changes described in CP 1509 to various
+parts of the PS3.18 standard that defines DICOMweb services. [...] The
+most important changes are cleaning up the bulk data media types,
+adding a rendered component to the URL for rendered resources,
+clarifying that compressed bulk data never contains the encapsulation
+item tags, and making JSON support required on the server side and the
+default for query responses." [David Clunie]

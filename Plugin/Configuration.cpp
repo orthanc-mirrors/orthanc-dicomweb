@@ -1,7 +1,8 @@
 /**
  * Orthanc - A Lightweight, RESTful DICOM Store
- * Copyright (C) 2012-2015 Sebastien Jodogne, Medical Physics
+ * Copyright (C) 2012-2016 Sebastien Jodogne, Medical Physics
  * Department, University Hospital of Liege, Belgium
+ * Copyright (C) 2017-2019 Osimis S.A., Belgium
  *
  * This program is free software: you can redistribute it and/or
  * modify it under the terms of the GNU Affero General Public License
@@ -23,8 +24,12 @@
 #include <fstream>
 #include <json/reader.h>
 #include <boost/regex.hpp>
+#include <boost/lexical_cast.hpp>
 
-#include "../Orthanc/Core/Toolbox.h"
+#include "DicomWebServers.h"
+
+#include <Plugins/Samples/Common/OrthancPluginCppWrapper.h>
+#include <Core/Toolbox.h>
 
 namespace OrthancPlugins
 {
@@ -64,15 +69,15 @@ namespace OrthancPlugins
     Orthanc::Toolbox::StripSpaces(application);
     Orthanc::Toolbox::ToLowerCase(application);
 
-    boost::regex pattern("\\s*([^=]+)\\s*=\\s*([^=]+)\\s*");
-
+    boost::regex pattern("\\s*([^=]+)\\s*=\\s*(([^=\"]+)|\"([^=\"]+)\")\\s*");
+    
     for (size_t i = 1; i < tokens.size(); i++)
     {
       boost::cmatch what;
       if (boost::regex_match(tokens[i].c_str(), what, pattern))
       {
         std::string key(what[1]);
-        std::string value(what[2]);
+        std::string value(what.length(3) != 0 ? what[3] : what[4]);
         Orthanc::Toolbox::ToLowerCase(key);
         attributes[key] = value;
       }
@@ -80,232 +85,278 @@ namespace OrthancPlugins
   }
 
 
-  void ParseMultipartBody(std::vector<MultipartItem>& result,
-                          const char* body,
-                          const uint64_t bodySize,
-                          const std::string& boundary)
+  static const boost::regex MULTIPART_HEADERS_ENDING("(.*?\r\n)\r\n(.*)");
+  static const boost::regex MULTIPART_HEADERS_LINE(".*?\r\n");
+
+  static void ParseMultipartHeaders(bool& hasLength /* out */,
+                                    size_t& length /* out */,
+                                    std::string& contentType /* out */,
+                                    const char* startHeaders,
+                                    const char* endHeaders)
   {
-    result.clear();
+    hasLength = false;
+    contentType = "application/octet-stream";
 
-    boost::regex header("\r?(\n?)--" + boundary + "(--|.*\r?\n\r?\n)");
-    boost::regex pattern(".*^Content-Type\\s*:\\s*([^\\s]*).*",
-                         boost::regex::icase /* case insensitive */);
-    
-    boost::cmatch what;
-    boost::match_flag_type flags = (boost::match_perl | 
-                                    boost::match_not_dot_null);
-    const char* start = body;
-    const char* end = body + bodySize;
-    std::string currentType;
+    // Loop over the HTTP headers of this multipart item
+    boost::cregex_token_iterator it(startHeaders, endHeaders, MULTIPART_HEADERS_LINE, 0);
+    boost::cregex_token_iterator iteratorEnd;
 
-    while (boost::regex_search(start, end, what, header, flags))   
+    for (; it != iteratorEnd; ++it)
     {
-      if (start != body)
-      {
-        MultipartItem item;
-        item.data_ = start;
-        item.size_ = what[0].first - start;
-        item.contentType_ = currentType;
+      const std::string line(*it);
+      size_t colon = line.find(':');
+      size_t eol = line.find('\r');
 
-        result.push_back(item);
-      }
+      if (colon != std::string::npos &&
+          eol != std::string::npos &&
+          colon < eol &&
+          eol + 2 == line.length())
+      {
+        std::string key = Orthanc::Toolbox::StripSpaces(line.substr(0, colon));
+        Orthanc::Toolbox::ToLowerCase(key);
 
-      boost::cmatch contentType;
-      if (boost::regex_match(what[0].first, what[0].second, contentType, pattern))
-      {
-        currentType = contentType[1];
+        const std::string value = Orthanc::Toolbox::StripSpaces(line.substr(colon + 1, eol - colon - 1));
+
+        if (key == "content-length")
+        {
+          try
+          {
+            int tmp = boost::lexical_cast<int>(value);
+            if (tmp >= 0)
+            {
+              hasLength = true;
+              length = tmp;
+            }
+          }
+          catch (boost::bad_lexical_cast&)
+          {
+            LogWarning("Unable to parse the Content-Length of a multipart item");
+          }
+        }
+        else if (key == "content-type")
+        {
+          contentType = value;
+        }
       }
-      else
-      {
-        currentType.clear();
-      }
-    
-      start = what[0].second;
-      flags |= boost::match_prev_avail;
     }
   }
 
 
-  bool RestApiGetString(std::string& result,
-                        OrthancPluginContext* context,
-                        const std::string& uri,
-                        bool applyPlugins)
+  static const char* ParseMultipartItem(std::vector<MultipartItem>& result,
+                                        const char* start,
+                                        const char* end,
+                                        const boost::regex& nextSeparator)
   {
-    OrthancPluginMemoryBuffer buffer;
-    int code;
+    // Just before "start", it is guaranteed that "--[BOUNDARY]\r\n" is present
 
-    if (applyPlugins)
+    boost::cmatch what;
+    if (!boost::regex_match(start, end, what, MULTIPART_HEADERS_ENDING, boost::match_perl))
     {
-      code = OrthancPluginRestApiGetAfterPlugins(context, &buffer, uri.c_str());
+      // Cannot find the HTTP headers of this multipart item
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);
+    }
+
+    // Some aliases for more clarity
+    assert(what[1].first == start);
+    const char* startHeaders = what[1].first;
+    const char* endHeaders = what[1].second;
+    const char* startBody = what[2].first;
+
+    bool hasLength;
+    size_t length;
+    std::string contentType;
+    ParseMultipartHeaders(hasLength, length, contentType, startHeaders, endHeaders);
+
+    boost::cmatch separator;
+
+    if (hasLength)
+    {
+      if (!boost::regex_match(startBody + length, end, separator, nextSeparator, boost::match_perl) ||
+          startBody + length != separator[1].first)
+      {
+        // Cannot find the separator after skipping the "Content-Length" bytes
+        throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);
+      }
     }
     else
     {
-      code = OrthancPluginRestApiGet(context, &buffer, uri.c_str());
-    }
-
-    if (code)
-    {
-      // Error
-      return false;
-    }
-
-    bool ok = true;
-
-    try
-    {
-      if (buffer.size)
+      if (!boost::regex_match(startBody, end, separator, nextSeparator, boost::match_perl))
       {
-        result.assign(reinterpret_cast<const char*>(buffer.data), buffer.size);
+        // No more occurrence of the boundary separator
+        throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);
+      }
+    }
+
+    MultipartItem item;
+    item.data_ = startBody;
+    item.size_ = separator[1].first - startBody;
+    item.contentType_ = contentType;
+    result.push_back(item);
+
+    return separator[1].second;  // Return the end of the separator
+  }
+
+
+  void ParseMultipartBody(std::vector<MultipartItem>& result,
+                          const void* body,
+                          const uint64_t bodySize,
+                          const std::string& boundary)
+  {
+    // Reference:
+    // https://www.w3.org/Protocols/rfc1341/7_2_Multipart.html
+
+    result.clear();
+
+    // Look for the first boundary separator in the body (note the "?"
+    // to request non-greedy search)
+    const boost::regex firstSeparator1("--" + boundary + "(--|\r\n).*");
+    const boost::regex firstSeparator2(".*?\r\n--" + boundary + "(--|\r\n).*");
+
+    // Look for the next boundary separator in the body (note the "?"
+    // to request non-greedy search)
+    const boost::regex nextSeparator(".*?(\r\n--" + boundary + ").*");
+
+    const char* start = reinterpret_cast<const char*>(body);
+    const char* end = reinterpret_cast<const char*>(body) + bodySize;
+
+    boost::cmatch what;
+    if (boost::regex_match(start, end, what, firstSeparator1, boost::match_perl | boost::match_single_line) ||
+        boost::regex_match(start, end, what, firstSeparator2, boost::match_perl | boost::match_single_line))
+    {
+      const char* current = what[1].first;
+
+      while (current != NULL &&
+             current + 2 < end)
+      {
+        if (current[0] != '\r' ||
+            current[1] != '\n')
+        {
+          // We reached a separator with a trailing "--", which
+          // means that reading the multipart body is done
+          break;
+        }
+        else
+        {
+          current = ParseMultipartItem(result, current + 2, end, nextSeparator);
+        }
+      }
+    }
+  }
+
+
+  void ParseAssociativeArray(std::map<std::string, std::string>& target,
+                             const Json::Value& value,
+                             const std::string& key)
+  {
+    if (value.type() != Json::objectValue)
+    {
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat,
+                                      "This is not a JSON object");
+    }
+
+    if (!value.isMember(key))
+    {
+      return;
+    }
+
+    const Json::Value& tmp = value[key];
+
+    if (tmp.type() != Json::objectValue)
+    {
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat,
+                                      "The field \"" + key + "\" of a JSON object is "
+                                      "not a JSON associative array as expected");
+    }
+
+    Json::Value::Members names = tmp.getMemberNames();
+
+    for (size_t i = 0; i < names.size(); i++)
+    {
+      if (tmp[names[i]].type() != Json::stringValue)
+      {
+        throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat,
+                                        "Some value in the associative array \"" + key + 
+                                        "\" is not a string as expected");
       }
       else
       {
-        result.clear();
+        target[names[i]] = tmp[names[i]].asString();
       }
     }
-    catch (std::bad_alloc&)
-    {
-      ok = false;
-    }
-
-    OrthancPluginFreeMemoryBuffer(context, &buffer);
-
-    return ok;
   }
 
 
-  bool RestApiGetJson(Json::Value& result,
-                      OrthancPluginContext* context,
-                      const std::string& uri,
-                      bool applyPlugins)
+  bool ParseTag(Orthanc::DicomTag& target,
+                const std::string& name)
   {
-    std::string content;
-    RestApiGetString(content, context, uri, applyPlugins);
+    OrthancPluginDictionaryEntry entry;
     
-    Json::Reader reader;
-    return reader.parse(content, result);
-  }
-
-
-  bool RestApiPostString(std::string& result,
-                         OrthancPluginContext* context,
-                         const std::string& uri,
-                         const std::string& body)
-  {
-    OrthancPluginMemoryBuffer buffer;
-    int code = OrthancPluginRestApiPost(context, &buffer, uri.c_str(), body.c_str(), body.size());
-
-    if (code)
+    if (OrthancPluginLookupDictionary(OrthancPlugins::GetGlobalContext(), &entry, name.c_str()) == OrthancPluginErrorCode_Success)
     {
-      // Error
+      target = Orthanc::DicomTag(entry.group, entry.element);
+      return true;
+    }
+    else
+    {
       return false;
     }
-
-    bool ok = true;
-
-    try
-    {
-      if (buffer.size)
-      {
-        result.assign(reinterpret_cast<const char*>(buffer.data), buffer.size);
-      }
-      else
-      {
-        result.clear();
-      }
-    }
-    catch (std::bad_alloc&)
-    {
-      ok = false;
-    }
-
-    OrthancPluginFreeMemoryBuffer(context, &buffer);
-
-    return ok;
-  }
-
-
-  bool RestApiPostJson(Json::Value& result,
-                       OrthancPluginContext* context,
-                       const std::string& uri,
-                       const std::string& body)
-  {
-    std::string content;
-    RestApiPostString(content, context, uri, body);
-    
-    Json::Reader reader;
-    return reader.parse(content, result);
   }
 
 
   namespace Configuration
   {
-    bool Read(Json::Value& configuration,
-              OrthancPluginContext* context)
+    // Assume Latin-1 encoding by default (as in the Orthanc core)
+    static Orthanc::Encoding defaultEncoding_ = Orthanc::Encoding_Latin1;
+    static std::auto_ptr<OrthancConfiguration> configuration_;
+
+
+    void Initialize()
     {
+      configuration_.reset(new OrthancConfiguration);
+      
+      OrthancPlugins::OrthancConfiguration global;
+      global.GetSection(*configuration_, "DicomWeb");
+
       std::string s;
-
+      if (global.LookupStringValue(s, "DefaultEncoding"))
       {
-        char* tmp = OrthancPluginGetConfiguration(context);
-        if (tmp == NULL)
-        {
-          OrthancPluginLogError(context, "Error while retrieving the configuration from Orthanc");
-          return false;
-        }
-
-        s.assign(tmp);
-        OrthancPluginFreeString(context, tmp);      
+        defaultEncoding_ = Orthanc::StringToEncoding(s.c_str());
       }
 
-      Json::Reader reader;
-      if (reader.parse(s, configuration))
-      {
-        return true;
-      }
-      else
-      {
-        OrthancPluginLogError(context, "Unable to parse the configuration");
-        return false;
-      }
+      OrthancPlugins::OrthancConfiguration servers;
+      configuration_->GetSection(servers, "Servers");
+      OrthancPlugins::DicomWebServers::GetInstance().Load(servers.GetJson());
     }
 
 
-    std::string GetStringValue(const Json::Value& configuration,
-                               const std::string& key,
+    std::string GetStringValue(const std::string& key,
                                const std::string& defaultValue)
     {
-      if (configuration.type() != Json::objectValue ||
-          !configuration.isMember(key) ||
-          configuration[key].type() != Json::stringValue)
-      {
-        return defaultValue;
-      }
-      else
-      {
-        return configuration[key].asString();
-      }
+      assert(configuration_.get() != NULL);
+      return configuration_->GetStringValue(key, defaultValue);
     }
 
 
-    bool GetBoolValue(const Json::Value& configuration,
-                      const std::string& key,
-                      bool defaultValue)
+    bool GetBooleanValue(const std::string& key,
+                         bool defaultValue)
     {
-      if (configuration.type() != Json::objectValue ||
-          !configuration.isMember(key) ||
-          configuration[key].type() != Json::booleanValue)
-      {
-        return defaultValue;
-      }
-      else
-      {
-        return configuration[key].asBool();
-      }
+      assert(configuration_.get() != NULL);
+      return configuration_->GetBooleanValue(key, defaultValue);
     }
 
 
-    std::string GetRoot(const Json::Value& configuration)
+    unsigned int GetUnsignedIntegerValue(const std::string& key,
+                                         unsigned int defaultValue)
     {
-      std::string root = GetStringValue(configuration, "Root", "/dicom-web/");
+      assert(configuration_.get() != NULL);
+      return configuration_->GetUnsignedIntegerValue(key, defaultValue);
+    }
+
+
+    std::string GetRoot()
+    {
+      assert(configuration_.get() != NULL);
+      std::string root = configuration_->GetStringValue("Root", "/dicom-web/");
 
       // Make sure the root URI starts and ends with a slash
       if (root.size() == 0 ||
@@ -323,9 +374,10 @@ namespace OrthancPlugins
     }
 
 
-    std::string GetWadoRoot(const Json::Value& configuration)
+    std::string GetWadoRoot()
     {
-      std::string root = GetStringValue(configuration, "WadoRoot", "/wado/");
+      assert(configuration_.get() != NULL);
+      std::string root = configuration_->GetStringValue("WadoRoot", "/wado/");
 
       // Make sure the root URI starts with a slash
       if (root.size() == 0 ||
@@ -344,11 +396,69 @@ namespace OrthancPlugins
     }
 
 
-    std::string  GetBaseUrl(const Json::Value& configuration,
-                            const OrthancPluginHttpRequest* request)
+    static bool IsHttpsProto(const std::string& proto,
+                             bool defaultValue)
     {
-      std::string host = GetStringValue(configuration, "Host", "");
-      bool ssl = GetBoolValue(configuration, "Ssl", false);
+      if (proto == "http")
+      {
+        return false;
+      }
+      else if (proto == "https")
+      {
+        return true;
+      }
+      else
+      {
+        return defaultValue;
+      }
+    }
+
+
+    std::string GetBaseUrl(const OrthancPluginHttpRequest* request)
+    {
+      assert(configuration_.get() != NULL);
+      std::string host = configuration_->GetStringValue("Host", "");
+      bool https = configuration_->GetBooleanValue("Ssl", false);
+
+      std::string forwarded;
+      if (host.empty() &&
+          LookupHttpHeader(forwarded, request, "forwarded"))
+      {
+        // There is a "Forwarded" HTTP header in the query
+        // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Forwarded
+        
+        std::vector<std::string> forwarders;
+        Orthanc::Toolbox::TokenizeString(forwarders, forwarded, ',');
+
+        // Only consider the first forwarder, if any
+        if (!forwarders.empty())
+        {
+          std::vector<std::string> tokens;
+          Orthanc::Toolbox::TokenizeString(tokens, forwarders[0], ';');
+
+          for (size_t j = 0; j < tokens.size(); j++)
+          {
+            std::vector<std::string> args;
+            Orthanc::Toolbox::TokenizeString(args, tokens[j], '=');
+            
+            if (args.size() == 2)
+            {
+              std::string key = Orthanc::Toolbox::StripSpaces(args[0]);
+              std::string value = Orthanc::Toolbox::StripSpaces(args[1]);
+
+              Orthanc::Toolbox::ToLowerCase(key);
+              if (key == "host")
+              {
+                host = value;
+              }
+              else if (key == "proto")
+              {
+                https = IsHttpsProto(value, https);
+              }
+            }
+          }
+        }
+      }
 
       if (host.empty() &&
           !LookupHttpHeader(host, request, "host"))
@@ -358,7 +468,34 @@ namespace OrthancPlugins
         host = "localhost:8042";
       }
 
-      return (ssl ? "https://" : "http://") + host + GetRoot(configuration);
+      return (https ? "https://" : "http://") + host + GetRoot();
+    }
+
+
+    std::string GetWadoUrl(const std::string& wadoBase,
+                           const std::string& studyInstanceUid,
+                           const std::string& seriesInstanceUid,
+                           const std::string& sopInstanceUid)
+    {
+      if (studyInstanceUid.empty() ||
+          seriesInstanceUid.empty() ||
+          sopInstanceUid.empty())
+      {
+        return "";
+      }
+      else
+      {
+        return (wadoBase + 
+                "studies/" + studyInstanceUid + 
+                "/series/" + seriesInstanceUid + 
+                "/instances/" + sopInstanceUid + "/");
+      }
+    }
+
+
+    Orthanc::Encoding GetDefaultEncoding()
+    {
+      return defaultEncoding_;
     }
   }
 }

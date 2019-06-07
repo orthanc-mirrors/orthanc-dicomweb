@@ -1,7 +1,8 @@
 /**
  * Orthanc - A Lightweight, RESTful DICOM Store
- * Copyright (C) 2012-2015 Sebastien Jodogne, Medical Physics
+ * Copyright (C) 2012-2016 Sebastien Jodogne, Medical Physics
  * Department, University Hospital of Liege, Belgium
+ * Copyright (C) 2017-2019 Osimis S.A., Belgium
  *
  * This program is free software: you can redistribute it and/or
  * modify it under the terms of the GNU Affero General Public License
@@ -20,12 +21,30 @@
 
 #pragma once
 
+#include <Core/DicomFormat/DicomTag.h>
+#include <Core/Enumerations.h>
+
 #include <orthanc/OrthancCPlugin.h>
 #include <json/value.h>
 
+#if (ORTHANC_PLUGINS_MINIMAL_MAJOR_NUMBER <= 0 && \
+     ORTHANC_PLUGINS_MINIMAL_MINOR_NUMBER <= 9 && \
+     ORTHANC_PLUGINS_MINIMAL_REVISION_NUMBER <= 6)
+#  define HAS_SEND_MULTIPART_ITEM_2   0
+#else
+#  define HAS_SEND_MULTIPART_ITEM_2   1
+#endif
 
 namespace OrthancPlugins
 {
+  static const Orthanc::DicomTag DICOM_TAG_RETRIEVE_URL(0x0008, 0x1190);
+  static const Orthanc::DicomTag DICOM_TAG_FAILURE_REASON(0x0008, 0x1197);
+  static const Orthanc::DicomTag DICOM_TAG_WARNING_REASON(0x0008, 0x1196);
+  static const Orthanc::DicomTag DICOM_TAG_FAILED_SOP_SEQUENCE(0x0008, 0x1198);
+  static const Orthanc::DicomTag DICOM_TAG_REFERENCED_SOP_SEQUENCE(0x0008, 0x1199);
+  static const Orthanc::DicomTag DICOM_TAG_REFERENCED_SOP_CLASS_UID(0x0008, 0x1150);
+  static const Orthanc::DicomTag DICOM_TAG_REFERENCED_SOP_INSTANCE_UID(0x0008, 0x1155);
+
   struct MultipartItem
   {
     const char*   data_;
@@ -37,53 +56,47 @@ namespace OrthancPlugins
                         const OrthancPluginHttpRequest* request,
                         const std::string& header);
 
+  // TODO => REMOVE (use Orthanc core instead)
   void ParseContentType(std::string& application,
                         std::map<std::string, std::string>& attributes,
                         const std::string& header);
 
   void ParseMultipartBody(std::vector<MultipartItem>& result,
-                          const char* body,
+                          const void* body,
                           const uint64_t bodySize,
                           const std::string& boundary);
 
-  bool RestApiGetString(std::string& result,
-                        OrthancPluginContext* context,
-                        const std::string& uri,
-                        bool applyPlugins = false);
+  void ParseAssociativeArray(std::map<std::string, std::string>& target,
+                             const Json::Value& value,
+                             const std::string& key);
 
-  bool RestApiGetJson(Json::Value& result,
-                      OrthancPluginContext* context,
-                      const std::string& uri,
-                      bool applyPlugins = false);
-
-  bool RestApiPostString(std::string& result,
-                         OrthancPluginContext* context,
-                         const std::string& uri,
-                         const std::string& body);
-
-  bool RestApiPostJson(Json::Value& result,
-                       OrthancPluginContext* context,
-                       const std::string& uri,
-                       const std::string& body);
+  bool ParseTag(Orthanc::DicomTag& target,
+                const std::string& name);
 
   namespace Configuration
   {
-    bool Read(Json::Value& configuration,
-              OrthancPluginContext* context);
+    void Initialize();
 
-    std::string GetStringValue(const Json::Value& configuration,
-                               const std::string& key,
+    std::string GetStringValue(const std::string& key,
                                const std::string& defaultValue);
-    
-    bool GetBoolValue(const Json::Value& configuration,
-                      const std::string& key,
-                      bool defaultValue);
 
-    std::string GetRoot(const Json::Value& configuration);
+    bool GetBooleanValue(const std::string& key,
+                         bool defaultValue);
 
-    std::string GetWadoRoot(const Json::Value& configuration);
+    unsigned int GetUnsignedIntegerValue(const std::string& key,
+                                         unsigned int defaultValue);
+
+    std::string GetRoot();
+
+    std::string GetWadoRoot();
       
-    std::string GetBaseUrl(const Json::Value& configuration,
-                           const OrthancPluginHttpRequest* request);
+    std::string GetBaseUrl(const OrthancPluginHttpRequest* request);
+
+    std::string GetWadoUrl(const std::string& wadoBase,
+                           const std::string& studyInstanceUid,
+                           const std::string& seriesInstanceUid,
+                           const std::string& sopInstanceUid);
+
+    Orthanc::Encoding GetDefaultEncoding();
   }
 }

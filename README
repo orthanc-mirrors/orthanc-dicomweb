@@ -1,5 +1,5 @@
-DICOM Web plugin for Orthanc
-============================
+DICOMweb plugin for Orthanc
+===========================
 
 
 General Information
@@ -10,8 +10,8 @@ lightweight Vendor Neutral Archive for medical imaging. This plugin
 extends the RESTful API of Orthanc with WADO and DICOMweb support.
 
 
-DICOM Web Support
------------------
+DICOMweb Support
+----------------
 
 Currently, a basic support of the following protocols is provided:
 
@@ -32,23 +32,17 @@ The full status about the support of these protocols can be found in
 the "./Status.txt" file.
 
 
-Install
--------
+Installation and usage
+----------------------
 
-Build instructions can be found in "./Resources/BuildInstructions.txt".
-
-
-Samples
--------
-
-Python samples to call the DICOM Web services can be found in the
-"./Samples" folder.
+Build and usage instructions are available in the Orthanc Book:
+http://book.orthanc-server.com/plugins/dicomweb.html
 
 
 Licensing: AGPL
 ---------------
 
-The DICOM Web plugin for Orthanc is licensed under the Affero General
+The DICOMweb plugin for Orthanc is licensed under the Affero General
 Public License (AGPL) license. Pay attention to the fact that this
 license is more restrictive than the license of the Orthanc core.
 
@@ -58,14 +52,17 @@ Similarly, we ask open-source and closed-source products that make
 use of Orthanc to warn us about this use. You can cite our work
 using the following BibTeX entry:
 
-@inproceedings{Jodogne:ISBI2013,
-  author = {Jodogne, S. and Bernard, C. and Devillers, M. and Lenaerts, E. and Coucke, P.},
-  title = {Orthanc -- {A} Lightweight, {REST}ful {DICOM} Server for Healthcare and Medical Research},
-  booktitle={Biomedical Imaging ({ISBI}), {IEEE} 10th International Symposium on}, 
-  year={2013}, 
-  pages={190-193}, 
-  ISSN={1945-7928},
-  month=apr,
-  url={http://ieeexplore.ieee.org/xpl/articleDetails.jsp?tp=&arnumber=6556444},
-  address={San Francisco, {CA}, {USA}}
+@Article{Jodogne2018,
+  author="Jodogne, S{\'e}bastien",
+  title="The {O}rthanc Ecosystem for Medical Imaging",
+  journal="Journal of Digital Imaging",
+  year="2018",
+  month="Jun",
+  day="01",
+  volume="31",
+  number="3",
+  pages="341--352",
+  issn="1618-727X",
+  doi="10.1007/s10278-018-0082-y",
+  url="https://doi.org/10.1007/s10278-018-0082-y"
 }

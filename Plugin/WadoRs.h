@@ -1,7 +1,8 @@
 /**
  * Orthanc - A Lightweight, RESTful DICOM Store
- * Copyright (C) 2012-2015 Sebastien Jodogne, Medical Physics
+ * Copyright (C) 2012-2016 Sebastien Jodogne, Medical Physics
  * Department, University Hospital of Liege, Belgium
+ * Copyright (C) 2017-2019 Osimis S.A., Belgium
  *
  * This program is free software: you can redistribute it and/or
  * modify it under the terms of the GNU Affero General Public License
@@ -23,30 +24,38 @@
 #include "Configuration.h"
 
 
-OrthancPluginErrorCode RetrieveDicomStudy(OrthancPluginRestOutput* output,
-                                          const char* url,
-                                          const OrthancPluginHttpRequest* request);
+bool LocateInstance(OrthancPluginRestOutput* output,
+                    std::string& uri,
+                    const OrthancPluginHttpRequest* request);
 
-OrthancPluginErrorCode RetrieveDicomSeries(OrthancPluginRestOutput* output,
-                                           const char* url,
-                                           const OrthancPluginHttpRequest* request);
+void RetrieveDicomStudy(OrthancPluginRestOutput* output,
+                        const char* url,
+                        const OrthancPluginHttpRequest* request);
 
-OrthancPluginErrorCode RetrieveDicomInstance(OrthancPluginRestOutput* output,
-                                             const char* url,
-                                             const OrthancPluginHttpRequest* request);
+void RetrieveDicomSeries(OrthancPluginRestOutput* output,
+                         const char* url,
+                         const OrthancPluginHttpRequest* request);
 
-OrthancPluginErrorCode RetrieveStudyMetadata(OrthancPluginRestOutput* output,
-                                             const char* url,
-                                             const OrthancPluginHttpRequest* request);
+void RetrieveDicomInstance(OrthancPluginRestOutput* output,
+                           const char* url,
+                           const OrthancPluginHttpRequest* request);
 
-OrthancPluginErrorCode RetrieveSeriesMetadata(OrthancPluginRestOutput* output,
-                                              const char* url,
-                                              const OrthancPluginHttpRequest* request);
+void RetrieveStudyMetadata(OrthancPluginRestOutput* output,
+                           const char* url,
+                           const OrthancPluginHttpRequest* request);
 
-OrthancPluginErrorCode RetrieveInstanceMetadata(OrthancPluginRestOutput* output,
-                                                const char* url,
-                                                const OrthancPluginHttpRequest* request);
+void RetrieveSeriesMetadata(OrthancPluginRestOutput* output,
+                            const char* url,
+                            const OrthancPluginHttpRequest* request);
 
-OrthancPluginErrorCode RetrieveBulkData(OrthancPluginRestOutput* output,
-                                        const char* url,
-                                        const OrthancPluginHttpRequest* request);
+void RetrieveInstanceMetadata(OrthancPluginRestOutput* output,
+                              const char* url,
+                              const OrthancPluginHttpRequest* request);
+
+void RetrieveBulkData(OrthancPluginRestOutput* output,
+                      const char* url,
+                      const OrthancPluginHttpRequest* request);
+
+void RetrieveFrames(OrthancPluginRestOutput* output,
+                    const char* url,
+                    const OrthancPluginHttpRequest* request);

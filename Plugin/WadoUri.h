@@ -23,8 +23,6 @@
 
 #include "Configuration.h"
 
-bool IsXmlExpected(const OrthancPluginHttpRequest* request);
-
-void StowCallback(OrthancPluginRestOutput* output,
-                  const char* url,
-                  const OrthancPluginHttpRequest* request);
+void WadoUriCallback(OrthancPluginRestOutput* output,
+                     const char* url,
+                     const OrthancPluginHttpRequest* request);

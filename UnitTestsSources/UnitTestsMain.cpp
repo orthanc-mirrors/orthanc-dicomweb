@@ -1,7 +1,8 @@
 /**
  * Orthanc - A Lightweight, RESTful DICOM Store
- * Copyright (C) 2012-2015 Sebastien Jodogne, Medical Physics
+ * Copyright (C) 2012-2016 Sebastien Jodogne, Medical Physics
  * Department, University Hospital of Liege, Belgium
+ * Copyright (C) 2017-2019 Osimis S.A., Belgium
  *
  * This program is free software: you can redistribute it and/or
  * modify it under the terms of the GNU Affero General Public License
@@ -20,14 +21,16 @@
 
 #include <gtest/gtest.h>
 #include <boost/lexical_cast.hpp>
+#include <boost/algorithm/string/predicate.hpp>
 
 #include "../Plugin/Configuration.h"
-#include "../Plugin/Plugin.h"
 
 using namespace OrthancPlugins;
 
+OrthancPluginContext* context_ = NULL;
 
 
+// TODO => Remove this test (now in Orthanc core)
 TEST(ContentType, Parse)
 {
   std::string c;
@@ -39,6 +42,15 @@ TEST(ContentType, Parse)
   ASSERT_EQ(a["type"], "Application/Dicom");
   ASSERT_EQ(a["boundary"], "heLLO");
 
+  // The WADO-RS client must support the case where the WADO-RS server
+  // escapes the "type" subfield in the Content-Type header
+  // cf. https://tools.ietf.org/html/rfc7231#section-3.1.1.1
+  ParseContentType(c, a, "Multipart/Related; TYPE=\"Application/Dicom\"  ;  Boundary=heLLO");
+  ASSERT_EQ(c, "multipart/related");
+  ASSERT_EQ(2u, a.size());
+  ASSERT_EQ(a["type"], "Application/Dicom");
+  ASSERT_EQ(a["boundary"], "heLLO");
+  
   ParseContentType(c, a, "");
   ASSERT_TRUE(c.empty());
   ASSERT_EQ(0u, a.size());  

@@ -1,6 +1,7 @@
 # Orthanc - A Lightweight, RESTful DICOM Store
-# Copyright (C) 2012-2015 Sebastien Jodogne, Medical Physics
+# Copyright (C) 2012-2016 Sebastien Jodogne, Medical Physics
 # Department, University Hospital of Liege, Belgium
+# Copyright (C) 2017-2019 Osimis S.A., Belgium
 #
 # This program is free software: you can redistribute it and/or
 # modify it under the terms of the GNU Affero General Public License
@@ -22,44 +23,55 @@ project(OrthancDicomWeb)
 
 set(ORTHANC_DICOM_WEB_VERSION "mainline")
 
+if (ORTHANC_DICOM_WEB_VERSION STREQUAL "mainline")
+  set(ORTHANC_FRAMEWORK_VERSION "mainline")
+  set(ORTHANC_FRAMEWORK_DEFAULT_SOURCE "hg")
+else()
+  set(ORTHANC_FRAMEWORK_VERSION "1.5.5")
+  set(ORTHANC_FRAMEWORK_DEFAULT_SOURCE "web")
+endif()
+
 
 # Parameters of the build
 set(STATIC_BUILD OFF CACHE BOOL "Static build of the third-party libraries (necessary for Windows)")
 set(ALLOW_DOWNLOADS OFF CACHE BOOL "Allow CMake to download packages")
+set(ORTHANC_FRAMEWORK_SOURCE "${ORTHANC_FRAMEWORK_DEFAULT_SOURCE}" CACHE STRING "Source of the Orthanc source code (can be \"hg\", \"archive\", \"web\" or \"path\")")
+set(ORTHANC_FRAMEWORK_ARCHIVE "" CACHE STRING "Path to the Orthanc archive, if ORTHANC_FRAMEWORK_SOURCE is \"archive\"")
+set(ORTHANC_FRAMEWORK_ROOT "" CACHE STRING "Path to the Orthanc source directory, if ORTHANC_FRAMEWORK_SOURCE is \"path\"")
 
 # Advanced parameters to fine-tune linking against system libraries
-set(USE_SYSTEM_BOOST ON CACHE BOOL "Use the system version of Boost")
 set(USE_SYSTEM_GDCM ON CACHE BOOL "Use the system version of Grassroot DICOM (GDCM)")
-set(USE_SYSTEM_GOOGLE_TEST ON CACHE BOOL "Use the system version of Google Test")
-set(USE_SYSTEM_JSONCPP ON CACHE BOOL "Use the system version of JsonCpp")
-set(USE_SYSTEM_ZLIB ON CACHE BOOL "Use the system version of zlib")
-set(USE_SYSTEM_PUGIXML ON CACHE BOOL "Use the system version of Pugixml")
 set(USE_SYSTEM_ORTHANC_SDK ON CACHE BOOL "Use the system version of the Orthanc plugin SDK")
+set(ORTHANC_SDK_VERSION "1.5.4" CACHE STRING "Version of the Orthanc plugin SDK to use, if not using the system version (can be \"1.5.4\", or \"framework\")")
 
-# Distribution-specific settings
-set(USE_GTEST_DEBIAN_SOURCE_PACKAGE OFF CACHE BOOL "Use the sources of Google Test shipped with libgtest-dev (Debian only)")
-mark_as_advanced(USE_GTEST_DEBIAN_SOURCE_PACKAGE)
 
-set(USE_PUGIXML ON)
-set(ORTHANC_ROOT ${CMAKE_SOURCE_DIR}/Orthanc)
-include(CheckIncludeFiles)
-include(CheckIncludeFileCXX)
-include(CheckLibraryExists)
-include(FindPythonInterp)
-include(${ORTHANC_ROOT}/Resources/CMake/Compiler.cmake)
-include(${ORTHANC_ROOT}/Resources/CMake/DownloadPackage.cmake)
 
-include(${ORTHANC_ROOT}/Resources/CMake/BoostConfiguration.cmake)
-include(${ORTHANC_ROOT}/Resources/CMake/GoogleTestConfiguration.cmake)
-include(${ORTHANC_ROOT}/Resources/CMake/JsonCppConfiguration.cmake)
-include(${ORTHANC_ROOT}/Resources/CMake/ZlibConfiguration.cmake)
-include(${ORTHANC_ROOT}/Resources/CMake/PugixmlConfiguration.cmake)
+# Download and setup the Orthanc framework
+include(${CMAKE_SOURCE_DIR}/Resources/Orthanc/DownloadOrthancFramework.cmake)
+
+set(ORTHANC_FRAMEWORK_PLUGIN ON)
+include(${ORTHANC_ROOT}/Resources/CMake/OrthancFrameworkParameters.cmake)
+
+set(ENABLE_LOCALE ON)         # Enable support for locales (notably in Boost)
+set(ENABLE_GOOGLE_TEST ON)
+set(ENABLE_PUGIXML ON)
+set(USE_BOOST_ICONV ON)
+
+include(${ORTHANC_ROOT}/Resources/CMake/OrthancFrameworkConfiguration.cmake)
+include_directories(${ORTHANC_ROOT})
+
 
 include(${CMAKE_SOURCE_DIR}/Resources/CMake/GdcmConfiguration.cmake)
 
 
 if (STATIC_BUILD OR NOT USE_SYSTEM_ORTHANC_SDK)
-  include_directories(${ORTHANC_ROOT}/Sdk-0.9.5)
+  if (ORTHANC_SDK_VERSION STREQUAL "1.5.4")
+    include_directories(${CMAKE_SOURCE_DIR}/Resources/Orthanc/Sdk-1.5.4)
+  elseif (ORTHANC_SDK_VERSION STREQUAL "framework")
+    include_directories(${ORTHANC_ROOT}/Plugins/Include)
+  else()
+    message(FATAL_ERROR "Unsupported version of the Orthanc plugin SDK: ${ORTHANC_SDK_VERSION}")
+  endif()
 else ()
   CHECK_INCLUDE_FILE_CXX(orthanc/OrthancCPlugin.h HAVE_ORTHANC_H)
   if (NOT HAVE_ORTHANC_H)
@@ -98,34 +110,31 @@ if (APPLE)
 endif()
 
 
+include_directories(${ORTHANC_ROOT}/Core)  # To access "OrthancException.h"
+
 add_definitions(
-  -DORTHANC_ENABLE_MD5=0
-  -DORTHANC_ENABLE_BASE64=0
-  -DORTHANC_ENABLE_LOGGING=0
+  -DHAS_ORTHANC_EXCEPTION=1
+  -DORTHANC_ENABLE_LOGGING_PLUGIN=1
   )
 
 set(CORE_SOURCES
-  ${BOOST_SOURCES}
-  ${JSONCPP_SOURCES}
-  ${ZLIB_SOURCES}
-  ${PUGIXML_SOURCES}
-
-  ${ORTHANC_ROOT}/Core/ChunkedBuffer.cpp
-  ${ORTHANC_ROOT}/Core/Enumerations.cpp
-  ${ORTHANC_ROOT}/Core/Toolbox.cpp
-
-  Plugin/ChunkedBuffer.cpp
   Plugin/Configuration.cpp
-  Plugin/Dicom.cpp
-  Plugin/DicomResults.cpp
+  Plugin/GdcmParsedDicomFile.cpp
+
+  ${ORTHANC_ROOT}/Plugins/Samples/Common/OrthancPluginCppWrapper.cpp
+  ${ORTHANC_CORE_SOURCES}
   )
 
 add_library(OrthancDicomWeb SHARED ${CORE_SOURCES}
+  ${CMAKE_SOURCE_DIR}/Plugin/DicomWebClient.cpp
+  ${CMAKE_SOURCE_DIR}/Plugin/DicomWebFormatter.cpp
+  ${CMAKE_SOURCE_DIR}/Plugin/DicomWebServers.cpp
   ${CMAKE_SOURCE_DIR}/Plugin/Plugin.cpp
   ${CMAKE_SOURCE_DIR}/Plugin/QidoRs.cpp
   ${CMAKE_SOURCE_DIR}/Plugin/StowRs.cpp
-  ${CMAKE_SOURCE_DIR}/Plugin/Wado.cpp
   ${CMAKE_SOURCE_DIR}/Plugin/WadoRs.cpp
+  ${CMAKE_SOURCE_DIR}/Plugin/WadoRsRetrieveFrames.cpp
+  ${CMAKE_SOURCE_DIR}/Plugin/WadoUri.cpp
   ${AUTOGENERATED_SOURCES}
   )
 
@@ -148,11 +157,15 @@ install(
 
 add_executable(UnitTests
   ${CORE_SOURCES}
-  ${GTEST_SOURCES}
+  ${GOOGLE_TEST_SOURCES}
+  ${CMAKE_SOURCE_DIR}/Plugin/DicomWebServers.cpp
   UnitTestsSources/UnitTestsMain.cpp
   )
 
-target_link_libraries(UnitTests ${GDCM_LIBRARIES})
+target_link_libraries(UnitTests
+  ${GDCM_LIBRARIES}
+  ${GOOGLE_TEST_LIBRARIES}
+  )
 
 if (STATIC_BUILD OR NOT USE_SYSTEM_GDCM)
   add_dependencies(OrthancDicomWeb GDCM)
