@@ -56,6 +56,7 @@ namespace OrthancPlugins
                         const OrthancPluginHttpRequest* request,
                         const std::string& header);
 
+  // TODO => REMOVE (use Orthanc core instead)
   void ParseContentType(std::string& application,
                         std::map<std::string, std::string>& attributes,
                         const std::string& header);
