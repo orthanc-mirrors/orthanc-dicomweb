@@ -198,7 +198,7 @@ namespace OrthancPlugins
 
 
   void ParseMultipartBody(std::vector<MultipartItem>& result,
-                          const char* body,
+                          const void* body,
                           const uint64_t bodySize,
                           const std::string& boundary)
   {
@@ -216,11 +216,12 @@ namespace OrthancPlugins
     // to request non-greedy search)
     const boost::regex nextSeparator(".*?(\r\n--" + boundary + ").*");
 
-    const char* end = body + bodySize;
+    const char* start = reinterpret_cast<const char*>(body);
+    const char* end = reinterpret_cast<const char*>(body) + bodySize;
 
     boost::cmatch what;
-    if (boost::regex_match(body, end, what, firstSeparator1, boost::match_perl | boost::match_single_line) ||
-        boost::regex_match(body, end, what, firstSeparator2, boost::match_perl | boost::match_single_line))
+    if (boost::regex_match(start, end, what, firstSeparator1, boost::match_perl | boost::match_single_line) ||
+        boost::regex_match(start, end, what, firstSeparator2, boost::match_perl | boost::match_single_line))
     {
       const char* current = what[1].first;
 

@@ -62,7 +62,7 @@ namespace OrthancPlugins
                         const std::string& header);
 
   void ParseMultipartBody(std::vector<MultipartItem>& result,
-                          const char* body,
+                          const void* body,
                           const uint64_t bodySize,
                           const std::string& boundary);
 

@@ -114,7 +114,8 @@ static void ParseStowRequest(std::list<std::string>& instances /* out */,
 
   Json::Value body;
   Json::Reader reader;
-  if (!reader.parse(request->body, request->body + request->bodySize, body) ||
+  if (!reader.parse(reinterpret_cast<const char*>(request->body),
+                    reinterpret_cast<const char*>(request->body) + request->bodySize, body) ||
       body.type() != Json::objectValue ||
       !body.isMember(RESOURCES) ||
       body[RESOURCES].type() != Json::arrayValue)
@@ -381,7 +382,8 @@ void GetFromServer(OrthancPluginRestOutput* output,
   std::string tmp;
   Json::Value body;
   Json::Reader reader;
-  if (!reader.parse(request->body, request->body + request->bodySize, body) ||
+  if (!reader.parse(reinterpret_cast<const char*>(request->body),
+                    reinterpret_cast<const char*>(request->body) + request->bodySize, body) ||
       body.type() != Json::objectValue ||
       !GetStringValue(tmp, body, URI))
   {
@@ -652,7 +654,8 @@ void RetrieveFromServer(OrthancPluginRestOutput* output,
 
   Json::Value body;
   Json::Reader reader;
-  if (!reader.parse(request->body, request->body + request->bodySize, body) ||
+  if (!reader.parse(reinterpret_cast<const char*>(request->body),
+                    reinterpret_cast<const char*>(request->body) + request->bodySize, body) ||
       body.type() != Json::objectValue ||
       !body.isMember(RESOURCES) ||
       body[RESOURCES].type() != Json::arrayValue)

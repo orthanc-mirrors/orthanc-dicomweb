@@ -187,7 +187,7 @@ private:
     Handler(unsigned int count) :
     count_(count)
     {
-      printf("new handler: %d\n", count_);
+      printf("  created handler: %d\n", count_);
     }
 
     virtual OrthancPluginErrorCode AddPart(const std::string& contentType,
@@ -195,19 +195,23 @@ private:
                                            const void* data,
                                            size_t size)
     {
-      printf("%d - part received: %d\n", count_, size);
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_CanceledJob);
+      printf("  %d - part received: [%s] %d\n", count_, contentType.c_str(), size);
+
+      Json::Value v;
+      OrthancPlugins::RestApiPost(v, "/instances", data, size, false);
+      std::cout << v << std::endl;
+
       return OrthancPluginErrorCode_Success;
     }
 
     virtual OrthancPluginErrorCode Execute(OrthancPluginRestOutput* output)
     {
-      printf("%d - execute\n", count_);
+      printf("  %d - execute\n", count_);
       //throw Orthanc::OrthancException(Orthanc::ErrorCode_CanceledJob);
       
-      std::string s = "ok";
+      std::string s = "{}\n";
 
-      OrthancPluginAnswerBuffer(OrthancPlugins::GetGlobalContext(), output, s.c_str(), s.size(), "text/plain");
+      OrthancPluginAnswerBuffer(OrthancPlugins::GetGlobalContext(), output, s.c_str(), s.size(), "application/json");
       return OrthancPluginErrorCode_Success;
     }
   };
@@ -222,9 +226,11 @@ public:
   virtual IHandler* CreateHandler(OrthancPluginHttpMethod method,
                                   const std::string& url,
                                   const std::string& contentType,
+                                  const std::string& subType,
                                   const std::vector<std::string>& groups,
                                   const std::map<std::string, std::string>& headers)
   {
+    printf("new handler: [%s] [%s]\n", contentType.c_str(), subType.c_str());
     return new Handler(count_++);
   }
 };
