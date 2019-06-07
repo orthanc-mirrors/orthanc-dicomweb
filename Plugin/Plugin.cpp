@@ -231,6 +231,13 @@ public:
                                   const std::map<std::string, std::string>& headers)
   {
     printf("new handler: [%s] [%s]\n", contentType.c_str(), subType.c_str());
+
+    for (std::map<std::string, std::string>::const_iterator
+           it = headers.begin(); it != headers.end(); ++it)
+    {
+      printf("  header: [%s] = [%s]\n", it->first.c_str(), it->second.c_str());
+    }
+
     return new Handler(count_++);
   }
 };

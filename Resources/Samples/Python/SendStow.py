@@ -58,11 +58,31 @@ for i in range(2, len(sys.argv)):
 # Closing boundary
 body += bytearray('--%s--' % boundary, 'ascii')
 
-# Do the HTTP POST request to the STOW-RS server
-r = requests.post(URL, data=body, headers= {
+headers = {
     'Content-Type' : 'multipart/related; type=application/dicom; boundary=%s' % boundary,
     'Accept' : 'application/json',
-})
+    }
+
+# Do the HTTP POST request to the STOW-RS server
+if False:
+    # Don't use chunked transfer (this code was in use in DICOMweb plugin <= 0.6)
+    r = requests.post(URL, data=body, headers=headers)
+else:
+    # Use chunked transfer
+    # https://2.python-requests.org/en/master/user/advanced/#chunk-encoded-requests
+    def gen():
+        chunkSize = 1024 * 1024
+
+        l = len(body) / chunkSize
+        for i in range(l):
+            pos = i * chunkSize
+            yield body[pos : pos + chunkSize]
+
+        if len(body) % chunkSize != 0:
+            yield body[l * chunkSize :]
+
+    r = requests.post(URL, data=gen(), headers=headers)
+
 
 j = json.loads(r.text)
 
