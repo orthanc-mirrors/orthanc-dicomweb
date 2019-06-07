@@ -174,11 +174,11 @@ namespace Orthanc
   };
 
   
-  typedef std::map<std::string, std::string>  Dictionary;
-    
-  class MultipartStreamParser : public boost::noncopyable
+  class MultipartStreamReader : public boost::noncopyable
   {
   public:
+    typedef std::map<std::string, std::string>  HttpHeaders;
+    
     class IHandler : public boost::noncopyable
     {
     public:
@@ -186,7 +186,7 @@ namespace Orthanc
       {
       }
       
-      virtual void Apply(const Dictionary& headers,
+      virtual void Apply(const HttpHeaders& headers,
                          const void* part,
                          size_t size) = 0;
     };
@@ -195,29 +195,22 @@ namespace Orthanc
   private:
     enum State
     {
-      State_MainHeaders,
       State_UnusedArea,
       State_Content,
       State_Done
     };
 
     
-    typedef boost::algorithm::boyer_moore<std::string::const_iterator>  Search;
-    //typedef boost::algorithm::boyer_moore_horspool<std::string::const_iterator>  Search;
-    //typedef boost::algorithm::knuth_morris_pratt<std::string::const_iterator>  Search;
-
     State  state_;
-    Dictionary  mainHeaders_;
     IHandler*              handler_;
     StringMatcher           headersMatcher_;
     std::auto_ptr<StringMatcher>  boundaryMatcher_;
     //std::auto_ptr<Search>  boundaryMatcher_;
     ChunkedBuffer          buffer_;
     size_t                 blockSize_;
-    std::string  contentType_;
 
 
-    static void ParseHeaders(Dictionary& headers,
+    static void ParseHeaders(HttpHeaders& headers,
                              StringMatcher::Iterator start,
                              StringMatcher::Iterator end)
     {
@@ -244,10 +237,10 @@ namespace Orthanc
 
 
     static bool LookupHeaderSizeValue(size_t& target,
-                                      const Dictionary& headers,
+                                      const HttpHeaders& headers,
                                       const std::string& key)
     {
-      Dictionary::const_iterator it = headers.find(key);
+      HttpHeaders::const_iterator it = headers.find(key);
       if (it == headers.end())
       {
         return false;
@@ -279,11 +272,11 @@ namespace Orthanc
 
 
     static bool ParseHeaderValues(std::string& main,
-                                  Dictionary& parameters,
-                                  const Dictionary& headers,
+                                  HttpHeaders& parameters,
+                                  const HttpHeaders& headers,
                                   const std::string& key)
     {
-      Dictionary::const_iterator it = headers.find(key);
+      HttpHeaders::const_iterator it = headers.find(key);
 
       main.clear();
       parameters.clear();
@@ -325,59 +318,15 @@ namespace Orthanc
     }
 
 
-    void InitializeMultipart(const Dictionary& headers)
-    {
-      Dictionary parameters;
-      if (!ParseHeaderValues(contentType_, parameters, headers, "content-type"))
-      {
-        throw OrthancException(ErrorCode_NetworkProtocol,
-                               "Multipart stream without a Content-Type");
-      }      
-
-      Dictionary::const_iterator boundary = parameters.find("boundary");
-      if (boundary == parameters.end())
-      {
-        throw OrthancException(ErrorCode_NetworkProtocol,
-                               "Missing boundary in the Content-Type of a multipart stream");
-      }
-
-      LOG(INFO) << "Starting decoding of a multipart stream with boundary: " << boundary->second;
-      boundaryMatcher_.reset(new StringMatcher("--" + boundary->second));        
-    }
-    
-
-    void ParsePart(std::string::const_iterator start,
-                   std::string::const_iterator end)
-    {
-      headersMatcher_.Apply(start, end);
-
-#if 0
-      if (headersMatcher_.GetIterator() != end)
-      {
-        std::string s(start, headersMatcher_.GetIterator());
-        printf("[%s]\n", s.c_str());
-
-        //Dictionary headers;
-        //std::string part(headersMatcher_.GetIterator(), end);
-        //std::string part;
-        //handler_->Apply(headers, part);
-      }
-      
-      //printf("%d \n", size);
-      
-      // TODO - Parse headers
-#endif
-    }
-    
-
     void ParseStream()
     {
-      printf("."); fflush(stdout);
       if (handler_ == NULL ||
           state_ == State_Done)
       {
         return;
       }
+      
+      assert(boundaryMatcher_.get() != NULL);
       
       std::string corpus;
       buffer_.Flatten(corpus);
@@ -385,27 +334,6 @@ namespace Orthanc
       StringMatcher::Iterator current = corpus.begin();
       StringMatcher::Iterator corpusEnd = corpus.end();
 
-      if (state_ == State_MainHeaders)
-      {
-        if (headersMatcher_.Apply(corpus))
-        {
-          ParseHeaders(mainHeaders_, current, headersMatcher_.GetMatchBegin());
-          InitializeMultipart(mainHeaders_);  // (*)
-          state_ = State_UnusedArea;
-          current = headersMatcher_.GetMatchEnd();
-        }
-        else
-        {
-          // The headers are not completely received yet, recycle the corpus for next iteration
-          buffer_.AddChunk(corpus);
-          return;
-        }
-      }
-
-      //printf("PATTERN: [%s]\n", boundaryMatcher_->GetPattern().c_str());
-
-      assert(boundaryMatcher_.get() != NULL);  // This is initialized at (*)
-      
       if (state_ == State_UnusedArea)
       {
         /**
@@ -458,7 +386,7 @@ namespace Orthanc
           break;  // Not enough data available
         }
 
-        Dictionary headers;
+        HttpHeaders headers;
         ParseHeaders(headers, start, headersMatcher_.GetMatchBegin());
 
         size_t contentLength;
@@ -508,10 +436,11 @@ namespace Orthanc
 
 
   public:
-    MultipartStreamParser() :
-      state_(State_MainHeaders),
+    MultipartStreamReader(const std::string& boundary) :
+      state_(State_UnusedArea),
       handler_(NULL),
       headersMatcher_("\r\n\r\n"),
+      boundaryMatcher_(new StringMatcher("--" + boundary)),
       blockSize_(10 * 1024 * 1024)
     {
     }
@@ -568,358 +497,113 @@ namespace Orthanc
       {
         ParseStream();
       }
-
-      std::string tmp;
-      buffer_.Flatten(tmp);
-      printf("Reminder: [%s]\n", tmp.c_str());
     }
 
-    const std::string& GetContentType() const
-    {
-      return contentType_;
-    }
 
-    void SetContentType(const std::string& contentType)
+    static bool GetMainContentType(std::string& contentType,
+                                   const HttpHeaders& headers)
     {
-      // This method can be used if the multipart stream does not
-      // contain the HTTP headers
-      
-      if (state_ != State_MainHeaders)
+      HttpHeaders::const_iterator it = headers.find("content-type");
+
+      if (it == headers.end())
       {
-        throw OrthancException(ErrorCode_BadSequenceOfCalls);
+        return false;
       }
-      
-      Dictionary headers;
-      headers["content-type"] = contentType;
-      InitializeMultipart(headers);
-      
-      state_ = State_Content;
-    }
-  };
-
-
-  class Toto : public MultipartStreamParser::IHandler
-  {
-  private:
-    unsigned int count_;
-    
-  public:
-    Toto() : count_(0)
-    {
-    }
-    
-    virtual void Apply(const Dictionary& headers,
-                       const void* part,
-                       size_t size)
-    {
-      //printf(">> %d\n", part.size());
-
-      char buf[1024];
-      sprintf(buf, "google-%06d.dcm", count_);
-
-      std::string s((const char*) part, size);
-      Orthanc::SystemToolbox::WriteFile(s, buf);
-      
-      //printf("[%s]\n", s.c_str());
-      count_++;
-    }
-
-    unsigned int GetCount() const
-    {
-      return count_;
-    }
-  };
-
-
-  static bool GetContentType(std::string& contentType,
-                             const Dictionary& headers)
-  {
-    Dictionary::const_iterator it = headers.find("content-type");
-
-    if (it == headers.end())
-    {
-      return false;
-    }
-    else
-    {
-      contentType = it->second;
-      return true;
-    }
-  }
-
-
-  static bool ParseMultipartHeaders(std::string& contentType,
-                                    std::string& boundary,
-                                    const Dictionary& headers)
-  {
-    std::string tmp;
-    if (!GetContentType(tmp, headers))
-    {
-      return false;
-    }
-
-    std::vector<std::string> tokens;
-    Orthanc::Toolbox::TokenizeString(tokens, tmp, ';');
-
-    if (tokens.empty())
-    {
-      return false;
-    }
-
-    contentType = Orthanc::Toolbox::StripSpaces(tokens[0]);
-    if (contentType.empty())
-    {
-      return false;
-    }
-
-    for (size_t i = 0; i < tokens.size(); i++)
-    {
-      std::vector<std::string> items;
-      Orthanc::Toolbox::TokenizeString(items, tokens[i], '=');
-
-      if (items.size() == 2)
+      else
       {
-        if (boost::iequals("boundary", Orthanc::Toolbox::StripSpaces(items[0])))
+        contentType = it->second;
+        return true;
+      }
+    }
+
+
+    static bool ParseMultipartHeaders(std::string& contentType,
+                                      std::string& boundary,
+                                      const HttpHeaders& headers)
+    {
+      std::string tmp;
+      if (!GetMainContentType(tmp, headers))
+      {
+        return false;
+      }
+
+      std::vector<std::string> tokens;
+      Orthanc::Toolbox::TokenizeString(tokens, tmp, ';');
+
+      if (tokens.empty())
+      {
+        return false;
+      }
+
+      contentType = Orthanc::Toolbox::StripSpaces(tokens[0]);
+      if (contentType.empty())
+      {
+        return false;
+      }
+
+      for (size_t i = 0; i < tokens.size(); i++)
+      {
+        std::vector<std::string> items;
+        Orthanc::Toolbox::TokenizeString(items, tokens[i], '=');
+
+        if (items.size() == 2)
         {
-          boundary = Orthanc::Toolbox::StripSpaces(items[1]);
-          return !boundary.empty();
+          if (boost::iequals("boundary", Orthanc::Toolbox::StripSpaces(items[0])))
+          {
+            boundary = Orthanc::Toolbox::StripSpaces(items[1]);
+            return !boundary.empty();
+          }
         }
       }
-    }
 
-    return false;
-  }
+      return false;
+    }
+  };
 }
 
 
-TEST(MultipartStreamParser, ParseHeaders)
+class MultipartTester : public Orthanc::MultipartStreamReader::IHandler
 {
-  std::string ct, b;
-
+private:
+  struct Part
   {
-    Orthanc::Dictionary h;
-    h["hello"] = "world";
-    ASSERT_FALSE(Orthanc::GetContentType(ct, h));
-    ASSERT_FALSE(Orthanc::ParseMultipartHeaders(ct, b, h));
-  }
+    Orthanc::MultipartStreamReader::HttpHeaders   headers_;
+    std::string  data_;
 
-  {
-    Orthanc::Dictionary h;
-    h["content-type"] = "world";
-    ASSERT_TRUE(Orthanc::GetContentType(ct, h)); 
-    ASSERT_EQ(ct, "world");
-    ASSERT_FALSE(Orthanc::ParseMultipartHeaders(ct, b, h));
-  }
-
-  {
-    Orthanc::Dictionary h;
-    h["content-type"] = "multipart/related; type=value; boundary=1234; hello=world";
-    ASSERT_TRUE(Orthanc::GetContentType(ct, h)); 
-    ASSERT_EQ(ct, h["content-type"]);
-    ASSERT_TRUE(Orthanc::ParseMultipartHeaders(ct, b, h));
-    ASSERT_EQ(ct, "multipart/related");
-    ASSERT_EQ(b, "1234");
-  }
-}
-
-
-
-
-TEST(Multipart, DISABLED_Optimization)
-{
-  std::string boundary = "123456789123456789";
-
-  std::string corpus;
-
-  if (1)
-  {
-    std::string f;
-    f.resize(512*512*2);
-    for (size_t i = 0; i < f.size(); i++)
-      f[i] = i % 256;
-  
-    Orthanc::ChunkedBuffer buffer;
-
-    for (size_t i = 0; i < 10; i++)
+    Part(const Orthanc::MultipartStreamReader::HttpHeaders& headers,
+         const void* part,
+         size_t size) :
+      headers_(headers),
+      data_(reinterpret_cast<const char*>(part), size)
     {
-      std::string s = "--" + boundary + "\r\n\r\n\r\n";
-
-      if (i != 0)
-        s = "\r\n" + s;
-
-      buffer.AddChunk(s);
-      buffer.AddChunk(f);
     }
+  };
 
-    buffer.AddChunk("\r\n--" + boundary + "--");
-    buffer.Flatten(corpus);
+  std::vector<Part> parts_;
 
-    Orthanc::SystemToolbox::WriteFile(corpus, "tutu");
-  }
-  else
+public:
+  virtual void Apply(const Orthanc::MultipartStreamReader::HttpHeaders& headers,
+                     const void* part,
+                     size_t size)
   {
-    Orthanc::SystemToolbox::ReadFile(corpus, "tutu");
+    parts_.push_back(Part(headers, part, size));
   }
 
-  if (1)
+  unsigned int GetCount() const
   {
-    boost::posix_time::ptime start = boost::posix_time::microsec_clock::local_time();
-
-    {
-      std::vector<OrthancPlugins::MultipartItem> items;
-      OrthancPlugins::ParseMultipartBody(items, corpus.c_str(), corpus.size(), boundary);
-      printf(">> %d\n", (int) items.size());
-    }
-
-    boost::posix_time::ptime end = boost::posix_time::microsec_clock::local_time();
-
-    printf("Parsing 1: %d ms\n", (int) (end - start).total_milliseconds());
+    return parts_.size();
   }
 
-  if (0)
+  Orthanc::MultipartStreamReader::HttpHeaders& GetHeaders(size_t i)
   {
-    boost::posix_time::ptime start = boost::posix_time::microsec_clock::local_time();
-
-    {
-      std::string pattern("--" + boundary + "\r\n");
-
-      boost::algorithm::boyer_moore<std::string::const_iterator>
-        search(pattern.begin(), pattern.end());
-
-#if BOOST_VERSION >= 106200
-      std::string::iterator it = search(corpus.begin(), corpus.end()).first;
-#else
-      std::string::iterator it = search(corpus.begin(), corpus.end());
-#endif
-
-      unsigned int c = 0;
-      while (it != corpus.end())
-      {
-        std::string t(it, it + pattern.size());
-        //printf("[%s]\n", t.c_str());
-      
-        c++;
-      
-#if BOOST_VERSION >= 106200
-        it = search(it + pattern.size(), corpus.end()).first;
-#else
-        it = search(it + pattern.size(), corpus.end());
-#endif
-      }
-
-      printf("count: %d\n", c);
-    }
-
-    boost::posix_time::ptime end = boost::posix_time::microsec_clock::local_time();
-
-    printf("Parsing 2: %d ms\n", (int) (end - start).total_milliseconds());
+    return parts_[i].headers_;
   }
 
-  if (1)
+  const std::string& GetData(size_t i) const
   {
-    boost::posix_time::ptime start = boost::posix_time::microsec_clock::local_time();
-
-    {
-      Orthanc::Toto toto;
-
-      Orthanc::MultipartStreamParser parser;
-
-      //parser.SetBlockSize(127);
-      //parser.SetBoundary(boundary);
-      parser.SetHandler(toto);
-
-#if 1
-      size_t bs = corpus.size() / 101;
-
-      const char* pos = corpus.c_str();
-      for (size_t i = 0; i < corpus.size() / bs; i++, pos += bs)
-      {
-        parser.AddChunk(pos, bs);
-      }
-
-      parser.AddChunk(pos, corpus.size() % bs);
-#else
-      parser.AddChunk(corpus);
-#endif
-
-      parser.CloseStream();
-
-      printf("%d\n", toto.GetCount());
-    }
-
-    boost::posix_time::ptime end = boost::posix_time::microsec_clock::local_time();
-
-    printf("Parsing 3: %d ms\n", (int) (end - start).total_milliseconds());
+    return parts_[i].data_;
   }
-}
-
-
-
-TEST(Multipart, Optimization2)
-{
-  std::string stream;
-
-  Orthanc::MultipartStreamParser parser;
-
-  if (1)
-  {
-    std::string boundary = "123456789123456789";
-
-    stream += "Coucou: a\r\n";
-    stream += "Hello: b\r\n";
-    stream += "Content-Type: multipart/mixed; boundary=" + boundary + "\r\n";
-    stream += "World: c\r\n";
-
-    for (size_t i = 0; i < 10; i++)
-    {
-      std::string f = "<hello " + boost::lexical_cast<std::string>(i) + ">";
-      
-      stream += "\r\n--" + boundary + "\r\n";
-      if (i % 2 == 0)
-        stream += "Content-Length: " + boost::lexical_cast<std::string>(f.size()) + "\r\n";
-      stream += "Content-Type: toto\r\n\r\n";
-      stream += f;
-    }
-
-    stream += "\r\n--" + boundary + "--";
-
-    printf("[%s]\n", stream.c_str());
-  }
-  else
-  {
-    Orthanc::SystemToolbox::ReadFile(stream, "/tmp/google");
-    parser.SetContentType("multipart/mixed; boundary=d662975a84c2c29efa3cee6e45f2c4766dca1d74800feb2952a8cf64058f");
-  }
-
-
-  boost::posix_time::ptime start = boost::posix_time::microsec_clock::local_time();
-
-  {
-    Orthanc::Toto toto;
-
-    parser.SetBlockSize(1);
-    parser.SetHandler(toto);
-
-#if 0
-    for (size_t i = 0; i < stream.size(); i++)
-    {
-      parser.AddChunk(&stream[i], 1);
-    }
-#else
-    parser.AddChunk(stream);
-#endif
-
-    parser.CloseStream();
-
-    ASSERT_EQ("multipart/mixed", parser.GetContentType());
-    
-    printf("%d\n", toto.GetCount());
-  }
-
-  boost::posix_time::ptime end = boost::posix_time::microsec_clock::local_time();
-
-  printf("Parsing: %d ms\n", (int) (end - start).total_milliseconds());
-}
+};
 
 
 TEST(StringMatcher, Basic)
@@ -950,6 +634,99 @@ TEST(StringMatcher, Basic)
     ASSERT_THROW(matcher.GetMatchBegin(), Orthanc::OrthancException);
     ASSERT_THROW(matcher.GetMatchEnd(), Orthanc::OrthancException);
   }
+}
+
+
+TEST(MultipartStreamReader, ParseHeaders)
+{
+  std::string ct, b;
+
+  {
+    Orthanc::MultipartStreamReader::HttpHeaders h;
+    h["hello"] = "world";
+    ASSERT_FALSE(Orthanc::MultipartStreamReader::GetMainContentType(ct, h));
+    ASSERT_FALSE(Orthanc::MultipartStreamReader::ParseMultipartHeaders(ct, b, h));
+  }
+
+  {
+    Orthanc::MultipartStreamReader::HttpHeaders h;
+    h["content-type"] = "world";
+    ASSERT_TRUE(Orthanc::MultipartStreamReader::GetMainContentType(ct, h)); 
+    ASSERT_EQ(ct, "world");
+    ASSERT_FALSE(Orthanc::MultipartStreamReader::ParseMultipartHeaders(ct, b, h));
+  }
+
+  {
+    Orthanc::MultipartStreamReader::HttpHeaders h;
+    h["content-type"] = "multipart/related; type=value; boundary=1234; hello=world";
+    ASSERT_TRUE(Orthanc::MultipartStreamReader::GetMainContentType(ct, h)); 
+    ASSERT_EQ(ct, h["content-type"]);
+    ASSERT_TRUE(Orthanc::MultipartStreamReader::ParseMultipartHeaders(ct, b, h));
+    ASSERT_EQ(ct, "multipart/related");
+    ASSERT_EQ(b, "1234");
+  }
+}
+
+
+TEST(MultipartStreamReader, BytePerByte)
+{
+  std::string stream = "GARBAGE";
+
+  std::string boundary = "123456789123456789";
+
+  {
+    for (size_t i = 0; i < 10; i++)
+    {
+      std::string f = "hello " + boost::lexical_cast<std::string>(i);
+    
+      stream += "\r\n--" + boundary + "\r\n";
+      if (i % 2 == 0)
+        stream += "Content-Length: " + boost::lexical_cast<std::string>(f.size()) + "\r\n";
+      stream += "Content-Type: toto " + boost::lexical_cast<std::string>(i) + "\r\n\r\n";
+      stream += f;
+    }
+  
+    stream += "\r\n--" + boundary + "--";
+    stream += "GARBAGE";
+  }
+
+  for (unsigned int k = 0; k < 2; k++)
+  {
+    MultipartTester decoded;
+
+    Orthanc::MultipartStreamReader reader(boundary);
+    reader.SetBlockSize(1);
+    reader.SetHandler(decoded);
+
+    if (k == 0)
+    {
+      for (size_t i = 0; i < stream.size(); i++)
+      {
+        reader.AddChunk(&stream[i], 1);
+      }
+    }
+    else
+    {
+      reader.AddChunk(stream);
+    }
+
+    reader.CloseStream();
+
+    ASSERT_EQ(10u, decoded.GetCount());
+
+    for (size_t i = 0; i < 10; i++)
+    {
+      ASSERT_EQ("hello " + boost::lexical_cast<std::string>(i), decoded.GetData(i));
+      ASSERT_EQ("toto " + boost::lexical_cast<std::string>(i), decoded.GetHeaders(i)["content-type"]);
+
+      if (i % 2 == 0)
+      {
+        ASSERT_EQ(2u, decoded.GetHeaders(i).size());
+        ASSERT_TRUE(decoded.GetHeaders(i).find("content-length") != decoded.GetHeaders(i).end());
+      }
+    }
+  }
+
 }
 
 
