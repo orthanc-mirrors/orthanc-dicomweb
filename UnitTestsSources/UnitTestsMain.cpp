@@ -21,6 +21,7 @@
 
 #include <gtest/gtest.h>
 #include <boost/lexical_cast.hpp>
+#include <boost/algorithm/string/predicate.hpp>
 
 #include "../Plugin/Configuration.h"
 
@@ -173,6 +174,8 @@ namespace Orthanc
   };
 
   
+  typedef std::map<std::string, std::string>  Dictionary;
+    
   class MultipartStreamParser : public boost::noncopyable
   {
   public:
@@ -183,7 +186,7 @@ namespace Orthanc
       {
       }
       
-      virtual void Apply(const std::map<std::string, std::string>& headers,
+      virtual void Apply(const Dictionary& headers,
                          const void* part,
                          size_t size) = 0;
     };
@@ -198,8 +201,6 @@ namespace Orthanc
       State_Done
     };
 
-    
-    typedef std::map<std::string, std::string>  Dictionary;
     
     typedef boost::algorithm::boyer_moore<std::string::const_iterator>  Search;
     //typedef boost::algorithm::boyer_moore_horspool<std::string::const_iterator>  Search;
@@ -356,7 +357,7 @@ namespace Orthanc
         std::string s(start, headersMatcher_.GetIterator());
         printf("[%s]\n", s.c_str());
 
-        //std::map<std::string, std::string> headers;
+        //Dictionary headers;
         //std::string part(headersMatcher_.GetIterator(), end);
         //std::string part;
         //handler_->Apply(headers, part);
@@ -607,7 +608,7 @@ namespace Orthanc
     {
     }
     
-    virtual void Apply(const std::map<std::string, std::string>& headers,
+    virtual void Apply(const Dictionary& headers,
                        const void* part,
                        size_t size)
     {
@@ -628,7 +629,99 @@ namespace Orthanc
       return count_;
     }
   };
+
+
+  static bool GetContentType(std::string& contentType,
+                             const Dictionary& headers)
+  {
+    Dictionary::const_iterator it = headers.find("content-type");
+
+    if (it == headers.end())
+    {
+      return false;
+    }
+    else
+    {
+      contentType = it->second;
+      return true;
+    }
+  }
+
+
+  static bool ParseMultipartHeaders(std::string& contentType,
+                                    std::string& boundary,
+                                    const Dictionary& headers)
+  {
+    std::string tmp;
+    if (!GetContentType(tmp, headers))
+    {
+      return false;
+    }
+
+    std::vector<std::string> tokens;
+    Orthanc::Toolbox::TokenizeString(tokens, tmp, ';');
+
+    if (tokens.empty())
+    {
+      return false;
+    }
+
+    contentType = Orthanc::Toolbox::StripSpaces(tokens[0]);
+    if (contentType.empty())
+    {
+      return false;
+    }
+
+    for (size_t i = 0; i < tokens.size(); i++)
+    {
+      std::vector<std::string> items;
+      Orthanc::Toolbox::TokenizeString(items, tokens[i], '=');
+
+      if (items.size() == 2)
+      {
+        if (boost::iequals("boundary", Orthanc::Toolbox::StripSpaces(items[0])))
+        {
+          boundary = Orthanc::Toolbox::StripSpaces(items[1]);
+          return !boundary.empty();
+        }
+      }
+    }
+
+    return false;
+  }
 }
+
+
+TEST(MultipartStreamParser, ParseHeaders)
+{
+  std::string ct, b;
+
+  {
+    Orthanc::Dictionary h;
+    h["hello"] = "world";
+    ASSERT_FALSE(Orthanc::GetContentType(ct, h));
+    ASSERT_FALSE(Orthanc::ParseMultipartHeaders(ct, b, h));
+  }
+
+  {
+    Orthanc::Dictionary h;
+    h["content-type"] = "world";
+    ASSERT_TRUE(Orthanc::GetContentType(ct, h)); 
+    ASSERT_EQ(ct, "world");
+    ASSERT_FALSE(Orthanc::ParseMultipartHeaders(ct, b, h));
+  }
+
+  {
+    Orthanc::Dictionary h;
+    h["content-type"] = "multipart/related; type=value; boundary=1234; hello=world";
+    ASSERT_TRUE(Orthanc::GetContentType(ct, h)); 
+    ASSERT_EQ(ct, h["content-type"]);
+    ASSERT_TRUE(Orthanc::ParseMultipartHeaders(ct, b, h));
+    ASSERT_EQ(ct, "multipart/related");
+    ASSERT_EQ(b, "1234");
+  }
+}
+
 
 
 
