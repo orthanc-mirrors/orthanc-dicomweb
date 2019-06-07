@@ -174,6 +174,65 @@ static bool DisplayPerformanceWarning(OrthancPluginContext* context)
 #include <boost/filesystem.hpp>
 #include <Core/SystemToolbox.h>
 
+
+class StowServer : public OrthancPlugins::MultipartRestCallback
+{
+private:
+  class Handler : public IHandler
+  {
+  private:
+    unsigned int count_;
+
+  public:
+    Handler(unsigned int count) :
+    count_(count)
+    {
+      printf("new handler: %d\n", count_);
+    }
+
+    virtual OrthancPluginErrorCode AddPart(const std::string& contentType,
+                                           const std::map<std::string, std::string>& headers,
+                                           const void* data,
+                                           size_t size)
+    {
+      printf("%d - part received: %d\n", count_, size);
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_CanceledJob);
+      return OrthancPluginErrorCode_Success;
+    }
+
+    virtual OrthancPluginErrorCode Execute(OrthancPluginRestOutput* output)
+    {
+      printf("%d - execute\n", count_);
+      //throw Orthanc::OrthancException(Orthanc::ErrorCode_CanceledJob);
+      
+      std::string s = "ok";
+
+      OrthancPluginAnswerBuffer(OrthancPlugins::GetGlobalContext(), output, s.c_str(), s.size(), "text/plain");
+      return OrthancPluginErrorCode_Success;
+    }
+  };
+
+  unsigned int count_;
+
+public:
+  StowServer() : count_(0)
+  {
+  }
+
+  virtual IHandler* CreateHandler(OrthancPluginHttpMethod method,
+                                  const std::string& url,
+                                  const std::string& contentType,
+                                  const std::vector<std::string>& groups,
+                                  const std::map<std::string, std::string>& headers)
+  {
+    return new Handler(count_++);
+  }
+};
+
+
+static StowServer stowServer_;
+
+
 class StowClientBody : public OrthancPlugins::HttpClient::IRequestBody
 {
 private:
@@ -308,6 +367,7 @@ extern "C"
       OrthancPlugins::Configuration::Initialize();
 
       //OrthancPluginRegisterOnChangeCallback(context, OnChangeCallback);  // TODO => REMOVE
+      //stowServer_.Register("/toto");  // TODO => REMOVE
       
       // Initialize GDCM
       OrthancPlugins::GdcmParsedDicomFile::Initialize();
