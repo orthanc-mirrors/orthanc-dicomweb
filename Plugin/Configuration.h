@@ -90,6 +90,9 @@ namespace OrthancPlugins
 
     std::string GetWadoRoot();
       
+    std::string GetBaseUrl(const std::map<std::string, std::string>& headers);
+
+    // TODO => REMOVE
     std::string GetBaseUrl(const OrthancPluginHttpRequest* request);
 
     std::string GetWadoUrl(const std::string& wadoBase,

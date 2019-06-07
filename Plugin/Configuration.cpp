@@ -21,15 +21,17 @@
 
 #include "Configuration.h"
 
-#include <fstream>
-#include <json/reader.h>
-#include <boost/regex.hpp>
-#include <boost/lexical_cast.hpp>
-
 #include "DicomWebServers.h"
 
 #include <Plugins/Samples/Common/OrthancPluginCppWrapper.h>
 #include <Core/Toolbox.h>
+
+#include <fstream>
+#include <json/reader.h>
+#include <boost/regex.hpp>
+#include <boost/lexical_cast.hpp>
+#include <boost/algorithm/string/predicate.hpp>
+
 
 namespace OrthancPlugins
 {
@@ -414,7 +416,25 @@ namespace OrthancPlugins
     }
 
 
-    std::string GetBaseUrl(const OrthancPluginHttpRequest* request)
+    static bool LookupHttpHeader2(std::string& value,
+                                  const OrthancPlugins::HttpClient::HttpHeaders& headers,
+                                  const std::string& name)
+    {
+      for (OrthancPlugins::HttpClient::HttpHeaders::const_iterator
+             it = headers.begin(); it != headers.end(); ++it)
+      {
+        if (boost::iequals(it->first, name))
+        {
+          value = it->second;
+          return false;
+        }
+      }
+
+      return false;
+    }
+
+
+    std::string GetBaseUrl(const OrthancPlugins::HttpClient::HttpHeaders& headers)
     {
       assert(configuration_.get() != NULL);
       std::string host = configuration_->GetStringValue("Host", "");
@@ -422,7 +442,7 @@ namespace OrthancPlugins
 
       std::string forwarded;
       if (host.empty() &&
-          LookupHttpHeader(forwarded, request, "forwarded"))
+          LookupHttpHeader2(forwarded, headers, "forwarded"))
       {
         // There is a "Forwarded" HTTP header in the query
         // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Forwarded
@@ -461,7 +481,7 @@ namespace OrthancPlugins
       }
 
       if (host.empty() &&
-          !LookupHttpHeader(host, request, "host"))
+          !LookupHttpHeader2(host, headers, "host"))
       {
         // Should never happen: The "host" header should always be present
         // in HTTP requests. Provide a default value anyway.
@@ -469,6 +489,25 @@ namespace OrthancPlugins
       }
 
       return (https ? "https://" : "http://") + host + GetRoot();
+    }
+
+
+    std::string GetBaseUrl(const OrthancPluginHttpRequest* request)
+    {
+      OrthancPlugins::HttpClient::HttpHeaders headers;
+
+      std::string value;
+      if (LookupHttpHeader(value, request, "forwarded"))
+      {
+        headers["Forwarded"] = value;
+      }
+
+      if (LookupHttpHeader(value, request, "host"))
+      {
+        headers["Host"] = value;
+      }
+
+      return GetBaseUrl(headers);
     }
 
 

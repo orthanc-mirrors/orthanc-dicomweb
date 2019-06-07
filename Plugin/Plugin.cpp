@@ -54,9 +54,9 @@ void SwitchStudies(OrthancPluginRestOutput* output,
 }
 
 
-void SwitchStudy(OrthancPluginRestOutput* output,
-                 const char* url,
-                 const OrthancPluginHttpRequest* request)
+void SwitchIndividualStudy(OrthancPluginRestOutput* output,
+                           const char* url,
+                           const OrthancPluginHttpRequest* request)
 {
   switch (request->method)
   {
@@ -171,8 +171,9 @@ static bool DisplayPerformanceWarning(OrthancPluginContext* context)
 
 
 
-#include <boost/filesystem.hpp>
-#include <Core/SystemToolbox.h>
+
+
+
 
 
 class StowServer : public OrthancPlugins::MultipartRestCallback
@@ -230,6 +231,46 @@ public:
                                   const std::vector<std::string>& groups,
                                   const std::map<std::string, std::string>& headers)
   {
+    OrthancPluginContext* context = OrthancPlugins::GetGlobalContext();
+  
+    if (method != OrthancPluginHttpMethod_Post)
+    {
+      return NULL;
+    }
+
+    const std::string wadoBase = OrthancPlugins::Configuration::GetBaseUrl(headers);
+  
+    std::string expectedStudy;
+    if (groups.size() == 1)
+    {
+      expectedStudy = groups[0];
+    }
+
+    if (expectedStudy.empty())
+    {
+      OrthancPlugins::LogInfo("STOW-RS request without study");
+    }
+    else
+    {
+      OrthancPlugins::LogInfo("STOW-RS request restricted to study UID " + expectedStudy);
+    }
+
+    if (contentType != "multipart/related")
+    {
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_UnsupportedMediaType,
+                                      "The Content-Type of a STOW-RS request must be \"multipart/related\"");
+    }
+
+    if (subType != "application/dicom")
+    {
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_UnsupportedMediaType,
+                                      "The STOW-RS plugin currently only supports \"application/dicom\" subtype");
+    }
+
+
+
+
+
     printf("new handler: [%s] [%s]\n", contentType.c_str(), subType.c_str());
 
     for (std::map<std::string, std::string>::const_iterator
@@ -245,6 +286,10 @@ public:
 
 static StowServer stowServer_;
 
+
+
+#include <boost/filesystem.hpp>
+#include <Core/SystemToolbox.h>
 
 class StowClientBody : public OrthancPlugins::HttpClient::IRequestBody
 {
@@ -380,8 +425,8 @@ extern "C"
       OrthancPlugins::Configuration::Initialize();
 
       //OrthancPluginRegisterOnChangeCallback(context, OnChangeCallback);  // TODO => REMOVE
-      //stowServer_.Register("/toto");  // TODO => REMOVE
-      
+      stowServer_.Register("/toto");  // TODO => REMOVE
+
       // Initialize GDCM
       OrthancPlugins::GdcmParsedDicomFile::Initialize();
 
@@ -396,7 +441,7 @@ extern "C"
         OrthancPlugins::RegisterRestCallback<SearchForInstances>(root + "instances", true);
         OrthancPlugins::RegisterRestCallback<SearchForSeries>(root + "series", true);    
         OrthancPlugins::RegisterRestCallback<SwitchStudies>(root + "studies", true);
-        OrthancPlugins::RegisterRestCallback<SwitchStudy>(root + "studies/([^/]*)", true);
+        OrthancPlugins::RegisterRestCallback<SwitchIndividualStudy>(root + "studies/([^/]*)", true);
         OrthancPlugins::RegisterRestCallback<SearchForInstances>(root + "studies/([^/]*)/instances", true);    
         OrthancPlugins::RegisterRestCallback<RetrieveStudyMetadata>(root + "studies/([^/]*)/metadata", true);
         OrthancPlugins::RegisterRestCallback<SearchForSeries>(root + "studies/([^/]*)/series", true);    
