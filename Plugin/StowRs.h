@@ -23,10 +23,31 @@
 
 #include "Configuration.h"
 
+#include <Plugins/Samples/Common/OrthancPluginCppWrapper.h>
+
+
 bool IsXmlExpected(const std::map<std::string, std::string>& headers);
 
-  bool IsXmlExpected(const OrthancPluginHttpRequest* request);
+bool IsXmlExpected(const OrthancPluginHttpRequest* request);
 
 void StowCallback(OrthancPluginRestOutput* output,
                   const char* url,
                   const OrthancPluginHttpRequest* request);
+
+
+namespace OrthancPlugins
+{
+  class StowServer : public MultipartRestCallback
+  {
+  private:
+    class Handler;
+    
+  public:
+    virtual IHandler* CreateHandler(OrthancPluginHttpMethod method,
+                                    const std::string& url,
+                                    const std::string& contentType,
+                                    const std::string& subType,
+                                    const std::vector<std::string>& groups,
+                                    const std::map<std::string, std::string>& headers);
+  };
+}
