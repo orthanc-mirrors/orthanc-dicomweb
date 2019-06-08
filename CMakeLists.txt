@@ -60,7 +60,6 @@ set(USE_BOOST_ICONV ON)
 include(${ORTHANC_ROOT}/Resources/CMake/OrthancFrameworkConfiguration.cmake)
 include_directories(${ORTHANC_ROOT})
 
-
 include(${CMAKE_SOURCE_DIR}/Resources/CMake/GdcmConfiguration.cmake)
 
 
@@ -115,6 +114,9 @@ include_directories(${ORTHANC_ROOT}/Core)  # To access "OrthancException.h"
 add_definitions(
   -DHAS_ORTHANC_EXCEPTION=1
   -DORTHANC_ENABLE_LOGGING_PLUGIN=1
+  -DORTHANC_FRAMEWORK_VERSION_MAJOR=${ORTHANC_FRAMEWORK_MAJOR}
+  -DORTHANC_FRAMEWORK_VERSION_MINOR=${ORTHANC_FRAMEWORK_MINOR}
+  -DORTHANC_FRAMEWORK_VERSION_REVISION=${ORTHANC_FRAMEWORK_REVISION}
   )
 
 set(CORE_SOURCES

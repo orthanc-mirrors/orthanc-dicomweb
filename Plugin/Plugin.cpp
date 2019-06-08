@@ -183,10 +183,11 @@ private:
   {
   private:
     unsigned int count_;
+    unsigned int part_;
 
   public:
     Handler(unsigned int count) :
-    count_(count)
+    count_(count), part_(0)
     {
       printf("  created handler: %d\n", count_);
     }
@@ -196,7 +197,7 @@ private:
                                            const void* data,
                                            size_t size)
     {
-      printf("  %d - part received: [%s] %d\n", count_, contentType.c_str(), size);
+      printf("  %d - %d - part received: [%s] %d\n", count_, part_++, contentType.c_str(), size);
 
       Json::Value v;
       OrthancPlugins::RestApiPost(v, "/instances", data, size, false);
@@ -207,7 +208,7 @@ private:
 
     virtual OrthancPluginErrorCode Execute(OrthancPluginRestOutput* output)
     {
-      printf("  %d - execute\n", count_);
+      printf("  %d - execute (total = %d)\n", count_, part_);
       //throw Orthanc::OrthancException(Orthanc::ErrorCode_CanceledJob);
       
       std::string s = "{}\n";

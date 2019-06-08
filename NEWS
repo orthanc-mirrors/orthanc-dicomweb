@@ -1,8 +1,8 @@
 Pending changes in the mainline
 ===============================
 
-=> Minimum SDK version: 1.5.7 <=
-
+* Support "Transfer-Encoding: chunked" to reduce memory consumption in STOW-RS
+  (provided the SDK version is above 1.5.7)
 * Handling of the HTTP header "Forwarded" for WADO-RS
 
 
