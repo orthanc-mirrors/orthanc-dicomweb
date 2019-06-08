@@ -101,5 +101,10 @@ namespace OrthancPlugins
                            const std::string& sopInstanceUid);
 
     Orthanc::Encoding GetDefaultEncoding();
+
+    bool IsXmlExpected(const std::map<std::string, std::string>& headers);
+
+    // TODO => REMOVE
+    bool IsXmlExpected(const OrthancPluginHttpRequest* request);
   }
 }

@@ -26,10 +26,6 @@
 #include <Plugins/Samples/Common/OrthancPluginCppWrapper.h>
 
 
-bool IsXmlExpected(const std::map<std::string, std::string>& headers);
-
-bool IsXmlExpected(const OrthancPluginHttpRequest* request);
-
 void StowCallback(OrthancPluginRestOutput* output,
                   const char* url,
                   const OrthancPluginHttpRequest* request);

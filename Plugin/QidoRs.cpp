@@ -494,7 +494,8 @@ static void ApplyMatcher(OrthancPluginRestOutput* output,
   
   std::string wadoBase = OrthancPlugins::Configuration::GetBaseUrl(request);
 
-  OrthancPlugins::DicomWebFormatter::HttpWriter writer(output, IsXmlExpected(request));
+  OrthancPlugins::DicomWebFormatter::HttpWriter writer(
+    output, OrthancPlugins::Configuration::IsXmlExpected(request));
 
   // Fix of issue #13
   for (ResourcesAndInstances::const_iterator

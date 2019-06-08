@@ -536,5 +536,61 @@ namespace OrthancPlugins
     {
       return defaultEncoding_;
     }
+
+
+    static bool IsXmlExpected(const std::string& acceptHeader)
+    {
+      std::string accept;
+      Orthanc::Toolbox::ToLowerCase(accept, acceptHeader);
+  
+      if (accept == "application/dicom+json" ||
+          accept == "application/json" ||
+          accept == "*/*")
+      {
+        return false;
+      }
+      else if (accept == "application/dicom+xml" ||
+               accept == "application/xml" ||
+               accept == "text/xml")
+      {
+        return true;
+      }
+      else
+      {
+        OrthancPlugins::LogError("Unsupported return MIME type: " + accept +
+                                 ", will return DICOM+JSON");
+        return false;
+      }
+    }
+
+
+    bool IsXmlExpected(const std::map<std::string, std::string>& headers)
+    {
+      std::map<std::string, std::string>::const_iterator found = headers.find("accept");
+
+      if (found == headers.end())
+      {
+        return false;   // By default, return DICOM+JSON
+      }
+      else
+      {
+        return IsXmlExpected(found->second);
+      }
+    }
+
+
+    bool IsXmlExpected(const OrthancPluginHttpRequest* request)
+    {
+      std::string accept;
+
+      if (OrthancPlugins::LookupHttpHeader(accept, request, "accept"))
+      {
+        return IsXmlExpected(accept);
+      }
+      else
+      {
+        return false;   // By default, return DICOM+JSON
+      }
+    }
   }
 }
