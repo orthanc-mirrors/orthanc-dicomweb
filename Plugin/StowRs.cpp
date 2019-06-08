@@ -27,16 +27,12 @@
 #include <Core/Toolbox.h>
 #include <Plugins/Samples/Common/OrthancPluginCppWrapper.h>
 
-bool IsXmlExpected(const OrthancPluginHttpRequest* request)
+
+static bool IsXmlExpected(const std::string& acceptHeader)
 {
   std::string accept;
-
-  if (!OrthancPlugins::LookupHttpHeader(accept, request, "accept"))
-  {
-    return false;   // By default, return DICOM+JSON
-  }
-
-  Orthanc::Toolbox::ToLowerCase(accept);
+  Orthanc::Toolbox::ToLowerCase(accept, acceptHeader);
+  
   if (accept == "application/dicom+json" ||
       accept == "application/json" ||
       accept == "*/*")
@@ -54,6 +50,37 @@ bool IsXmlExpected(const OrthancPluginHttpRequest* request)
     OrthancPlugins::LogError("Unsupported return MIME type: " + accept +
                              ", will return DICOM+JSON");
     return false;
+  }
+}
+
+
+bool IsXmlExpected(const std::map<std::string, std::string>& headers)
+{
+  std::map<std::string, std::string>::const_iterator found = headers.find("accept");
+
+  if (found == headers.end())
+  {
+    return false;   // By default, return DICOM+JSON
+  }
+  else
+  {
+    return IsXmlExpected(found->second);
+  }
+}
+
+
+  // TODO => REMOVE
+bool IsXmlExpected(const OrthancPluginHttpRequest* request)
+{
+  std::string accept;
+
+  if (OrthancPlugins::LookupHttpHeader(accept, request, "accept"))
+  {
+    return IsXmlExpected(accept);
+  }
+  else
+  {
+    return false;   // By default, return DICOM+JSON
   }
 }
 

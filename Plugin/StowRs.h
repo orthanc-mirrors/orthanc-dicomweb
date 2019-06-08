@@ -23,7 +23,9 @@
 
 #include "Configuration.h"
 
-bool IsXmlExpected(const OrthancPluginHttpRequest* request);
+bool IsXmlExpected(const std::map<std::string, std::string>& headers);
+
+  bool IsXmlExpected(const OrthancPluginHttpRequest* request);
 
 void StowCallback(OrthancPluginRestOutput* output,
                   const char* url,
