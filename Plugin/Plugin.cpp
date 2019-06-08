@@ -43,9 +43,7 @@ void SwitchStudies(OrthancPluginRestOutput* output,
       break;
 
     case OrthancPluginHttpMethod_Post:
-      // This is STOW-RS
-      StowCallback(output, url, request);
-      break;
+      // This is STOW-RS: This should have been processed by the MultipartRestCallback
 
     default:
       OrthancPluginSendMethodNotAllowed(OrthancPlugins::GetGlobalContext(), output, "GET,POST");
@@ -66,9 +64,7 @@ void SwitchIndividualStudy(OrthancPluginRestOutput* output,
       break;
 
     case OrthancPluginHttpMethod_Post:
-      // This is STOW-RS
-      StowCallback(output, url, request);
-      break;
+      // This is STOW-RS: This should have been processed by the MultipartRestCallback
 
     default:
       OrthancPluginSendMethodNotAllowed(OrthancPlugins::GetGlobalContext(), output, "GET,POST");
@@ -311,7 +307,6 @@ extern "C"
       OrthancPlugins::Configuration::Initialize();
 
       //OrthancPluginRegisterOnChangeCallback(context, OnChangeCallback);  // TODO => REMOVE
-      stowServer_.Register("/toto");  // TODO => REMOVE
 
       // Initialize GDCM
       OrthancPlugins::GdcmParsedDicomFile::Initialize();
@@ -323,6 +318,9 @@ extern "C"
         assert(!root.empty() && root[root.size() - 1] == '/');
 
         OrthancPlugins::LogWarning("URI to the DICOMweb REST API: " + root);
+
+        stowServer_.Register(root + "studies");
+        stowServer_.Register(root + "studies/([^/]*)");
 
         OrthancPlugins::RegisterRestCallback<SearchForInstances>(root + "instances", true);
         OrthancPlugins::RegisterRestCallback<SearchForSeries>(root + "series", true);    

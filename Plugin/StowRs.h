@@ -21,15 +21,7 @@
 
 #pragma once
 
-#include "Configuration.h"
-
 #include <Plugins/Samples/Common/OrthancPluginCppWrapper.h>
-
-
-void StowCallback(OrthancPluginRestOutput* output,
-                  const char* url,
-                  const OrthancPluginHttpRequest* request);
-
 
 namespace OrthancPlugins
 {
