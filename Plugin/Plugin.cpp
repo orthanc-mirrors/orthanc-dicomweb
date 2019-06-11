@@ -31,56 +31,6 @@
 #include <Core/Toolbox.h>
 
 
-OrthancPlugins::IChunkedRequestReader* SwitchStudies(OrthancPluginRestOutput* output,
-                                                     const char* url,
-                                                     const OrthancPluginHttpRequest* request)
-{
-  switch (request->method)
-  {
-    case OrthancPluginHttpMethod_Get:
-      // This is QIDO-RS
-      SearchForStudies(output, url, request);
-      return NULL;
-
-    case OrthancPluginHttpMethod_Post:
-      // This is STOW-RS
-      return OrthancPlugins::StowServer::PostCallback(url, request);
-
-    default:
-      if (output != NULL)
-      {
-        OrthancPluginSendMethodNotAllowed(OrthancPlugins::GetGlobalContext(), output, "GET,POST");  // TODO
-      }
-      return NULL;
-  }
-}
-
-
-OrthancPlugins::IChunkedRequestReader* SwitchIndividualStudy(OrthancPluginRestOutput* output,
-                                                             const char* url,
-                                                             const OrthancPluginHttpRequest* request)
-{
-  switch (request->method)
-  {
-    case OrthancPluginHttpMethod_Get:
-      // This is WADO-RS
-      RetrieveDicomStudy(output, url, request);
-      return NULL;
-
-    case OrthancPluginHttpMethod_Post:
-      // This is STOW-RS
-      return OrthancPlugins::StowServer::PostCallback(url, request);
-
-    default:
-      if (output != NULL)
-      {
-        OrthancPluginSendMethodNotAllowed(OrthancPlugins::GetGlobalContext(), output, "GET,POST");  // TODO
-      }
-      return NULL;
-  }
-}
-
-
 bool RequestHasKey(const OrthancPluginHttpRequest* request, const char* key)
 {
   for (uint32_t i = 0; i < request->getCount; i++)
@@ -325,8 +275,13 @@ extern "C"
 
         OrthancPlugins::LogWarning("URI to the DICOMweb REST API: " + root);
 
-        OrthancPlugins::RegisterChunkedRestCallback<SwitchStudies>(root + "studies");
-        OrthancPlugins::RegisterChunkedRestCallback<SwitchIndividualStudy>(root + "studies/([^/]*)");
+        OrthancPlugins::RegisterChunkedRestCallback<
+          SearchForStudies /* TODO => Rename as QIDO-RS */,
+          OrthancPlugins::StowServer::PostCallback>(root + "studies");
+
+        OrthancPlugins::RegisterChunkedRestCallback<
+          RetrieveDicomStudy /* TODO => Rename as WADO-RS */,
+          OrthancPlugins::StowServer::PostCallback>(root + "studies/([^/]*)");
 
         OrthancPlugins::RegisterRestCallback<SearchForInstances>(root + "instances", true);
         OrthancPlugins::RegisterRestCallback<SearchForSeries>(root + "series", true);    
