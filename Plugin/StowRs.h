@@ -21,21 +21,42 @@
 
 #pragma once
 
+#include <Core/HttpServer/MultipartStreamReader.h>
 #include <Plugins/Samples/Common/OrthancPluginCppWrapper.h>
 
 namespace OrthancPlugins
 {
-  class StowServer : public MultipartRestCallback
+  class StowServer : 
+    public IChunkedRequestReader,
+    private Orthanc::MultipartStreamReader::IHandler
   {
   private:
-    class Handler;
-    
+    OrthancPluginContext*  context_;
+    bool                   xml_;
+    std::string            wadoBase_;
+    std::string            expectedStudy_;
+    bool                   isFirst_;
+    Json::Value            result_;
+    Json::Value            success_;
+    Json::Value            failed_;
+
+    std::auto_ptr<Orthanc::MultipartStreamReader>  parser_;
+
+    virtual void HandlePart(const Orthanc::MultipartStreamReader::HttpHeaders& headers,
+                            const void* part,
+                            size_t size);
+
   public:
-    virtual IHandler* CreateHandler(OrthancPluginHttpMethod method,
-                                    const std::string& url,
-                                    const std::string& contentType,
-                                    const std::string& subType,
-                                    const std::vector<std::string>& groups,
-                                    const std::map<std::string, std::string>& headers);
+    StowServer(OrthancPluginContext* context,
+               const std::map<std::string, std::string>& headers,
+               const std::string& expectedStudy);
+
+    virtual void AddChunk(const void* data,
+                          size_t size);
+
+    virtual void Execute(OrthancPluginRestOutput* output);
+
+    static IChunkedRequestReader* PostCallback(const char* url,
+                                               const OrthancPluginHttpRequest* request);
   };
 }

@@ -31,46 +31,55 @@
 #include <Core/Toolbox.h>
 
 
-void SwitchStudies(OrthancPluginRestOutput* output,
-                   const char* url,
-                   const OrthancPluginHttpRequest* request)
+OrthancPlugins::IChunkedRequestReader* SwitchStudies(OrthancPluginRestOutput* output,
+                                                     const char* url,
+                                                     const OrthancPluginHttpRequest* request)
 {
   switch (request->method)
   {
     case OrthancPluginHttpMethod_Get:
       // This is QIDO-RS
       SearchForStudies(output, url, request);
-      break;
+      return NULL;
 
     case OrthancPluginHttpMethod_Post:
-      // This is STOW-RS: This should have been processed by the MultipartRestCallback
+      // This is STOW-RS
+      return OrthancPlugins::StowServer::PostCallback(url, request);
 
     default:
-      OrthancPluginSendMethodNotAllowed(OrthancPlugins::GetGlobalContext(), output, "GET,POST");
-      break;
+      if (output != NULL)
+      {
+        OrthancPluginSendMethodNotAllowed(OrthancPlugins::GetGlobalContext(), output, "GET,POST");  // TODO
+      }
+      return NULL;
   }
 }
 
 
-void SwitchIndividualStudy(OrthancPluginRestOutput* output,
-                           const char* url,
-                           const OrthancPluginHttpRequest* request)
+OrthancPlugins::IChunkedRequestReader* SwitchIndividualStudy(OrthancPluginRestOutput* output,
+                                                             const char* url,
+                                                             const OrthancPluginHttpRequest* request)
 {
   switch (request->method)
   {
     case OrthancPluginHttpMethod_Get:
       // This is WADO-RS
       RetrieveDicomStudy(output, url, request);
-      break;
+      return NULL;
 
     case OrthancPluginHttpMethod_Post:
-      // This is STOW-RS: This should have been processed by the MultipartRestCallback
+      // This is STOW-RS
+      return OrthancPlugins::StowServer::PostCallback(url, request);
 
     default:
-      OrthancPluginSendMethodNotAllowed(OrthancPlugins::GetGlobalContext(), output, "GET,POST");
-      break;
+      if (output != NULL)
+      {
+        OrthancPluginSendMethodNotAllowed(OrthancPlugins::GetGlobalContext(), output, "GET,POST");  // TODO
+      }
+      return NULL;
   }
 }
+
 
 bool RequestHasKey(const OrthancPluginHttpRequest* request, const char* key)
 {
@@ -165,9 +174,6 @@ static bool DisplayPerformanceWarning(OrthancPluginContext* context)
   return true;
 }
 
-
-
-static OrthancPlugins::StowServer stowServer_;
 
 
 #include <boost/filesystem.hpp>
@@ -319,13 +325,11 @@ extern "C"
 
         OrthancPlugins::LogWarning("URI to the DICOMweb REST API: " + root);
 
-        stowServer_.Register(root + "studies");
-        stowServer_.Register(root + "studies/([^/]*)");
+        OrthancPlugins::RegisterChunkedRestCallback<SwitchStudies>(root + "studies");
+        OrthancPlugins::RegisterChunkedRestCallback<SwitchIndividualStudy>(root + "studies/([^/]*)");
 
         OrthancPlugins::RegisterRestCallback<SearchForInstances>(root + "instances", true);
         OrthancPlugins::RegisterRestCallback<SearchForSeries>(root + "series", true);    
-        OrthancPlugins::RegisterRestCallback<SwitchStudies>(root + "studies", true);
-        OrthancPlugins::RegisterRestCallback<SwitchIndividualStudy>(root + "studies/([^/]*)", true);
         OrthancPlugins::RegisterRestCallback<SearchForInstances>(root + "studies/([^/]*)/instances", true);    
         OrthancPlugins::RegisterRestCallback<RetrieveStudyMetadata>(root + "studies/([^/]*)/metadata", true);
         OrthancPlugins::RegisterRestCallback<SearchForSeries>(root + "studies/([^/]*)/series", true);    
