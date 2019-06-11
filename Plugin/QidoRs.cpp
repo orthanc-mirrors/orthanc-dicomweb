@@ -21,7 +21,6 @@
 
 #include "QidoRs.h"
 
-#include "StowRs.h"  // For IsXmlExpected()
 #include "Configuration.h"
 #include "DicomWebFormatter.h"
 

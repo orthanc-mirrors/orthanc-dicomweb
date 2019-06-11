@@ -275,13 +275,13 @@ extern "C"
 
         OrthancPlugins::LogWarning("URI to the DICOMweb REST API: " + root);
 
-        OrthancPlugins::RegisterChunkedRestCallback<
+        OrthancPlugins::ChunkedRestRegistration<
           SearchForStudies /* TODO => Rename as QIDO-RS */,
-          OrthancPlugins::StowServer::PostCallback>(root + "studies");
+          OrthancPlugins::StowServer::PostCallback>::Apply(root + "studies");
 
-        OrthancPlugins::RegisterChunkedRestCallback<
+        OrthancPlugins::ChunkedRestRegistration<
           RetrieveDicomStudy /* TODO => Rename as WADO-RS */,
-          OrthancPlugins::StowServer::PostCallback>(root + "studies/([^/]*)");
+          OrthancPlugins::StowServer::PostCallback>::Apply(root + "studies/([^/]*)");
 
         OrthancPlugins::RegisterRestCallback<SearchForInstances>(root + "instances", true);
         OrthancPlugins::RegisterRestCallback<SearchForSeries>(root + "series", true);    
