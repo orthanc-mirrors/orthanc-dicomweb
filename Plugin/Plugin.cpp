@@ -65,11 +65,7 @@ void ListServers(OrthancPluginRestOutput* output,
         Orthanc::WebServiceParameters server = OrthancPlugins::DicomWebServers::GetInstance().GetServer(*it);
         Json::Value jsonServer;
         // only return the minimum information to identify the destination, do not include "security" information like passwords
-        jsonServer["Url"] = server.GetUrl();
-        if (!server.GetUsername().empty())
-        {
-          jsonServer["Username"] = server.GetUsername();
-        }
+        server.FormatPublic(jsonServer);
         result[*it] = jsonServer;
       }
 
@@ -96,22 +92,52 @@ void ListServerOperations(OrthancPluginRestOutput* output,
 {
   OrthancPluginContext* context = OrthancPlugins::GetGlobalContext();
 
-  if (request->method != OrthancPluginHttpMethod_Get)
+  switch (request->method)
   {
-    OrthancPluginSendMethodNotAllowed(context, output, "GET");
-  }
-  else
-  {
-    // Make sure the server does exist
-    OrthancPlugins::DicomWebServers::GetInstance().GetServer(request->groups[0]);
+    case OrthancPluginHttpMethod_Get:
+    {
+      // Make sure the server does exist
+      OrthancPlugins::DicomWebServers::GetInstance().GetServer(request->groups[0]);
 
-    Json::Value json = Json::arrayValue;
-    json.append("get");
-    json.append("retrieve");
-    json.append("stow");
+      Json::Value json = Json::arrayValue;
+      json.append("get");
+      json.append("retrieve");
+      json.append("stow");
 
-    std::string answer = json.toStyledString(); 
-    OrthancPluginAnswerBuffer(context, output, answer.c_str(), answer.size(), "application/json");
+      std::string answer = json.toStyledString(); 
+      OrthancPluginAnswerBuffer(context, output, answer.c_str(), answer.size(), "application/json");
+      break;
+    }
+    
+    case OrthancPluginHttpMethod_Delete:
+    {
+      OrthancPlugins::DicomWebServers::GetInstance().DeleteServer(request->groups[0]);
+      std::string answer = "{}";
+      OrthancPluginAnswerBuffer(context, output, answer.c_str(), answer.size(), "application/json");
+      break;
+    }
+    
+    case OrthancPluginHttpMethod_Put:
+    {
+      Json::Value body;
+      Json::Reader reader;
+      if (!reader.parse(reinterpret_cast<const char*>(request->body),
+                        reinterpret_cast<const char*>(request->body) + request->bodySize, body))
+      {
+        throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
+      }
+      
+      Orthanc::WebServiceParameters parameters(body);
+      
+      OrthancPlugins::DicomWebServers::GetInstance().SetServer(request->groups[0], parameters);
+      std::string answer = "{}";
+      OrthancPluginAnswerBuffer(context, output, answer.c_str(), answer.size(), "application/json");
+      break;
+    }
+    
+    default:
+      OrthancPluginSendMethodNotAllowed(context, output, "GET,PUT,DELETE");
+      break;
   }
 }
 

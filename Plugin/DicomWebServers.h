@@ -61,6 +61,11 @@ namespace OrthancPlugins
     void ConfigureHttpClient(HttpClient& client,
                              const std::string& name,
                              const std::string& uri);
+
+    void DeleteServer(const std::string& name);
+
+    void SetServer(const std::string& name,
+                   const Orthanc::WebServiceParameters& parameters);
   };
 
 

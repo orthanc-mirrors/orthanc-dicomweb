@@ -120,6 +120,7 @@ namespace OrthancPlugins
                                             const std::string& name,
                                             const std::string& uri)
   {
+    boost::mutex::scoped_lock lock(mutex_);
     const Orthanc::WebServiceParameters parameters = GetServer(name);
 
     std::string url = parameters.GetUrl();
@@ -152,6 +153,45 @@ namespace OrthancPlugins
     }
   }    
 
+
+  void DicomWebServers::DeleteServer(const std::string& name)
+  {
+    boost::mutex::scoped_lock lock(mutex_);
+
+    Servers::iterator found = servers_.find(name);
+
+    if (found == servers_.end())
+    {
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_ParameterOutOfRange,
+                                      "Unknown DICOMweb server: " + name);
+    }
+    else
+    {
+      assert(found->second != NULL);
+      delete found->second;
+      servers_.erase(found);
+    }
+  }
+
+
+  void DicomWebServers::SetServer(const std::string& name,
+                                  const Orthanc::WebServiceParameters& parameters)
+  {
+    boost::mutex::scoped_lock lock(mutex_);
+
+    Servers::iterator found = servers_.find(name);
+
+    if (found != servers_.end())
+    {
+      assert(found->second != NULL);
+      delete found->second;
+      servers_.erase(found);
+    }
+
+    servers_[name] = new Orthanc::WebServiceParameters(parameters);
+  }
+
+  
 
   static const char* ConvertToCString(const std::string& s)
   {
