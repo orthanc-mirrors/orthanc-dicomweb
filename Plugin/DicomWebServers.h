@@ -57,6 +57,10 @@ namespace OrthancPlugins
     Orthanc::WebServiceParameters GetServer(const std::string& name);
 
     void ListServers(std::list<std::string>& servers);
+
+    void ConfigureHttpClient(HttpClient& client,
+                             const std::string& name,
+                             const std::string& uri);
   };
 
 

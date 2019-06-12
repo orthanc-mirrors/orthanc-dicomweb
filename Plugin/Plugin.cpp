@@ -139,7 +139,7 @@ private:
 public:
   StowClientBody() :
     position_(0),
-    boundary_(Orthanc::Toolbox::GenerateUuid())
+    boundary_(Orthanc::Toolbox::GenerateUuid() + "-" + Orthanc::Toolbox::GenerateUuid())
   {
     //boost::filesystem::path p("/home/jodogne/DICOM/Demo/KNIX/Knee (R)/AX.  FSE PD - 5");
     boost::filesystem::path p("/tmp/dicom");
@@ -198,31 +198,83 @@ ORTHANC_PLUGINS_API OrthancPluginErrorCode OnChangeCallback(OrthancPluginChangeT
   {
     try
     {
-      StowClientBody stow;
+#if 0
+      {
+        StowClientBody stow;
       
-      OrthancPlugins::HttpClient client;
-      client.SetUrl("http://localhost:8080/dicom-web/studies");
-      client.SetMethod(OrthancPluginHttpMethod_Post);
-      client.AddHeader("Accept", "application/dicom+json");
-      client.AddHeader("Expect", "");
-      client.AddHeader("Content-Type", "multipart/related; type=application/dicom; boundary=" + stow.GetBoundary());
-      client.SetTimeout(120);
-      client.SetBody(stow);
+        OrthancPlugins::HttpClient client;
+        client.SetUrl("http://localhost:8080/dicom-web/studies");
+        client.SetMethod(OrthancPluginHttpMethod_Post);
+        client.AddHeader("Accept", "application/dicom+json");
+        client.AddHeader("Expect", "");
+        client.AddHeader("Content-Type", "multipart/related; type=application/dicom; boundary=" + stow.GetBoundary());
+        client.SetTimeout(120);
+        client.SetBody(stow);
 
-      OrthancPlugins::HttpClient::HttpHeaders headers;
-      std::string answer;
-      client.Execute(headers, answer);
+        OrthancPlugins::HttpClient::HttpHeaders headers;
+        std::string answer;
+        client.Execute(headers, answer);
 
-      Json::Value v;
-      Json::Reader reader;
-      if (reader.parse(answer, v))
-      {
-        std::cout << v["00081190"].toStyledString() << std::endl;
+        Json::Value v;
+        Json::Reader reader;
+        if (reader.parse(answer, v))
+        {
+          std::cout << v["00081190"].toStyledString() << std::endl;
+        }
+        else
+        {
+          throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
+        }
       }
-      else
+#endif
+
+#if 0
       {
-        throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
+        OrthancPlugins::HttpClient client;
+        OrthancPlugins::DicomWebServers::GetInstance().ConfigureHttpClient(client, "google", "/studies");
+
+        OrthancPlugins::HttpClient::HttpHeaders headers;
+        Json::Value body;
+        client.Execute(headers, body);
+
+        std::cout << body.toStyledString() << std::endl;
       }
+#endif
+
+#if 0
+      {
+        OrthancPlugins::HttpClient client;
+        OrthancPlugins::DicomWebServers::GetInstance().ConfigureHttpClient(client, "self", "/studies");
+
+        client.SetMethod(OrthancPluginHttpMethod_Post);
+        client.AddHeader("Accept", "application/dicom+json");
+        client.AddHeader("Expect", "");
+
+        std::string boundary = Orthanc::Toolbox::GenerateUuid() + "-" + Orthanc::Toolbox::GenerateUuid();
+        client.AddHeader("Content-Type", "multipart/related; type=application/dicom; boundary=" + boundary);
+
+        std::string f;
+        Orthanc::SystemToolbox::ReadFile(f, "/home/jodogne/Subversion/orthanc-tests/Database/Encodings/DavidClunie/SCSI2"); // Korean
+        //Orthanc::SystemToolbox::ReadFile(f, "/home/jodogne/Subversion/orthanc-tests/Database/Encodings/DavidClunie/SCSH31"); // Kanji
+        //Orthanc::SystemToolbox::ReadFile(f, "/home/jodogne/DICOM/Alain.dcm");
+        
+        std::string body;
+        body += ("--" + boundary + "\r\nContent-Type: application/dicom\r\nContent-Length: " +
+                 boost::lexical_cast<std::string>(f.size()) + "\r\n\r\n");
+        body += f;
+        body += "\r\n--" + boundary + "--";
+
+        Orthanc::SystemToolbox::WriteFile(body, "/tmp/toto");
+        
+        client.SetBody(body);
+        
+        OrthancPlugins::HttpClient::HttpHeaders headers;
+        Json::Value answer;
+        client.Execute(headers, answer);
+
+        std::cout << answer.toStyledString() << std::endl;
+      }
+#endif
     }
     catch (Orthanc::OrthancException& e)
     {
@@ -262,7 +314,7 @@ extern "C"
       // Read the configuration
       OrthancPlugins::Configuration::Initialize();
 
-      //OrthancPluginRegisterOnChangeCallback(context, OnChangeCallback);  // TODO => REMOVE
+      OrthancPluginRegisterOnChangeCallback(context, OnChangeCallback);  // TODO => REMOVE
 
       // Initialize GDCM
       OrthancPlugins::GdcmParsedDicomFile::Initialize();

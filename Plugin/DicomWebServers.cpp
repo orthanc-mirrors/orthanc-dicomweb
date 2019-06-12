@@ -116,6 +116,43 @@ namespace OrthancPlugins
   }
 
 
+  void DicomWebServers::ConfigureHttpClient(HttpClient& client,
+                                            const std::string& name,
+                                            const std::string& uri)
+  {
+    const Orthanc::WebServiceParameters parameters = GetServer(name);
+
+    std::string url = parameters.GetUrl();
+    
+    if (url.empty() ||
+        url[url.size() - 1] != '/')
+    {
+      url += '/';
+    }
+    
+    std::string normalizedUri = uri;
+    while (!normalizedUri.empty() &&
+           normalizedUri[0] == '/')
+    {
+      normalizedUri = normalizedUri.substr(1);
+    }
+    
+    client.SetUrl(url + normalizedUri);
+
+    for (Orthanc::WebServiceParameters::Dictionary::const_iterator
+           it = parameters.GetHttpHeaders().begin();
+         it != parameters.GetHttpHeaders().end(); ++it)
+    {
+      client.AddHeader(it->first, it->second);
+    }
+
+    if (!parameters.GetUsername().empty())
+    {
+      client.SetCredentials(parameters.GetUsername(), parameters.GetPassword());
+    }
+  }    
+
+
   static const char* ConvertToCString(const std::string& s)
   {
     if (s.empty())
