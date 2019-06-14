@@ -27,6 +27,7 @@
 #include <list>
 #include <set>
 #include <boost/lexical_cast.hpp>
+#include <boost/algorithm/string/predicate.hpp>
 
 #include <Core/ChunkedBuffer.h>
 #include <Core/Toolbox.h>
@@ -366,9 +367,25 @@ static std::string RemoveMultipleSlashes(const std::string& source)
   std::string target;
   target.reserve(source.size());
 
+  size_t prefix = 0;
+  
+  if (boost::starts_with(source, "https://"))
+  {
+    prefix = 8;
+  }
+  else if (boost::starts_with(source, "http://"))
+  {
+    prefix = 7;
+  }
+
+  for (size_t i = 0; i < prefix; i++)
+  {
+    target.push_back(source[i]);
+  }
+
   bool isLastSlash = false;
 
-  for (size_t i = 0; i < source.size(); i++)
+  for (size_t i = prefix; i < source.size(); i++)
   {
     if (source[i] == '/')
     {
@@ -439,28 +456,10 @@ void GetFromServer(OrthancPluginRestOutput* output,
   {
     client.AddHeader(it->first, it->second);
   }
-
-  
   
   std::map<std::string, std::string> answerHeaders;
-
-  {
-    Json::Value answer;
-    client.Execute(answerHeaders, answer);
-
-    std::cout << answer.toStyledString() << std::endl;
-  }
-
-
-
-
-
-
-
-  OrthancPlugins::MemoryBuffer answerBody;
-
-
-  OrthancPlugins::CallServer(answerBody, answerHeaders, server, OrthancPluginHttpMethod_Get, server.GetHttpHeaders(), uri, "");
+  std::string answer;
+  client.Execute(answerHeaders, answer);
 
   std::string contentType = "application/octet-stream";
 
@@ -484,9 +483,8 @@ void GetFromServer(OrthancPluginRestOutput* output,
     }
   }
 
-  OrthancPluginAnswerBuffer(context, output, 
-                            reinterpret_cast<const char*>(answerBody.GetData()),
-                            answerBody.GetSize(), contentType.c_str());
+  OrthancPluginAnswerBuffer(context, output, answer.empty() ? NULL : answer.c_str(), 
+                            answer.size(), contentType.c_str());
 }
 
 
