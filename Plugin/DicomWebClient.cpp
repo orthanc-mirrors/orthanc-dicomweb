@@ -361,6 +361,34 @@ static bool GetStringValue(std::string& target,
 }
 
 
+static std::string RemoveMultipleSlashes(const std::string& source)
+{
+  std::string target;
+  target.reserve(source.size());
+
+  bool isLastSlash = false;
+
+  for (size_t i = 0; i < source.size(); i++)
+  {
+    if (source[i] == '/')
+    {
+      if (!isLastSlash)
+      {
+        target.push_back('/');
+        isLastSlash = true;
+      }
+    }
+    else
+    {
+      target.push_back(source[i]);
+      isLastSlash = false;
+    }
+  }
+
+  return target;
+}
+
+
 void GetFromServer(OrthancPluginRestOutput* output,
                    const char* /*url*/,
                    const OrthancPluginHttpRequest* request)
@@ -377,7 +405,8 @@ void GetFromServer(OrthancPluginRestOutput* output,
     return;
   }
 
-  Orthanc::WebServiceParameters server(OrthancPlugins::DicomWebServers::GetInstance().GetServer(request->groups[0]));
+  Orthanc::WebServiceParameters server(
+    OrthancPlugins::DicomWebServers::GetInstance().GetServer(request->groups[0]));
 
   std::string tmp;
   Json::Value body;
@@ -398,12 +427,40 @@ void GetFromServer(OrthancPluginRestOutput* output,
   std::string uri;
   OrthancPlugins::UriEncode(uri, tmp, getArguments);
 
-  std::map<std::string, std::string> httpHeaders;
-  OrthancPlugins::ParseAssociativeArray(httpHeaders, body, HTTP_HEADERS);
+  OrthancPlugins::HttpClient client;
+  client.SetUrl(RemoveMultipleSlashes(server.GetUrl() + "/" + uri));
+  client.SetHeaders(server.GetHttpHeaders());
+
+  std::map<std::string, std::string> additionalHeaders;
+  OrthancPlugins::ParseAssociativeArray(additionalHeaders, body, HTTP_HEADERS);
+
+  for (std::map<std::string, std::string>::const_iterator
+         it = additionalHeaders.begin(); it != additionalHeaders.end(); ++it)
+  {
+    client.AddHeader(it->first, it->second);
+  }
+
+  
+  
+  std::map<std::string, std::string> answerHeaders;
+
+  {
+    Json::Value answer;
+    client.Execute(answerHeaders, answer);
+
+    std::cout << answer.toStyledString() << std::endl;
+  }
+
+
+
+
+
+
 
   OrthancPlugins::MemoryBuffer answerBody;
-  std::map<std::string, std::string> answerHeaders;
-  OrthancPlugins::CallServer(answerBody, answerHeaders, server, OrthancPluginHttpMethod_Get, httpHeaders, uri, "");
+
+
+  OrthancPlugins::CallServer(answerBody, answerHeaders, server, OrthancPluginHttpMethod_Get, server.GetHttpHeaders(), uri, "");
 
   std::string contentType = "application/octet-stream";
 
