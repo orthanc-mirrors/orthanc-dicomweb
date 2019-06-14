@@ -45,6 +45,10 @@ namespace OrthancPlugins
     }
 
   public:
+    static void UriEncode(std::string& uri,
+                          const std::string& resource,
+                          const std::map<std::string, std::string>& getArguments);
+
     void Load(const Json::Value& configuration);
 
     ~DicomWebServers()
@@ -76,8 +80,4 @@ namespace OrthancPlugins
                   const std::map<std::string, std::string>& httpHeaders,
                   const std::string& uri,
                   const std::string& body);
-
-  void UriEncode(std::string& uri,
-                 const std::string& resource,
-                 const std::map<std::string, std::string>& getArguments);
 }

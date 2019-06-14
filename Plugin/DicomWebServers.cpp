@@ -25,6 +25,8 @@
 
 #include <Core/Toolbox.h>
 
+#include <boost/algorithm/string/predicate.hpp>
+
 namespace OrthancPlugins
 {
   void DicomWebServers::Clear()
@@ -116,36 +118,58 @@ namespace OrthancPlugins
   }
 
 
+  static std::string RemoveMultipleSlashes(const std::string& source)
+  {
+    std::string target;
+    target.reserve(source.size());
+
+    size_t prefix = 0;
+  
+    if (boost::starts_with(source, "https://"))
+    {
+      prefix = 8;
+    }
+    else if (boost::starts_with(source, "http://"))
+    {
+      prefix = 7;
+    }
+
+    for (size_t i = 0; i < prefix; i++)
+    {
+      target.push_back(source[i]);
+    }
+
+    bool isLastSlash = false;
+
+    for (size_t i = prefix; i < source.size(); i++)
+    {
+      if (source[i] == '/')
+      {
+        if (!isLastSlash)
+        {
+          target.push_back('/');
+          isLastSlash = true;
+        }
+      }
+      else
+      {
+        target.push_back(source[i]);
+        isLastSlash = false;
+      }
+    }
+
+    return target;
+  }
+
+
   void DicomWebServers::ConfigureHttpClient(HttpClient& client,
                                             const std::string& name,
                                             const std::string& uri)
   {
-    boost::mutex::scoped_lock lock(mutex_);
     const Orthanc::WebServiceParameters parameters = GetServer(name);
 
-    std::string url = parameters.GetUrl();
-    
-    if (url.empty() ||
-        url[url.size() - 1] != '/')
-    {
-      url += '/';
-    }
-    
-    std::string normalizedUri = uri;
-    while (!normalizedUri.empty() &&
-           normalizedUri[0] == '/')
-    {
-      normalizedUri = normalizedUri.substr(1);
-    }
-    
-    client.SetUrl(url + normalizedUri);
-
-    for (Orthanc::WebServiceParameters::Dictionary::const_iterator
-           it = parameters.GetHttpHeaders().begin();
-         it != parameters.GetHttpHeaders().end(); ++it)
-    {
-      client.AddHeader(it->first, it->second);
-    }
+    client.SetUrl(RemoveMultipleSlashes(parameters.GetUrl() + "/" + uri));
+    client.SetHeaders(parameters.GetHttpHeaders());
 
     if (!parameters.GetUsername().empty())
     {
@@ -329,9 +353,9 @@ namespace OrthancPlugins
   }
 
 
-  void UriEncode(std::string& uri,
-                 const std::string& resource,
-                 const std::map<std::string, std::string>& getArguments)
+  void DicomWebServers::UriEncode(std::string& uri,
+                                  const std::string& resource,
+                                  const std::map<std::string, std::string>& getArguments)
   {
     if (resource.find('?') != std::string::npos)
     {
