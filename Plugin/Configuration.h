@@ -70,6 +70,9 @@ namespace OrthancPlugins
                              const Json::Value& value,
                              const std::string& key);
 
+  void ParseAssociativeArray(std::map<std::string, std::string>& target,
+                             const Json::Value& value);
+
   bool ParseTag(Orthanc::DicomTag& target,
                 const std::string& name);
 

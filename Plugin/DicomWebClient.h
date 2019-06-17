@@ -32,6 +32,9 @@ void GetFromServer(OrthancPluginRestOutput* output,
                    const char* /*url*/,
                    const OrthancPluginHttpRequest* request);
 
+void GetFromServer(Json::Value& result,
+                   const OrthancPluginHttpRequest* request);
+
 void RetrieveFromServer(OrthancPluginRestOutput* output,
                         const char* /*url*/,
                         const OrthancPluginHttpRequest* request);

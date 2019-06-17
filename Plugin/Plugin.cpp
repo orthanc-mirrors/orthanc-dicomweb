@@ -103,6 +103,7 @@ void ListServerOperations(OrthancPluginRestOutput* output,
       json.append("get");
       json.append("retrieve");
       json.append("stow");
+      json.append("qido");
 
       std::string answer = json.toStyledString(); 
       OrthancPluginAnswerBuffer(context, output, answer.c_str(), answer.size(), "application/json");
@@ -138,6 +139,104 @@ void ListServerOperations(OrthancPluginRestOutput* output,
     default:
       OrthancPluginSendMethodNotAllowed(context, output, "GET,PUT,DELETE");
       break;
+  }
+}
+
+
+
+void QidoClient(OrthancPluginRestOutput* output,
+                const char* /*url*/,
+                const OrthancPluginHttpRequest* request)
+{
+  OrthancPluginContext* context = OrthancPlugins::GetGlobalContext();
+
+  if (request->method != OrthancPluginHttpMethod_Post)
+  {
+    OrthancPluginSendMethodNotAllowed(context, output, "POST");
+  }
+  else
+  {
+    Json::Value answer;
+    GetFromServer(answer, request);
+    
+    if (answer.type() != Json::arrayValue)
+    {
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);
+    }
+
+    Json::Value result = Json::arrayValue;
+    for (Json::Value::ArrayIndex i = 0; i < answer.size(); i++)
+    {
+      if (answer[i].type() != Json::objectValue)
+      {
+        throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);
+      }
+
+      Json::Value::Members tags = answer[i].getMemberNames();
+
+      Json::Value item = Json::objectValue;
+      
+      for (size_t j = 0; j < tags.size(); j++)
+      {
+        Orthanc::DicomTag tag(0, 0);
+        if (Orthanc::DicomTag::ParseHexadecimal(tag, tags[j].c_str()))
+        {
+          Json::Value value = Json::objectValue;
+          value["Group"] = tag.GetGroup();
+          value["Element"] = tag.GetElement();
+          
+          OrthancPlugins::OrthancString name;
+          name.Assign(OrthancPluginGetTagName(context, tag.GetGroup(), tag.GetElement(), NULL));
+
+          if (name.GetContent() != NULL)
+          {
+            value["Name"] = std::string(name.GetContent());
+          }
+
+          const Json::Value& source = answer[i][tags[j]];
+          if (source.type() != Json::objectValue ||
+              !source.isMember("vr") ||
+              source["vr"].type() != Json::stringValue)
+          {
+            throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);
+          }
+
+          value["vr"] = source["vr"].asString();
+
+          if (source.isMember("Value") &&
+              source["Value"].type() == Json::arrayValue &&
+              source["Value"].size() >= 1)
+          {
+            const Json::Value& content = source["Value"][0];
+
+            switch (content.type())
+            {
+              case Json::stringValue:
+                value["Value"] = content.asString();
+                break;
+
+              case Json::objectValue:
+                if (content.isMember("Alphabetic") &&
+                    content["Alphabetic"].type() == Json::stringValue)
+                {
+                  value["Value"] = content["Alphabetic"].asString();
+                }
+                break;
+
+              default:
+                break;
+            }
+          }
+
+          item[tags[j]] = value;
+        }
+      }
+
+      result.append(item);
+    }
+
+    std::string tmp = result.toStyledString();
+    OrthancPluginAnswerBuffer(context, output, tmp.c_str(), tmp.size(), "application/json");
   }
 }
 
@@ -380,6 +479,7 @@ extern "C"
         OrthancPlugins::RegisterRestCallback<StowClient>(root + "servers/([^/]*)/stow", true);
         OrthancPlugins::RegisterRestCallback<GetFromServer>(root + "servers/([^/]*)/get", true);
         OrthancPlugins::RegisterRestCallback<RetrieveFromServer>(root + "servers/([^/]*)/retrieve", true);
+        OrthancPlugins::RegisterRestCallback<QidoClient>(root + "servers/([^/]*)/qido", true);
       }
       else
       {

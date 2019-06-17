@@ -247,6 +247,39 @@ namespace OrthancPlugins
 
 
   void ParseAssociativeArray(std::map<std::string, std::string>& target,
+                             const Json::Value& value)
+  {
+    if (value.type() != Json::objectValue)
+    {
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat,
+                                      "This is not a JSON object");
+    }
+
+    if (value.type() != Json::objectValue)
+    {
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat,
+                                      "The JSON object is not a JSON associative array as expected");
+    }
+
+    Json::Value::Members names = value.getMemberNames();
+
+    for (size_t i = 0; i < names.size(); i++)
+    {
+      if (value[names[i]].type() != Json::stringValue)
+      {
+        throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat,
+                                        "Value \"" + names[i] + "\" in the associative array "
+                                        "is not a string as expected");
+      }
+      else
+      {
+        target[names[i]] = value[names[i]].asString();
+      }
+    }
+  }
+  
+
+  void ParseAssociativeArray(std::map<std::string, std::string>& target,
                              const Json::Value& value,
                              const std::string& key)
   {
@@ -256,34 +289,13 @@ namespace OrthancPlugins
                                       "This is not a JSON object");
     }
 
-    if (!value.isMember(key))
+    if (value.isMember(key))
     {
-      return;
+      ParseAssociativeArray(target, value[key]);
     }
-
-    const Json::Value& tmp = value[key];
-
-    if (tmp.type() != Json::objectValue)
+    else
     {
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat,
-                                      "The field \"" + key + "\" of a JSON object is "
-                                      "not a JSON associative array as expected");
-    }
-
-    Json::Value::Members names = tmp.getMemberNames();
-
-    for (size_t i = 0; i < names.size(); i++)
-    {
-      if (tmp[names[i]].type() != Json::stringValue)
-      {
-        throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat,
-                                        "Some value in the associative array \"" + key + 
-                                        "\" is not a string as expected");
-      }
-      else
-      {
-        target[names[i]] = tmp[names[i]].asString();
-      }
+      target.clear();
     }
   }
 

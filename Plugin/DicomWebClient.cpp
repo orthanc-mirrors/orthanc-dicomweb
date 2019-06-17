@@ -659,21 +659,16 @@ static bool GetStringValue(std::string& target,
 
 
 
-
-void GetFromServer(OrthancPluginRestOutput* output,
-                   const char* /*url*/,
-                   const OrthancPluginHttpRequest* request)
+static void ConfigureGetFromServer(OrthancPlugins::HttpClient& client,
+                                   const OrthancPluginHttpRequest* request)
 {
   static const char* URI = "Uri";
   static const char* HTTP_HEADERS = "HttpHeaders";
   static const char* GET_ARGUMENTS = "Arguments";
 
-  OrthancPluginContext* context = OrthancPlugins::GetGlobalContext();
-
   if (request->method != OrthancPluginHttpMethod_Post)
   {
-    OrthancPluginSendMethodNotAllowed(context, output, "POST");
-    return;
+    throw Orthanc::OrthancException(Orthanc::ErrorCode_ParameterOutOfRange);
   }
 
   std::string tmp;
@@ -695,12 +690,29 @@ void GetFromServer(OrthancPluginRestOutput* output,
   std::string uri;
   OrthancPlugins::DicomWebServers::UriEncode(uri, tmp, getArguments);
 
-  OrthancPlugins::HttpClient client;
   OrthancPlugins::DicomWebServers::GetInstance().ConfigureHttpClient(client, request->groups[0], uri);
 
   std::map<std::string, std::string> additionalHeaders;
   OrthancPlugins::ParseAssociativeArray(additionalHeaders, body, HTTP_HEADERS);
   client.AddHeaders(additionalHeaders);
+}
+
+
+
+void GetFromServer(OrthancPluginRestOutput* output,
+                   const char* /*url*/,
+                   const OrthancPluginHttpRequest* request)
+{
+  OrthancPluginContext* context = OrthancPlugins::GetGlobalContext();
+
+  if (request->method != OrthancPluginHttpMethod_Post)
+  {
+    OrthancPluginSendMethodNotAllowed(context, output, "POST");
+    return;
+  }
+
+  OrthancPlugins::HttpClient client;
+  ConfigureGetFromServer(client, request);
   
   std::map<std::string, std::string> answerHeaders;
   std::string answer;
@@ -731,6 +743,18 @@ void GetFromServer(OrthancPluginRestOutput* output,
   OrthancPluginAnswerBuffer(context, output, answer.empty() ? NULL : answer.c_str(), 
                             answer.size(), contentType.c_str());
 }
+
+
+void GetFromServer(Json::Value& result,
+                   const OrthancPluginHttpRequest* request)
+{
+  OrthancPlugins::HttpClient client;
+  ConfigureGetFromServer(client, request);
+
+  std::map<std::string, std::string> answerHeaders;
+  client.Execute(answerHeaders, result);
+}
+
 
 
 
