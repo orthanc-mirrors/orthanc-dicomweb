@@ -728,9 +728,11 @@ void GetFromServer(OrthancPluginRestOutput* output,
     {
       contentType = it->second;
     }
-    else if (key == "transfer-encoding")
+    else if (key == "transfer-encoding" ||
+             key == "content-length" ||
+             key == "connection")
     {
-      // Do not forward this header
+      // Do not forward these headers
     }
     else
     {
