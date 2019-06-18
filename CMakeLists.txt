@@ -45,8 +45,8 @@ set(USE_SYSTEM_ORTHANC_SDK ON CACHE BOOL "Use the system version of the Orthanc 
 set(ORTHANC_SDK_VERSION "1.5.4" CACHE STRING "Version of the Orthanc plugin SDK to use, if not using the system version (can be \"1.5.4\", or \"framework\")")
 
 
-set(BUILD_BOOTSTRAP_VUE ON CACHE BOOL "Compile Bootstrap-Vue from sources")
-set(BUILD_BABEL_POLYFILL ON CACHE BOOL "Retrieve babel-polyfill from npm")
+set(BUILD_BOOTSTRAP_VUE OFF CACHE BOOL "Compile Bootstrap-Vue from sources")
+set(BUILD_BABEL_POLYFILL OFF CACHE BOOL "Retrieve babel-polyfill from npm")
 
 
 
