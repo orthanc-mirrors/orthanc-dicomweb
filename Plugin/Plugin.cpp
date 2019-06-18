@@ -97,13 +97,21 @@ void ListServerOperations(OrthancPluginRestOutput* output,
     case OrthancPluginHttpMethod_Get:
     {
       // Make sure the server does exist
-      OrthancPlugins::DicomWebServers::GetInstance().GetServer(request->groups[0]);
+      const Orthanc::WebServiceParameters& server = 
+        OrthancPlugins::DicomWebServers::GetInstance().GetServer(request->groups[0]);
 
       Json::Value json = Json::arrayValue;
       json.append("get");
       json.append("retrieve");
       json.append("stow");
       json.append("qido");
+
+      std::string value;
+      if (server.LookupUserProperty(value, "HasDelete") &&
+          value == "1")
+      {
+        json.append("delete");
+      }
 
       std::string answer = json.toStyledString(); 
       OrthancPluginAnswerBuffer(context, output, answer.c_str(), answer.size(), "application/json");
@@ -121,12 +129,7 @@ void ListServerOperations(OrthancPluginRestOutput* output,
     case OrthancPluginHttpMethod_Put:
     {
       Json::Value body;
-      Json::Reader reader;
-      if (!reader.parse(reinterpret_cast<const char*>(request->body),
-                        reinterpret_cast<const char*>(request->body) + request->bodySize, body))
-      {
-        throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
-      }
+      OrthancPlugins::ParseJsonBody(body, request);
       
       Orthanc::WebServiceParameters parameters(body);
       
@@ -238,6 +241,119 @@ void QidoClient(OrthancPluginRestOutput* output,
     }
 
     std::string tmp = result.toStyledString();
+    OrthancPluginAnswerBuffer(context, output, tmp.c_str(), tmp.size(), "application/json");
+  }
+}
+
+
+void DeleteClient(OrthancPluginRestOutput* output,
+                const char* /*url*/,
+                const OrthancPluginHttpRequest* request)
+{
+  OrthancPluginContext* context = OrthancPlugins::GetGlobalContext();
+
+  if (request->method != OrthancPluginHttpMethod_Post)
+  {
+    OrthancPluginSendMethodNotAllowed(context, output, "POST");
+  }
+  else
+  {
+    static const char* const LEVEL = "Level";
+    static const char* const HAS_DELETE = "HasDelete";
+    static const char* const SERIES_INSTANCE_UID = "SeriesInstanceUID";
+    static const char* const STUDY_INSTANCE_UID = "StudyInstanceUID";
+    static const char* const SOP_INSTANCE_UID = "SOPInstanceUID";
+
+    const std::string serverName = request->groups[0];
+
+    const Orthanc::WebServiceParameters& server = 
+      OrthancPlugins::DicomWebServers::GetInstance().GetServer(serverName);
+
+    std::string value;
+    if (server.LookupUserProperty(value, HAS_DELETE) &&
+        value != "1")
+    {
+      throw Orthanc::OrthancException(
+        Orthanc::ErrorCode_BadFileFormat,
+        "Cannot delete on DICOMweb server, check out property \"HasDelete\": " + serverName);
+    }
+
+    Json::Value body;
+    OrthancPlugins::ParseJsonBody(body, request);
+
+    if (body.type() != Json::objectValue ||
+        !body.isMember(LEVEL) ||
+        !body.isMember(STUDY_INSTANCE_UID) ||
+        body[LEVEL].type() != Json::stringValue ||
+        body[STUDY_INSTANCE_UID].type() != Json::stringValue)
+    {
+      throw Orthanc::OrthancException(
+        Orthanc::ErrorCode_BadFileFormat,
+        "The request body must contain a JSON object with fields \"Level\" and \"StudyInstanceUID\"");
+    }
+
+    Orthanc::ResourceType level = Orthanc::StringToResourceType(body[LEVEL].asCString());
+
+    const std::string study = body[STUDY_INSTANCE_UID].asString();
+
+    std::string series;    
+    if (level == Orthanc::ResourceType_Series ||
+        level == Orthanc::ResourceType_Instance)
+    {
+      if (!body.isMember(SERIES_INSTANCE_UID) ||
+          body[SERIES_INSTANCE_UID].type() != Json::stringValue)
+      {
+        throw Orthanc::OrthancException(
+          Orthanc::ErrorCode_BadFileFormat,
+          "The request body must contain the field \"SeriesInstanceUID\"");
+      }
+      else
+      {
+        series = body[SERIES_INSTANCE_UID].asString();
+      }
+    }
+
+    std::string instance;    
+    if (level == Orthanc::ResourceType_Instance)
+    {
+      if (!body.isMember(SOP_INSTANCE_UID) ||
+          body[SOP_INSTANCE_UID].type() != Json::stringValue)
+      {
+        throw Orthanc::OrthancException(
+          Orthanc::ErrorCode_BadFileFormat,
+          "The request body must contain the field \"SOPInstanceUID\"");
+      }
+      else
+      {
+        instance = body[SOP_INSTANCE_UID].asString();
+      }
+    }
+
+    std::string uri;
+    switch (level)
+    {
+      case Orthanc::ResourceType_Study:
+        uri = "/studies/" + study;
+        break;
+
+      case Orthanc::ResourceType_Series:
+        uri = "/studies/" + study + "/series/" + series;
+        break;
+
+      case Orthanc::ResourceType_Instance:
+        uri = "/studies/" + study + "/series/" + series + "/instances/" + instance;
+        break;
+
+      default:
+        throw Orthanc::OrthancException(Orthanc::ErrorCode_ParameterOutOfRange);
+    }
+
+    OrthancPlugins::HttpClient client;
+    OrthancPlugins::DicomWebServers::GetInstance().ConfigureHttpClient(client, serverName, uri);
+    client.SetMethod(OrthancPluginHttpMethod_Delete);
+    client.Execute();
+
+    std::string tmp = "{}";
     OrthancPluginAnswerBuffer(context, output, tmp.c_str(), tmp.size(), "application/json");
   }
 }
@@ -482,6 +598,7 @@ extern "C"
         OrthancPlugins::RegisterRestCallback<GetFromServer>(root + "servers/([^/]*)/get", true);
         OrthancPlugins::RegisterRestCallback<RetrieveFromServer>(root + "servers/([^/]*)/retrieve", true);
         OrthancPlugins::RegisterRestCallback<QidoClient>(root + "servers/([^/]*)/qido", true);
+        OrthancPlugins::RegisterRestCallback<DeleteClient>(root + "servers/([^/]*)/delete", true);
       }
       else
       {

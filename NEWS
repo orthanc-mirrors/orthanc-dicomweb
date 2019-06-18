@@ -5,6 +5,7 @@ Pending changes in the mainline
   (provided the SDK version is above 1.5.7)
 * Handling of the HTTP header "Forwarded" for WADO-RS
 * New URI: /dicom-web/servers/.../qido
+* New URI: /dicom-web/servers/.../delete
 
 
 Version 0.6 (2019-02-27)

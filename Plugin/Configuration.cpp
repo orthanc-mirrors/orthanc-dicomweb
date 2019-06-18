@@ -317,6 +317,19 @@ namespace OrthancPlugins
   }
 
 
+  void ParseJsonBody(Json::Value& target,
+                     const OrthancPluginHttpRequest* request)
+  {
+    Json::Reader reader;
+    if (!reader.parse(reinterpret_cast<const char*>(request->body),
+                      reinterpret_cast<const char*>(request->body) + request->bodySize, target))
+    {
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat,
+                                      "A JSON file was expected");
+    }
+  }
+
+
   namespace Configuration
   {
     // Assume Latin-1 encoding by default (as in the Orthanc core)

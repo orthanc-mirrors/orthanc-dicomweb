@@ -159,10 +159,9 @@ static void ParseStowRequest(std::list<std::string>& instances /* out */,
   static const char* HTTP_HEADERS = "HttpHeaders";
 
   Json::Value body;
-  Json::Reader reader;
-  if (!reader.parse(reinterpret_cast<const char*>(request->body),
-                    reinterpret_cast<const char*>(request->body) + request->bodySize, body) ||
-      body.type() != Json::objectValue ||
+  OrthancPlugins::ParseJsonBody(body, request);
+
+  if (body.type() != Json::objectValue ||
       !body.isMember(RESOURCES) ||
       body[RESOURCES].type() != Json::arrayValue)
   {
@@ -671,12 +670,11 @@ static void ConfigureGetFromServer(OrthancPlugins::HttpClient& client,
     throw Orthanc::OrthancException(Orthanc::ErrorCode_ParameterOutOfRange);
   }
 
-  std::string tmp;
   Json::Value body;
-  Json::Reader reader;
-  if (!reader.parse(reinterpret_cast<const char*>(request->body),
-                    reinterpret_cast<const char*>(request->body) + request->bodySize, body) ||
-      body.type() != Json::objectValue ||
+  OrthancPlugins::ParseJsonBody(body, request);
+
+  std::string tmp;
+  if (body.type() != Json::objectValue ||
       !GetStringValue(tmp, body, URI))
   {
     throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat,
@@ -977,10 +975,9 @@ void RetrieveFromServer(OrthancPluginRestOutput* output,
   Orthanc::WebServiceParameters server(OrthancPlugins::DicomWebServers::GetInstance().GetServer(request->groups[0]));
 
   Json::Value body;
-  Json::Reader reader;
-  if (!reader.parse(reinterpret_cast<const char*>(request->body),
-                    reinterpret_cast<const char*>(request->body) + request->bodySize, body) ||
-      body.type() != Json::objectValue ||
+  OrthancPlugins::ParseJsonBody(body, request);
+
+  if (body.type() != Json::objectValue ||
       !body.isMember(RESOURCES) ||
       body[RESOURCES].type() != Json::arrayValue)
   {

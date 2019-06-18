@@ -76,6 +76,9 @@ namespace OrthancPlugins
   bool ParseTag(Orthanc::DicomTag& target,
                 const std::string& name);
 
+  void ParseJsonBody(Json::Value& target,
+                     const OrthancPluginHttpRequest* request);
+
   namespace Configuration
   {
     void Initialize();
