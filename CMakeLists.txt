@@ -45,6 +45,10 @@ set(USE_SYSTEM_ORTHANC_SDK ON CACHE BOOL "Use the system version of the Orthanc 
 set(ORTHANC_SDK_VERSION "1.5.4" CACHE STRING "Version of the Orthanc plugin SDK to use, if not using the system version (can be \"1.5.4\", or \"framework\")")
 
 
+set(BUILD_BOOTSTRAP_VUE ON CACHE BOOL "Compile Bootstrap-Vue from sources")
+set(BUILD_BABEL_POLYFILL ON CACHE BOOL "Retrieve babel-polyfill from npm")
+
+
 
 # Download and setup the Orthanc framework
 include(${CMAKE_SOURCE_DIR}/Resources/Orthanc/DownloadOrthancFramework.cmake)
@@ -61,6 +65,7 @@ include(${ORTHANC_ROOT}/Resources/CMake/OrthancFrameworkConfiguration.cmake)
 include_directories(${ORTHANC_ROOT})
 
 include(${CMAKE_SOURCE_DIR}/Resources/CMake/GdcmConfiguration.cmake)
+include(${CMAKE_SOURCE_DIR}/Resources/CMake/JavaScriptLibraries.cmake)
 
 
 if (STATIC_BUILD OR NOT USE_SYSTEM_ORTHANC_SDK)
@@ -109,11 +114,18 @@ if (APPLE)
 endif()
 
 
+EmbedResources(
+  --no-upcase-check
+  JAVASCRIPT_LIBS  ${JAVASCRIPT_LIBS_DIR}
+  )
+
+
 include_directories(${ORTHANC_ROOT}/Core)  # To access "OrthancException.h"
 
 add_definitions(
   -DHAS_ORTHANC_EXCEPTION=1
   -DORTHANC_ENABLE_LOGGING_PLUGIN=1
+  -DDICOMWEB_CLIENT_PATH="${CMAKE_SOURCE_DIR}/WebApplication/"
   )
 
 set(CORE_SOURCES

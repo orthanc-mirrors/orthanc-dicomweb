@@ -18,7 +18,6 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  **/
 
-
 #include "DicomWebClient.h"
 #include "DicomWebServers.h"
 #include "GdcmParsedDicomFile.h"
@@ -28,7 +27,10 @@
 #include "WadoUri.h"
 
 #include <Plugins/Samples/Common/OrthancPluginCppWrapper.h>
+#include <Core/SystemToolbox.h>
 #include <Core/Toolbox.h>
+
+#include <EmbeddedResources.h>
 
 
 bool RequestHasKey(const OrthancPluginHttpRequest* request, const char* key)
@@ -529,6 +531,54 @@ ORTHANC_PLUGINS_API OrthancPluginErrorCode OnChangeCallback(OrthancPluginChangeT
 }
 
 
+template <enum Orthanc::EmbeddedResources::DirectoryResourceId folder>
+void ServeEmbeddedFolder(OrthancPluginRestOutput* output,
+                         const char* url,
+                         const OrthancPluginHttpRequest* request)
+{
+  OrthancPluginContext* context = OrthancPlugins::GetGlobalContext();
+
+  if (request->method != OrthancPluginHttpMethod_Get)
+  {
+    OrthancPluginSendMethodNotAllowed(context, output, "GET");
+  }
+  else
+  {
+    std::string path = "/" + std::string(request->groups[0]);
+    const char* mime = Orthanc::EnumerationToString(Orthanc::SystemToolbox::AutodetectMimeType(path));
+
+    std::string s;
+    Orthanc::EmbeddedResources::GetDirectoryResource(s, folder, path.c_str());
+
+    const char* resource = s.size() ? s.c_str() : NULL;
+    OrthancPluginAnswerBuffer(context, output, resource, s.size(), mime);
+  }
+}
+
+
+void ServeDicomWebClient(OrthancPluginRestOutput* output,
+                         const char* url,
+                         const OrthancPluginHttpRequest* request)
+{
+  OrthancPluginContext* context = OrthancPlugins::GetGlobalContext();
+
+  if (request->method != OrthancPluginHttpMethod_Get)
+  {
+    OrthancPluginSendMethodNotAllowed(context, output, "GET");
+  }
+  else
+  {
+    const std::string path = std::string(DICOMWEB_CLIENT_PATH) + std::string(request->groups[0]);
+    const char* mime = Orthanc::EnumerationToString(Orthanc::SystemToolbox::AutodetectMimeType(path));
+
+    OrthancPlugins::MemoryBuffer f;
+    f.ReadFile(path);
+
+    OrthancPluginAnswerBuffer(context, output, f.GetData(), f.GetSize(), mime);
+  }
+}
+
+
 extern "C"
 {
   ORTHANC_PLUGINS_API int32_t OrthancPluginInitialize(OrthancPluginContext* context)
@@ -599,6 +649,15 @@ extern "C"
         OrthancPlugins::RegisterRestCallback<RetrieveFromServer>(root + "servers/([^/]*)/retrieve", true);
         OrthancPlugins::RegisterRestCallback<QidoClient>(root + "servers/([^/]*)/qido", true);
         OrthancPlugins::RegisterRestCallback<DeleteClient>(root + "servers/([^/]*)/delete", true);
+
+        OrthancPlugins::RegisterRestCallback
+          <ServeEmbeddedFolder<Orthanc::EmbeddedResources::JAVASCRIPT_LIBS> >
+          (root + "app/libs/(.*)", true);
+
+        OrthancPlugins::RegisterRestCallback<ServeDicomWebClient>(root + "app/client/(.*)", true);
+
+        std::string uri = root + "app/client/index.html";
+        OrthancPluginSetRootUri(context, uri.c_str());
       }
       else
       {

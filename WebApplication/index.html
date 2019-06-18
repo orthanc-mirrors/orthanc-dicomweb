@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <title>Orthanc - DICOMweb client</title>
+
+    <!-- Add Bootstrap and Bootstrap-Vue CSS to the <head> section -->
+    <link type="text/css" rel="stylesheet" href="../libs/css/bootstrap.min.css"/>
+    <link type="text/css" rel="stylesheet" href="../libs/css/bootstrap-vue.min.css"/>
+    <link type="text/css" rel="stylesheet" href="../libs/css/font-awesome.min.css"/>
+    
+    <script src="../libs/js/polyfill.min.js"></script>
+   
+    <!-- CSS style to truncate long text in tables, provided they have
+         class "table-layout:fixed;" or attribute ":fixed=true" -->
+    <style>
+      table td { 
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      }
+    </style>
+    
+  </head>
+  <body>
+    <div class="container" id="app">
+      <p style="height:1em"></p>
+
+      <div class="jumbotron">
+        <div class="row">
+          <div class="col-sm-8">
+            <h1 class="display-4">DICOMweb client</h1>
+            <p class="lead">
+              This is a simple interface to the DICOMweb servers that are
+              configured in Orthanc.
+            </p>
+            <p>
+              <a class="btn btn-primary btn-lg"
+                 href="https://book.orthanc-server.com/plugins/dicomweb.html"
+                 target="_blank" role="button">Open documentation</a>
+            </p>
+          </div>
+          <div class="col-sm-4">
+            <img class="img-fluid" alt="Orthanc" src="../libs/img/OrthancLogo.png" />
+          </div>
+        </div>
+      </div>
+
+
+
+      <!-- LOOKUP -->
+
+      <div class="row">
+        <b-alert variant="danger" dismissible v-model="showNoServer">
+          No DICOMweb server is configured!
+        </b-alert>
+        <b-form style="width:100%;padding:5px;">
+          <b-form-group label="DICOMweb server:" label-cols-sm="4" label-cols-lg="3">
+            <b-form-select v-model="lookup.server" :options="servers"></b-form-select>
+          </b-form-group>
+          <b-form-group label="Patient ID:" label-cols-sm="4" label-cols-lg="3">
+            <b-form-input v-model="lookup.patientID"></b-form-input>
+          </b-form-group>
+          <b-form-group label="Patient name:" label-cols-sm="4" label-cols-lg="3">
+            <b-form-input v-model="lookup.patientName"></b-form-input>
+          </b-form-group>
+          <b-form-group label="Accession number:" label-cols-sm="4" label-cols-lg="3">
+            <b-form-input v-model="lookup.accessionNumber"></b-form-input>
+          </b-form-group>
+          <b-form-group label="Study date:" label-cols-sm="4" label-cols-lg="3">
+            <b-form-input v-model="lookup.studyDate"></b-form-input>
+          </b-form-group>
+          <p class="pull-right">
+          <b-button type="submit" variant="success" @click="OnLookup" 
+                    size="lg">Do lookup</b-button>
+          <b-button type="success" variant="primary" @click="OnAllStudies" 
+                    size="lg">All studies</b-button>
+          <b-button type="reset" variant="outline-danger" @click="OnReset" 
+                    size="lg">Reset</b-button>
+          </p>
+        </b-form>
+      </div>
+      <hr/>
+
+
+      <!-- STUDIES -->
+
+      <div ref="studies-top"></div>
+
+      <div class="row" v-show="showStudies">
+        <h1>Studies</h1>
+      </div>
+      <div class="row" v-show="showStudies">
+        <b-alert variant="warning" dismissible v-model="showTruncatedStudies">
+          More than {{ maxResults }} matching studies, results have been truncated!
+        </b-alert>
+      </div>
+      <div class="row" v-show="showStudies">
+        <b-pagination v-model="currentPage" :per-page="perPage" :total-rows="studiesCount"></b-pagination>
+        <b-table striped hover :current-page="currentPage" :per-page="perPage"
+                 :items="studies" :fields="studiesFields" :fixed="false">
+          <template slot="operations" slot-scope="data">
+            <b-button @click="OpenSeries(data.item)" title="Open series"><i class="fa fa-folder-open"></i></b-button>
+            <b-button @click="OpenStudyDetails(data.item)" title="Open tags"><i class="fa fa-address-card"></i></b-button>
+            <b-button title="Retrieve study using WADO-RS"><i class="fa fa-cloud-download"></i></b-button>
+            <b-button @click="ConfirmDeleteStudy(data.item)"
+                      v-if="serversInfo[lookup.server].HasDelete" title="Delete remote study">
+              <i class="fa fa-times"></i>
+            </b-button>
+          </template>
+        </b-table>
+
+        <b-modal ref="study-details" size="xl" ok-only="true">
+          <template slot="modal-title">
+            Details of study
+          </template>
+          <div class="d-block text-center">
+            <b-table striped :items="studyTags" :fields="studyTagsFields" :fixed="true">
+            </b-table>
+          </div>
+        </b-modal>
+
+        <b-modal id="study-delete-confirm" size="xl" @ok="ExecuteDeleteStudy">
+          <template slot="modal-title">
+            Confirm deletion
+          </template>
+          <div class="d-block">
+            <p>
+              Are you sure you want to remove this study from the remote server?
+            </p>
+            <p>
+              Patient name: {{ studyToDelete && studyToDelete['00100010'] && studyToDelete['00100010'].Value }}
+            </p>
+          </div>
+        </b-modal>
+      </div>
+
+
+      <!-- SERIES -->
+
+      <div ref="series-top"></div>
+
+      <div class="row" v-show="showSeries">
+        <h1>Series</h1>
+      </div>
+      <div class="row" v-show="showSeries">
+        <b-pagination v-model="currentPage" :per-page="perPage" :total-rows="seriesCount"></b-pagination>
+        <b-table striped hover :current-page="currentPage" :per-page="perPage"
+                 :items="series" :fields="seriesFields" :fixed="false">
+          <template slot="operations" slot-scope="data">
+            <b-button @click="OpenSeriesPreview(data.item)" title="Preview"><i class="fa fa-eye"></i></b-button>
+            <b-button @click="OpenSeriesDetails(data.item)" title="Open tags"><i class="fa fa-address-card"></i></b-button>
+            <b-button title="Retrieve series using WADO-RS"><i class="fa fa-cloud-download"></i></b-button>
+            <b-button @click="ConfirmDeleteSeries(data.item)"
+                      v-if="serversInfo[lookup.server].HasDelete" title="Delete remote series">
+              <i class="fa fa-times"></i>
+            </b-button>
+          </template>
+        </b-table>
+
+        <b-modal ref="series-details" size="xl" ok-only="true">
+          <template slot="modal-title">
+            Details of series
+          </template>
+          <div class="d-block text-center">
+            <b-table striped :items="seriesTags" :fields="seriesTagsFields" :fixed="true">
+            </b-table>
+          </div>
+        </b-modal>
+
+        <b-modal ref="series-preview" size="xl" ok-only="true">
+          <template slot="modal-title">
+            Preview of series
+          </template>
+          <div class="d-block text-center">
+            <b-alert variant="danger" v-model="previewFailure">
+              The remote DICOMweb server cannot generate a preview for this image.
+            </b-alert>
+            <b-img v-if="!previewFailure" :src="preview" fluid alt=""></b-img>
+          </div>
+        </b-modal>
+
+        <b-modal id="series-delete-confirm" size="xl" @ok="ExecuteDeleteSeries">
+          <template slot="modal-title">
+            Confirm deletion
+          </template>
+          <div class="d-block">
+            <p>
+              Are you sure you want to remove this series from the remote server?
+            </p>
+            <p>
+              Series description: {{ seriesToDelete && seriesToDelete['0008103E'] && seriesToDelete['0008103E'].Value }}
+            </p>
+          </div>
+        </b-modal>
+      </div>
+
+      <p style="height:5em"></p>
+    </div>
+
+    <!-- Add Vue and Bootstrap-Vue JS just before the closing </body> tag -->
+    <script src="../libs/js/vue.min.js"></script>
+    <script src="../libs/js/bootstrap-vue.min.js"></script>
+    <script src="../libs/js/axios.min.js"></script>
+    <script type="text/javascript" src="app.js"></script>
+  </body>
+</html>
