@@ -185,13 +185,15 @@ void QidoClient(OrthancPluginRestOutput* output,
           value["Group"] = tag.GetGroup();
           value["Element"] = tag.GetElement();
           
+#if ORTHANC_PLUGINS_VERSION_IS_ABOVE(1, 5, 7)
           OrthancPlugins::OrthancString name;
-          name.Assign(OrthancPluginGetTagName(context, tag.GetGroup(), tag.GetElement(), NULL));
 
+          name.Assign(OrthancPluginGetTagName(context, tag.GetGroup(), tag.GetElement(), NULL));
           if (name.GetContent() != NULL)
           {
             value["Name"] = std::string(name.GetContent());
           }
+#endif
 
           const Json::Value& source = answer[i][tags[j]];
           if (source.type() != Json::objectValue ||
