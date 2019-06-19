@@ -118,50 +118,6 @@ namespace OrthancPlugins
   }
 
 
-  static std::string RemoveMultipleSlashes(const std::string& source)
-  {
-    std::string target;
-    target.reserve(source.size());
-
-    size_t prefix = 0;
-  
-    if (boost::starts_with(source, "https://"))
-    {
-      prefix = 8;
-    }
-    else if (boost::starts_with(source, "http://"))
-    {
-      prefix = 7;
-    }
-
-    for (size_t i = 0; i < prefix; i++)
-    {
-      target.push_back(source[i]);
-    }
-
-    bool isLastSlash = false;
-
-    for (size_t i = prefix; i < source.size(); i++)
-    {
-      if (source[i] == '/')
-      {
-        if (!isLastSlash)
-        {
-          target.push_back('/');
-          isLastSlash = true;
-        }
-      }
-      else
-      {
-        target.push_back(source[i]);
-        isLastSlash = false;
-      }
-    }
-
-    return target;
-  }
-
-
   void DicomWebServers::ConfigureHttpClient(HttpClient& client,
                                             const std::string& name,
                                             const std::string& uri)

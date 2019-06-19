@@ -79,6 +79,8 @@ namespace OrthancPlugins
   void ParseJsonBody(Json::Value& target,
                      const OrthancPluginHttpRequest* request);
 
+  std::string RemoveMultipleSlashes(const std::string& source);
+
   namespace Configuration
   {
     void Initialize();
@@ -92,7 +94,9 @@ namespace OrthancPlugins
     unsigned int GetUnsignedIntegerValue(const std::string& key,
                                          unsigned int defaultValue);
 
-    std::string GetRoot();
+    std::string GetDicomWebRoot();
+
+    std::string GetOrthancApiRoot();
 
     std::string GetWadoRoot();
       

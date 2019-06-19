@@ -114,9 +114,21 @@ if (APPLE)
 endif()
 
 
+
+if (STANDALONE_BUILD)
+  add_definitions(-DORTHANC_STANDALONE=1)
+  set(ADDITIONAL_RESOURCES
+    ORTHANC_EXPLORER  ${CMAKE_SOURCE_DIR}/Plugin/OrthancExplorer.js
+    WEB_APPLICATION   ${CMAKE_SOURCE_DIR}/WebApplication/
+    )
+else()
+  add_definitions(-DORTHANC_STANDALONE=0)
+endif()
+
 EmbedResources(
   --no-upcase-check
-  JAVASCRIPT_LIBS  ${JAVASCRIPT_LIBS_DIR}
+  ${ADDITIONAL_RESOURCES}
+  JAVASCRIPT_LIBS   ${JAVASCRIPT_LIBS_DIR}
   )
 
 

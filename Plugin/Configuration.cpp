@@ -330,6 +330,50 @@ namespace OrthancPlugins
   }
 
 
+  std::string RemoveMultipleSlashes(const std::string& source)
+  {
+    std::string target;
+    target.reserve(source.size());
+
+    size_t prefix = 0;
+  
+    if (boost::starts_with(source, "https://"))
+    {
+      prefix = 8;
+    }
+    else if (boost::starts_with(source, "http://"))
+    {
+      prefix = 7;
+    }
+
+    for (size_t i = 0; i < prefix; i++)
+    {
+      target.push_back(source[i]);
+    }
+
+    bool isLastSlash = false;
+
+    for (size_t i = prefix; i < source.size(); i++)
+    {
+      if (source[i] == '/')
+      {
+        if (!isLastSlash)
+        {
+          target.push_back('/');
+          isLastSlash = true;
+        }
+      }
+      else
+      {
+        target.push_back(source[i]);
+        isLastSlash = false;
+      }
+    }
+
+    return target;
+  }
+
+
   namespace Configuration
   {
     // Assume Latin-1 encoding by default (as in the Orthanc core)
@@ -380,7 +424,7 @@ namespace OrthancPlugins
     }
 
 
-    std::string GetRoot()
+    std::string GetDicomWebRoot()
     {
       assert(configuration_.get() != NULL);
       std::string root = configuration_->GetStringValue("Root", "/dicom-web/");
@@ -398,6 +442,40 @@ namespace OrthancPlugins
       }
 
       return root;
+    }
+
+    
+    std::string GetOrthancApiRoot()
+    {
+      std::string root = OrthancPlugins::Configuration::GetDicomWebRoot();
+      std::vector<std::string> tokens;
+      Orthanc::Toolbox::TokenizeString(tokens, root, '/');
+
+      int depth = 0;
+      for (size_t i = 0; i < tokens.size(); i++)
+      {
+        if (tokens[i].empty() ||
+            tokens[i] == ".")
+        {
+          // Don't change the depth
+        }
+        else if (tokens[i] == "..")
+        {
+          depth--;
+        }
+        else
+        {
+          depth++;
+        }
+      }
+
+      std::string orthancRoot = "./";
+      for (int i = 0; i < depth; i++)
+      {
+        orthancRoot += "../";
+      }
+
+      return orthancRoot;
     }
 
 
@@ -513,7 +591,7 @@ namespace OrthancPlugins
         host = "localhost:8042";
       }
 
-      return (https ? "https://" : "http://") + host + GetRoot();
+      return (https ? "https://" : "http://") + host + GetDicomWebRoot();
     }
 
 

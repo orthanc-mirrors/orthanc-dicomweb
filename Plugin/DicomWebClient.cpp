@@ -576,9 +576,14 @@ void StowClient(OrthancPluginRestOutput* output,
   OrthancPlugins::LogInfo("Sending " + boost::lexical_cast<std::string>(instances.size()) +
                           " instances using STOW-RS to DICOMweb server: " + serverName);
 
-  OrthancPlugins::OrthancJob::Submit(new StowClientJob(serverName, instances, httpHeaders),
-                                     0 /* TODO priority, synchronous */);
+  std::string jobId = OrthancPlugins::OrthancJob::Submit(new StowClientJob(serverName, instances, httpHeaders),
+                                                         0 /* TODO priority, synchronous */);
 
+  Json::Value answer = Json::objectValue;
+  answer["ID"] = jobId;
+  answer["Path"] = OrthancPlugins::RemoveMultipleSlashes
+    ("../../" + OrthancPlugins::Configuration::GetOrthancApiRoot() + "/jobs/" + jobId);
+  
 #else
   std::string boundary;
   
@@ -623,10 +628,12 @@ void StowClient(OrthancPluginRestOutput* output,
   }
 
   SendStowChunks(server, httpHeaders, boundary, chunks, instancesCount, true);
+
+  Json::Value answer = Json::objectValue;
 #endif
 
-  std::string answer = "{}\n";
-  OrthancPluginAnswerBuffer(context, output, answer.c_str(), answer.size(), "application/json");
+  std::string tmp = answer.toStyledString();
+  OrthancPluginAnswerBuffer(context, output, tmp.c_str(), tmp.size(), "application/json");
 }
 
 

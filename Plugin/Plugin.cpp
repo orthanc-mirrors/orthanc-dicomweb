@@ -161,36 +161,9 @@ void GetClientInformation(OrthancPluginRestOutput* output,
   }
   else
   {
-    std::string root = OrthancPlugins::Configuration::GetRoot();
-    std::vector<std::string> tokens;
-    Orthanc::Toolbox::TokenizeString(tokens, root, '/');
-    int depth = 0;
-    for (size_t i = 0; i < tokens.size(); i++)
-    {
-      if (tokens[i].empty() ||
-          tokens[i] == ".")
-      {
-        // Don't change the depth
-      }
-      else if (tokens[i] == "..")
-      {
-        depth--;
-      }
-      else
-      {
-        depth++;
-      }
-    }
-
-    std::string orthancRoot = "./";
-    for (int i = 0; i < depth; i++)
-    {
-      orthancRoot += "../";
-    }
-
     Json::Value info = Json::objectValue;
-    info["DicomWebRoot"] = root;
-    info["OrthancRoot"] = orthancRoot;
+    info["DicomWebRoot"] = OrthancPlugins::Configuration::GetDicomWebRoot();
+    info["OrthancApiRoot"] = OrthancPlugins::Configuration::GetOrthancApiRoot();
 
     std::string answer = info.toStyledString();
     OrthancPluginAnswerBuffer(context, output, answer.c_str(), answer.size(), "application/json");
@@ -641,6 +614,7 @@ void ServeEmbeddedFolder(OrthancPluginRestOutput* output,
 }
 
 
+#if ORTHANC_STANDALONE == 0
 void ServeDicomWebClient(OrthancPluginRestOutput* output,
                          const char* url,
                          const OrthancPluginHttpRequest* request)
@@ -662,6 +636,7 @@ void ServeDicomWebClient(OrthancPluginRestOutput* output,
     OrthancPluginAnswerBuffer(context, output, f.GetData(), f.GetSize(), mime);
   }
 }
+#endif
 
 
 extern "C"
@@ -700,7 +675,7 @@ extern "C"
       // Configure the DICOMweb callbacks
       if (OrthancPlugins::Configuration::GetBooleanValue("Enable", true))
       {
-        std::string root = OrthancPlugins::Configuration::GetRoot();
+        std::string root = OrthancPlugins::Configuration::GetDicomWebRoot();
         assert(!root.empty() && root[root.size() - 1] == '/');
 
         OrthancPlugins::LogWarning("URI to the DICOMweb REST API: " + root);
@@ -739,10 +714,30 @@ extern "C"
           <ServeEmbeddedFolder<Orthanc::EmbeddedResources::JAVASCRIPT_LIBS> >
           (root + "app/libs/(.*)", true);
 
-        OrthancPlugins::RegisterRestCallback<ServeDicomWebClient>(root + "app/client/(.*)", true);
         OrthancPlugins::RegisterRestCallback<GetClientInformation>(root + "app/info", true);
 
         OrthancPlugins::RegisterRestCallback<RetrieveInstanceRendered>(root + "studies/([^/]*)/series/([^/]*)/instances/([^/]*)/rendered", true);
+
+
+        // Extend the default Orthanc Explorer with custom JavaScript for STOW client
+        std::string explorer;
+
+#if ORTHANC_STANDALONE == 1
+        Orthanc::EmbeddedResources::GetFileResource(explorer, Orthanc::EmbeddedResources::ORTHANC_EXPLORER);
+        OrthancPlugins::RegisterRestCallback
+          <ServeEmbeddedFolder<Orthanc::EmbeddedResources::WEB_APPLICATION> >
+          (root + "app/client/(.*)", true);
+#else
+        Orthanc::SystemToolbox::ReadFile(explorer, std::string(DICOMWEB_CLIENT_PATH) + "../Plugin/OrthancExplorer.js");
+        OrthancPlugins::RegisterRestCallback<ServeDicomWebClient>(root + "app/client/(.*)", true);
+#endif
+
+        std::map<std::string, std::string> dictionary;
+        dictionary["DICOMWEB_ROOT"] = OrthancPlugins::Configuration::GetDicomWebRoot();
+        std::string configured = Orthanc::Toolbox::SubstituteVariables(explorer, dictionary);
+        
+        OrthancPluginExtendOrthancExplorer(OrthancPlugins::GetGlobalContext(), configured.c_str());
+        
         
         std::string uri = root + "app/client/index.html";
         OrthancPluginSetRootUri(context, uri.c_str());
