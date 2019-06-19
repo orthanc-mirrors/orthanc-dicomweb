@@ -411,6 +411,41 @@ void DeleteClient(OrthancPluginRestOutput* output,
 }
 
 
+
+void RetrieveInstanceRendered(OrthancPluginRestOutput* output,
+                              const char* url,
+                              const OrthancPluginHttpRequest* request)
+{
+  OrthancPluginContext* context = OrthancPlugins::GetGlobalContext();
+
+  if (request->method != OrthancPluginHttpMethod_Get)
+  {
+    OrthancPluginSendMethodNotAllowed(context, output, "GET");
+  }
+  else
+  {
+    Orthanc::MimeType mime = Orthanc::MimeType_Jpeg;
+    
+    std::string publicId;
+    if (LocateInstance(output, publicId, request))
+    {
+      std::map<std::string, std::string> headers;
+      headers["Accept"] = Orthanc::EnumerationToString(mime);
+      
+      OrthancPlugins::MemoryBuffer buffer;
+      if (buffer.RestApiGet("/instances/" + publicId + "/preview", headers, false))
+      {
+        OrthancPluginAnswerBuffer(context, output, buffer.GetData(),
+                                  buffer.GetSize(), Orthanc::EnumerationToString(mime));
+      }
+    }
+  }
+}
+
+
+
+
+
 static bool DisplayPerformanceWarning(OrthancPluginContext* context)
 {
   (void) DisplayPerformanceWarning;   // Disable warning about unused function
@@ -707,6 +742,8 @@ extern "C"
         OrthancPlugins::RegisterRestCallback<ServeDicomWebClient>(root + "app/client/(.*)", true);
         OrthancPlugins::RegisterRestCallback<GetClientInformation>(root + "app/info", true);
 
+        OrthancPlugins::RegisterRestCallback<RetrieveInstanceRendered>(root + "studies/([^/]*)/series/([^/]*)/instances/([^/]*)/rendered", true);
+        
         std::string uri = root + "app/client/index.html";
         OrthancPluginSetRootUri(context, uri.c_str());
       }
