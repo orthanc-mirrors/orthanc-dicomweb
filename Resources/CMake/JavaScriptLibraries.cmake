@@ -140,7 +140,9 @@ file(MAKE_DIRECTORY ${JAVASCRIPT_LIBS_DIR})
 file(COPY
   ${BABEL_POLYFILL_SOURCES_DIR}/polyfill.min.js
   ${BOOTSTRAP_VUE_SOURCES_DIR}/dist/bootstrap-vue.min.js
+  ${BOOTSTRAP_VUE_SOURCES_DIR}/dist/bootstrap-vue.min.js.map
   ${CMAKE_CURRENT_BINARY_DIR}/axios-0.19.0/dist/axios.min.js
+  ${CMAKE_CURRENT_BINARY_DIR}/axios-0.19.0/dist/axios.min.map
   ${CMAKE_CURRENT_BINARY_DIR}/bootstrap-4.3.1/dist/js/bootstrap.min.js
   ${CMAKE_CURRENT_BINARY_DIR}/vue-2.6.10/dist/vue.min.js
   DESTINATION
@@ -149,8 +151,10 @@ file(COPY
 
 file(COPY
   ${BOOTSTRAP_VUE_SOURCES_DIR}/dist/bootstrap-vue.min.css
+  ${BOOTSTRAP_VUE_SOURCES_DIR}/dist/bootstrap-vue.min.css.map
   ${CMAKE_CURRENT_BINARY_DIR}/Font-Awesome-4.7.0/css/font-awesome.min.css
   ${CMAKE_CURRENT_BINARY_DIR}/bootstrap-4.3.1/dist/css/bootstrap.min.css
+  ${CMAKE_CURRENT_BINARY_DIR}/bootstrap-4.3.1/dist/css/bootstrap.min.css.map
   DESTINATION
   ${JAVASCRIPT_LIBS_DIR}/css
   )

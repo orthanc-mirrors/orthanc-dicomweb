@@ -60,7 +60,18 @@
       </div>
 
 
+      <b-modal ref="modal-error" size="xl" ok-only="true">
+        <template slot="modal-title">
+          Connection error
+        </template>
+        <div class="d-block">
+          <p>
+            There was an error connecting to "{{lookup.server}}" server.
+          </p>
+        </div>
+      </b-modal>
 
+      
       <!-- LOOKUP -->
 
       <div class="row">
@@ -116,7 +127,7 @@
             <b-button title="Retrieve study using WADO-RS"><i class="fa fa-cloud-download"></i></b-button>
             <b-button @click="ConfirmDeleteStudy(data.item)"
                       v-if="serversInfo[lookup.server].HasDelete" title="Delete remote study">
-              <i class="fa fa-times"></i>
+              <i class="fa fa-trash"></i>
             </b-button>
           </template>
         </b-table>
@@ -163,7 +174,7 @@
             <b-button title="Retrieve series using WADO-RS"><i class="fa fa-cloud-download"></i></b-button>
             <b-button @click="ConfirmDeleteSeries(data.item)"
                       v-if="serversInfo[lookup.server].HasDelete" title="Delete remote series">
-              <i class="fa fa-times"></i>
+              <i class="fa fa-trash"></i>
             </b-button>
           </template>
         </b-table>

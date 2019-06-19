@@ -175,13 +175,16 @@ var app = new Vue({
       if ('accessionNumber' in app.lookup) {
         args[DICOM_TAG_ACCESSION_NUMBER] = app.lookup.accessionNumber;
       }
-
+      
       axios
         .post('../../servers/' + app.lookup.server + '/qido', {
           'Uri' : '/studies',
           'Arguments' : args,
         })
-        .then(app.SetStudies);
+        .then(app.SetStudies)
+        .catch(response => {
+          app.$refs['modal-error'].show();
+        })
     },
     Clear: function() {
       app.lookup = {};
@@ -202,7 +205,10 @@ var app = new Vue({
           'Uri' : '/studies',
           'Arguments' : { 'limit' : (app.maxResults + 1).toString() }
         })
-        .then(app.SetStudies);
+        .then(app.SetStudies)
+        .catch(response => {
+          app.$refs['modal-error'].show();
+        });
     },
     OnLookup: function(event) {
       event.preventDefault();
@@ -231,7 +237,10 @@ var app = new Vue({
           'Level': 'Study',
           'StudyInstanceUID': app.studyToDelete[DICOM_TAG_STUDY_INSTANCE_UID].Value
         })
-        .then(app.ExecuteLookup);
+        .then(app.ExecuteLookup)
+        .catch(response => {
+          app.$refs['modal-error'].show();
+        })
     },
 
     
@@ -297,7 +306,7 @@ var app = new Vue({
               .finally(function() {
                 app.$refs['series-preview'].show();
               })
-        });
+        })
     },
     ConfirmDeleteSeries: function(series) {
       app.seriesToDelete = series;
@@ -310,7 +319,10 @@ var app = new Vue({
           'StudyInstanceUID': app.currentStudy,
           'SeriesInstanceUID': app.seriesToDelete[DICOM_TAG_SERIES_INSTANCE_UID].Value
         })
-        .then(app.LoadSeriesOfCurrentStudy);
+        .then(app.LoadSeriesOfCurrentStudy)
+        .catch(response => {
+          app.$refs['modal-error'].show();
+        })
     }
   },
 
