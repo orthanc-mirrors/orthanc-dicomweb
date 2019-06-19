@@ -132,11 +132,19 @@ var app = new Vue({
       });
   },
   methods: {
+    /**
+     * Toolbox
+     **/
+
     ScrollToRef: function(refName) {
       var element = app.$refs[refName];
       window.scrollTo(0, element.offsetTop + 200);
     },
+    ShowErrorModal: function() {
+      app.$refs['modal-error'].show();
+    },
 
+    
     /**
      * Studies
      **/
@@ -182,9 +190,7 @@ var app = new Vue({
           'Arguments' : args,
         })
         .then(app.SetStudies)
-        .catch(response => {
-          app.$refs['modal-error'].show();
-        })
+        .catch(app.ShowErrorModal)
     },
     Clear: function() {
       app.lookup = {};
@@ -197,18 +203,6 @@ var app = new Vue({
         app.showNoServer = false;
         app.lookup.server = app.servers[0];
       }
-    },
-    OnAllStudies: function (event) {
-      event.preventDefault();
-      axios
-        .post('../../servers/' + app.lookup.server + '/qido', {
-          'Uri' : '/studies',
-          'Arguments' : { 'limit' : (app.maxResults + 1).toString() }
-        })
-        .then(app.SetStudies)
-        .catch(response => {
-          app.$refs['modal-error'].show();
-        });
     },
     OnLookup: function(event) {
       event.preventDefault();
@@ -238,9 +232,7 @@ var app = new Vue({
           'StudyInstanceUID': app.studyToDelete[DICOM_TAG_STUDY_INSTANCE_UID].Value
         })
         .then(app.ExecuteLookup)
-        .catch(response => {
-          app.$refs['modal-error'].show();
-        })
+        .catch(app.ShowErrorModal)
     },
 
     
@@ -320,9 +312,7 @@ var app = new Vue({
           'SeriesInstanceUID': app.seriesToDelete[DICOM_TAG_SERIES_INSTANCE_UID].Value
         })
         .then(app.LoadSeriesOfCurrentStudy)
-        .catch(response => {
-          app.$refs['modal-error'].show();
-        })
+        .catch(app.ShowErrorModal)
     }
   },
 
