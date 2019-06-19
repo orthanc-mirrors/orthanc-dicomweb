@@ -34,6 +34,7 @@ var app = new Vue({
     perPage: 10,
     servers: [ ],
     serversInfo: { },
+    activeServer: '',
     lookup: { },
     studies: [ ],
     currentStudy: null,
@@ -183,14 +184,19 @@ var app = new Vue({
       if ('accessionNumber' in app.lookup) {
         args[DICOM_TAG_ACCESSION_NUMBER] = app.lookup.accessionNumber;
       }
-      
+
+      app.activeServer = app.lookup.server;
       axios
-        .post('../../servers/' + app.lookup.server + '/qido', {
+        .post('../../servers/' + app.activeServer + '/qido', {
           'Uri' : '/studies',
           'Arguments' : args,
         })
         .then(app.SetStudies)
-        .catch(app.ShowErrorModal)
+        .catch(response => {
+          app.showStudies = false;
+          app.showSeries = false;
+          app.ShowErrorModal();
+        });
     },
     Clear: function() {
       app.lookup = {};
@@ -227,7 +233,7 @@ var app = new Vue({
     },
     ExecuteDeleteStudy: function(study) {
       axios
-        .post('../../servers/' + app.lookup.server + '/delete', {
+        .post('../../servers/' + app.activeServer + '/delete', {
           'Level': 'Study',
           'StudyInstanceUID': app.studyToDelete[DICOM_TAG_STUDY_INSTANCE_UID].Value
         })
@@ -242,7 +248,7 @@ var app = new Vue({
 
     LoadSeriesOfCurrentStudy: function() {
       axios
-        .post('../../servers/' + app.lookup.server + '/qido', {
+        .post('../../servers/' + app.activeServer + '/qido', {
           'Uri' : '/studies/' + app.currentStudy + '/series'
         })
         .then(response => {
@@ -251,7 +257,7 @@ var app = new Vue({
           app.seriesToDelete = null;
           app.scrollToSeries = true;
         })
-        .catch(app.ExecuteLookup);   // Parent study was deleted
+        .catch(app.ShowErrorModal);
     }, 
     OpenSeries: function(series) {
       app.currentStudy = series[DICOM_TAG_STUDY_INSTANCE_UID].Value;
@@ -268,7 +274,7 @@ var app = new Vue({
     },
     OpenSeriesPreview: function(series) {
       axios
-        .post('../../servers/' + app.lookup.server + '/get', {
+        .post('../../servers/' + app.activeServer + '/get', {
           'Uri' : ('/studies/' + app.currentStudy + '/series/' + 
                    series[DICOM_TAG_SERIES_INSTANCE_UID].Value + '/instances')
         })
@@ -276,7 +282,7 @@ var app = new Vue({
           var instance = response.data[Math.floor(response.data.length / 2)];
 
           axios
-            .post('../../servers/' + app.lookup.server + '/get', {
+            .post('../../servers/' + app.activeServer + '/get', {
               'Uri' : ('/studies/' + app.currentStudy + '/series/' + 
                        series[DICOM_TAG_SERIES_INSTANCE_UID].Value + '/instances/' +
                        instance[DICOM_TAG_SOP_INSTANCE_UID].Value + '/rendered')
@@ -306,7 +312,7 @@ var app = new Vue({
     },
     ExecuteDeleteSeries: function(series) {
       axios
-        .post('../../servers/' + app.lookup.server + '/delete', {
+        .post('../../servers/' + app.activeServer + '/delete', {
           'Level': 'Series',
           'StudyInstanceUID': app.currentStudy,
           'SeriesInstanceUID': app.seriesToDelete[DICOM_TAG_SERIES_INSTANCE_UID].Value
