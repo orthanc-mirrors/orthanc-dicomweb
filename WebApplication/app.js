@@ -22,6 +22,7 @@ var app = new Vue({
     }
   },
   data: {
+    orthancExplorerUri: '../../../',
     previewFailure: true,
     preview: DEFAULT_PREVIEW,
     showTruncatedStudies: false,
@@ -123,7 +124,12 @@ var app = new Vue({
         app.serversInfo = response.data;
         app.servers = Object.keys(response.data).map(i => i);
         app.Clear();
-      })
+      });
+    axios
+      .get('../info')
+      .then(response => {
+        app.orthancExplorerUri = response.data.OrthancRoot + '../../';
+      });
   },
   methods: {
     ScrollToRef: function(refName) {

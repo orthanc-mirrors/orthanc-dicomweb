@@ -149,6 +149,56 @@ void ListServerOperations(OrthancPluginRestOutput* output,
 
 
 
+void GetClientInformation(OrthancPluginRestOutput* output,
+                          const char* /*url*/,
+                          const OrthancPluginHttpRequest* request)
+{
+  OrthancPluginContext* context = OrthancPlugins::GetGlobalContext();
+
+  if (request->method != OrthancPluginHttpMethod_Get)
+  {
+    OrthancPluginSendMethodNotAllowed(context, output, "GET");
+  }
+  else
+  {
+    std::string root = OrthancPlugins::Configuration::GetRoot();
+    std::vector<std::string> tokens;
+    Orthanc::Toolbox::TokenizeString(tokens, root, '/');
+    int depth = 0;
+    for (size_t i = 0; i < tokens.size(); i++)
+    {
+      if (tokens[i].empty() ||
+          tokens[i] == ".")
+      {
+        // Don't change the depth
+      }
+      else if (tokens[i] == "..")
+      {
+        depth--;
+      }
+      else
+      {
+        depth++;
+      }
+    }
+
+    std::string orthancRoot = "./";
+    for (int i = 0; i < depth; i++)
+    {
+      orthancRoot += "../";
+    }
+
+    Json::Value info = Json::objectValue;
+    info["DicomWebRoot"] = root;
+    info["OrthancRoot"] = orthancRoot;
+
+    std::string answer = info.toStyledString();
+    OrthancPluginAnswerBuffer(context, output, answer.c_str(), answer.size(), "application/json");
+  }
+}
+
+
+
 void QidoClient(OrthancPluginRestOutput* output,
                 const char* /*url*/,
                 const OrthancPluginHttpRequest* request)
@@ -655,6 +705,7 @@ extern "C"
           (root + "app/libs/(.*)", true);
 
         OrthancPlugins::RegisterRestCallback<ServeDicomWebClient>(root + "app/client/(.*)", true);
+        OrthancPlugins::RegisterRestCallback<GetClientInformation>(root + "app/info", true);
 
         std::string uri = root + "app/client/index.html";
         OrthancPluginSetRootUri(context, uri.c_str());

@@ -33,17 +33,28 @@
           <div class="col-sm-8">
             <h1 class="display-4">DICOMweb client</h1>
             <p class="lead">
-              This is a simple interface to the DICOMweb servers that are
-              configured in Orthanc.
+              This is a simple client interface to the DICOMweb
+              servers that are configured in Orthanc. From this page,
+              you can search the content of remote DICOMweb servers
+              (QIDO-RS), then locally retrieve the DICOM
+              studies/series of interest
+              (WADO-RS). <a :href="orthancExplorerUri"
+              target="_blank">Orthanc Explorer</a> can be used to send
+              DICOM resources to remote DICOMweb servers (STOW-RS).
             </p>
             <p>
               <a class="btn btn-primary btn-lg"
                  href="https://book.orthanc-server.com/plugins/dicomweb.html"
                  target="_blank" role="button">Open documentation</a>
+              <a class="btn btn-primary btn-lg"
+                 :href="orthancExplorerUri"
+                 target="_blank" role="button">Open Orthanc Explorer</a>
             </p>
           </div>
           <div class="col-sm-4">
-            <img class="img-fluid" alt="Orthanc" src="../libs/img/OrthancLogo.png" />
+            <a href="http://www.orthanc-server.com/" target="_blank">
+              <img class="img-fluid" alt="Orthanc" src="../libs/img/OrthancLogo.png" />
+            </a>
           </div>
         </div>
       </div>
@@ -82,13 +93,11 @@
           </p>
         </b-form>
       </div>
-      <hr/>
 
 
       <!-- STUDIES -->
 
-      <div ref="studies-top"></div>
-
+      <hr  v-show="showStudies" ref="studies-top" />
       <div class="row" v-show="showStudies">
         <h1>Studies</h1>
       </div>
@@ -140,8 +149,7 @@
 
       <!-- SERIES -->
 
-      <div ref="series-top"></div>
-
+      <hr  v-show="showSeries" ref="series-top" />
       <div class="row" v-show="showSeries">
         <h1>Series</h1>
       </div>
