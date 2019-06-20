@@ -1041,9 +1041,11 @@ private:
   enum State
   {
     State_Headers,
-    State_Body
+    State_Body,
+    State_Stopped
   };
-
+  
+  boost::mutex                                   mutex_;
   State                                          state_;
   std::list<std::string>                         instances_;
   std::auto_ptr<Orthanc::MultipartStreamReader>  reader_;
@@ -1103,7 +1105,10 @@ public:
 
   void Close()
   {
-    if (reader_.get() != NULL)
+    boost::mutex::scoped_lock lock(mutex_);
+
+    if (state_ != State_Stopped &&
+        reader_.get() != NULL)
     {
       reader_->CloseStream();
     }
@@ -1112,7 +1117,13 @@ public:
   virtual void AddHeader(const std::string& key,
                          const std::string& value)
   {
-    if (state_ != State_Headers)
+    boost::mutex::scoped_lock lock(mutex_);
+
+    if (state_ == State_Stopped)
+    {
+      return;
+    }
+    else if (state_ != State_Headers)
     {
       throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
     }
@@ -1147,10 +1158,16 @@ public:
     }
   }
 
-
   virtual void AddChunk(const void* data,
                         size_t size)
   {
+    boost::mutex::scoped_lock lock(mutex_);
+
+    if (state_ == State_Stopped)
+    {
+      return;
+    }
+
     if (reader_.get() == NULL)
     {
       throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol,
@@ -1162,9 +1179,17 @@ public:
     reader_->AddChunk(data, size);
   }
 
-  const std::list<std::string>& GetReceivedInstances() const
+  void GetReceivedInstances(std::list<std::string>& target)
   {
-    return instances_;
+    boost::mutex::scoped_lock lock(mutex_);
+    target = instances_;
+  }
+
+  void Stop()
+  {
+    boost::mutex::scoped_lock lock(mutex_);
+
+    state_ = State_Stopped;
   }
 };
 
@@ -1177,12 +1202,21 @@ void WadoRetrieveClient(OrthancPluginRestOutput* output,
   OrthancPlugins::HttpClient client;
   ConfigureGetFromServer(client, request);
 
-  WadoRetrieveAnswer answer;
-  client.Execute(answer);
-  answer.Close();
+  std::list<std::string> instances;
+
+  // Do some loop
+  {
+    WadoRetrieveAnswer answer;
+    client.Execute(answer);
+    answer.Close();
+
+    std::list<std::string> tmp;
+    answer.GetReceivedInstances(tmp);
+    instances.splice(instances.end(), tmp);
+  }
 
   Json::Value result = Json::objectValue;
-  result["InstancesCount"] = static_cast<int32_t>(answer.GetReceivedInstances().size());
+  result["InstancesCount"] = static_cast<int32_t>(instances.size());
 
   std::string tmp = result.toStyledString();
   OrthancPluginAnswerBuffer(OrthancPlugins::GetGlobalContext(), output, 
