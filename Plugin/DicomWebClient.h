@@ -43,3 +43,7 @@ void RetrieveFromServer(OrthancPluginRestOutput* output,
 void WadoRetrieveClient(OrthancPluginRestOutput* output,
                         const char* url,
                         const OrthancPluginHttpRequest* request);
+
+
+// TODO => remove
+void WadoTest();

@@ -502,6 +502,11 @@ ORTHANC_PLUGINS_API OrthancPluginErrorCode OnChangeCallback(OrthancPluginChangeT
   {
     try
     {
+#if 1
+      WadoTest();
+#endif
+
+
 #if 0
       {
         StowClientBody stow;
