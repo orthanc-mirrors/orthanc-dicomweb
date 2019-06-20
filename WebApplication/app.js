@@ -254,7 +254,8 @@ var app = new Vue({
         .then(response => {
           app.jobLevel = 'study';
           app.jobId = response.data.ID;
-          app.jobUri = app.orthancExplorerUri + '/' + response.data.Path;
+          // The "replace()" below removes the possible trailing slash
+          app.jobUri = app.orthancExplorerUri.replace(/\/$/, '') + '/' + response.data.Path;
           app.$refs['retrieve-job'].show();
           app.RefreshJobDetails();
         });
