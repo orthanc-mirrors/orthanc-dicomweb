@@ -25,6 +25,8 @@
 
 #include <Core/Toolbox.h>
 
+#include <boost/algorithm/string/predicate.hpp>
+
 namespace OrthancPlugins
 {
   void DicomWebServers::Clear()
@@ -115,6 +117,61 @@ namespace OrthancPlugins
     }
   }
 
+
+  void DicomWebServers::ConfigureHttpClient(HttpClient& client,
+                                            const std::string& name,
+                                            const std::string& uri)
+  {
+    const Orthanc::WebServiceParameters parameters = GetServer(name);
+
+    client.SetUrl(RemoveMultipleSlashes(parameters.GetUrl() + "/" + uri));
+    client.SetHeaders(parameters.GetHttpHeaders());
+
+    if (!parameters.GetUsername().empty())
+    {
+      client.SetCredentials(parameters.GetUsername(), parameters.GetPassword());
+    }
+  }    
+
+
+  void DicomWebServers::DeleteServer(const std::string& name)
+  {
+    boost::mutex::scoped_lock lock(mutex_);
+
+    Servers::iterator found = servers_.find(name);
+
+    if (found == servers_.end())
+    {
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_ParameterOutOfRange,
+                                      "Unknown DICOMweb server: " + name);
+    }
+    else
+    {
+      assert(found->second != NULL);
+      delete found->second;
+      servers_.erase(found);
+    }
+  }
+
+
+  void DicomWebServers::SetServer(const std::string& name,
+                                  const Orthanc::WebServiceParameters& parameters)
+  {
+    boost::mutex::scoped_lock lock(mutex_);
+
+    Servers::iterator found = servers_.find(name);
+
+    if (found != servers_.end())
+    {
+      assert(found->second != NULL);
+      delete found->second;
+      servers_.erase(found);
+    }
+
+    servers_[name] = new Orthanc::WebServiceParameters(parameters);
+  }
+
+  
 
   static const char* ConvertToCString(const std::string& s)
   {
@@ -252,9 +309,9 @@ namespace OrthancPlugins
   }
 
 
-  void UriEncode(std::string& uri,
-                 const std::string& resource,
-                 const std::map<std::string, std::string>& getArguments)
+  void DicomWebServers::UriEncode(std::string& uri,
+                                  const std::string& resource,
+                                  const std::map<std::string, std::string>& getArguments)
   {
     if (resource.find('?') != std::string::npos)
     {

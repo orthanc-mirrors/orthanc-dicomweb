@@ -45,33 +45,40 @@ namespace OrthancPlugins
   static const Orthanc::DicomTag DICOM_TAG_REFERENCED_SOP_CLASS_UID(0x0008, 0x1150);
   static const Orthanc::DicomTag DICOM_TAG_REFERENCED_SOP_INSTANCE_UID(0x0008, 0x1155);
 
-  struct MultipartItem
-  {
-    const char*   data_;
-    size_t        size_;
-    std::string   contentType_;
-  };
-
   bool LookupHttpHeader(std::string& value,
                         const OrthancPluginHttpRequest* request,
                         const std::string& header);
 
-  // TODO => REMOVE (use Orthanc core instead)
   void ParseContentType(std::string& application,
                         std::map<std::string, std::string>& attributes,
                         const std::string& header);
-
-  void ParseMultipartBody(std::vector<MultipartItem>& result,
-                          const void* body,
-                          const uint64_t bodySize,
-                          const std::string& boundary);
 
   void ParseAssociativeArray(std::map<std::string, std::string>& target,
                              const Json::Value& value,
                              const std::string& key);
 
+  void ParseAssociativeArray(std::map<std::string, std::string>& target,
+                             const Json::Value& value);
+
   bool ParseTag(Orthanc::DicomTag& target,
                 const std::string& name);
+
+  void ParseJsonBody(Json::Value& target,
+                     const OrthancPluginHttpRequest* request);
+
+  std::string RemoveMultipleSlashes(const std::string& source);
+
+  bool LookupStringValue(std::string& target,
+                         const Json::Value& json,
+                         const std::string& key);
+
+  bool LookupIntegerValue(int& target,
+                          const Json::Value& json,
+                          const std::string& key);
+
+  bool LookupBooleanValue(bool& target,
+                          const Json::Value& json,
+                          const std::string& key);
 
   namespace Configuration
   {
@@ -86,10 +93,15 @@ namespace OrthancPlugins
     unsigned int GetUnsignedIntegerValue(const std::string& key,
                                          unsigned int defaultValue);
 
-    std::string GetRoot();
+    std::string GetDicomWebRoot();
+
+    std::string GetOrthancApiRoot();
 
     std::string GetWadoRoot();
       
+    std::string GetBaseUrl(const std::map<std::string, std::string>& headers);
+
+    // TODO => REMOVE
     std::string GetBaseUrl(const OrthancPluginHttpRequest* request);
 
     std::string GetWadoUrl(const std::string& wadoBase,
@@ -98,5 +110,10 @@ namespace OrthancPlugins
                            const std::string& sopInstanceUid);
 
     Orthanc::Encoding GetDefaultEncoding();
+
+    bool IsXmlExpected(const std::map<std::string, std::string>& headers);
+
+    // TODO => REMOVE
+    bool IsXmlExpected(const OrthancPluginHttpRequest* request);
   }
 }

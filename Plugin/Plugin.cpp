@@ -18,7 +18,6 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  **/
 
-
 #include "DicomWebClient.h"
 #include "DicomWebServers.h"
 #include "GdcmParsedDicomFile.h"
@@ -28,53 +27,11 @@
 #include "WadoUri.h"
 
 #include <Plugins/Samples/Common/OrthancPluginCppWrapper.h>
+#include <Core/SystemToolbox.h>
 #include <Core/Toolbox.h>
 
+#include <EmbeddedResources.h>
 
-void SwitchStudies(OrthancPluginRestOutput* output,
-                   const char* url,
-                   const OrthancPluginHttpRequest* request)
-{
-  switch (request->method)
-  {
-    case OrthancPluginHttpMethod_Get:
-      // This is QIDO-RS
-      SearchForStudies(output, url, request);
-      break;
-
-    case OrthancPluginHttpMethod_Post:
-      // This is STOW-RS
-      StowCallback(output, url, request);
-      break;
-
-    default:
-      OrthancPluginSendMethodNotAllowed(OrthancPlugins::GetGlobalContext(), output, "GET,POST");
-      break;
-  }
-}
-
-
-void SwitchStudy(OrthancPluginRestOutput* output,
-                 const char* url,
-                 const OrthancPluginHttpRequest* request)
-{
-  switch (request->method)
-  {
-    case OrthancPluginHttpMethod_Get:
-      // This is WADO-RS
-      RetrieveDicomStudy(output, url, request);
-      break;
-
-    case OrthancPluginHttpMethod_Post:
-      // This is STOW-RS
-      StowCallback(output, url, request);
-      break;
-
-    default:
-      OrthancPluginSendMethodNotAllowed(OrthancPlugins::GetGlobalContext(), output, "GET,POST");
-      break;
-  }
-}
 
 bool RequestHasKey(const OrthancPluginHttpRequest* request, const char* key)
 {
@@ -110,11 +67,7 @@ void ListServers(OrthancPluginRestOutput* output,
         Orthanc::WebServiceParameters server = OrthancPlugins::DicomWebServers::GetInstance().GetServer(*it);
         Json::Value jsonServer;
         // only return the minimum information to identify the destination, do not include "security" information like passwords
-        jsonServer["Url"] = server.GetUrl();
-        if (!server.GetUsername().empty())
-        {
-          jsonServer["Username"] = server.GetUsername();
-        }
+        server.FormatPublic(jsonServer);
         result[*it] = jsonServer;
       }
 
@@ -141,24 +94,330 @@ void ListServerOperations(OrthancPluginRestOutput* output,
 {
   OrthancPluginContext* context = OrthancPlugins::GetGlobalContext();
 
+  switch (request->method)
+  {
+    case OrthancPluginHttpMethod_Get:
+    {
+      // Make sure the server does exist
+      const Orthanc::WebServiceParameters& server = 
+        OrthancPlugins::DicomWebServers::GetInstance().GetServer(request->groups[0]);
+
+      Json::Value json = Json::arrayValue;
+      json.append("get");
+      json.append("retrieve");   // TODO => Mark as deprecated
+      json.append("stow");
+      json.append("wado");
+      json.append("qido");
+
+      std::string value;
+      if (server.LookupUserProperty(value, "HasDelete") &&
+          value == "1")
+      {
+        json.append("delete");
+      }
+
+      std::string answer = json.toStyledString(); 
+      OrthancPluginAnswerBuffer(context, output, answer.c_str(), answer.size(), "application/json");
+      break;
+    }
+    
+    case OrthancPluginHttpMethod_Delete:
+    {
+      OrthancPlugins::DicomWebServers::GetInstance().DeleteServer(request->groups[0]);
+      std::string answer = "{}";
+      OrthancPluginAnswerBuffer(context, output, answer.c_str(), answer.size(), "application/json");
+      break;
+    }
+    
+    case OrthancPluginHttpMethod_Put:
+    {
+      Json::Value body;
+      OrthancPlugins::ParseJsonBody(body, request);
+      
+      Orthanc::WebServiceParameters parameters(body);
+      
+      OrthancPlugins::DicomWebServers::GetInstance().SetServer(request->groups[0], parameters);
+      std::string answer = "{}";
+      OrthancPluginAnswerBuffer(context, output, answer.c_str(), answer.size(), "application/json");
+      break;
+    }
+    
+    default:
+      OrthancPluginSendMethodNotAllowed(context, output, "GET,PUT,DELETE");
+      break;
+  }
+}
+
+
+
+void GetClientInformation(OrthancPluginRestOutput* output,
+                          const char* /*url*/,
+                          const OrthancPluginHttpRequest* request)
+{
+  OrthancPluginContext* context = OrthancPlugins::GetGlobalContext();
+
   if (request->method != OrthancPluginHttpMethod_Get)
   {
     OrthancPluginSendMethodNotAllowed(context, output, "GET");
   }
   else
   {
-    // Make sure the server does exist
-    OrthancPlugins::DicomWebServers::GetInstance().GetServer(request->groups[0]);
+    Json::Value info = Json::objectValue;
+    info["DicomWebRoot"] = OrthancPlugins::Configuration::GetDicomWebRoot();
+    info["OrthancApiRoot"] = OrthancPlugins::Configuration::GetOrthancApiRoot();
 
-    Json::Value json = Json::arrayValue;
-    json.append("get");
-    json.append("retrieve");
-    json.append("stow");
-
-    std::string answer = json.toStyledString(); 
+    std::string answer = info.toStyledString();
     OrthancPluginAnswerBuffer(context, output, answer.c_str(), answer.size(), "application/json");
   }
 }
+
+
+
+void QidoClient(OrthancPluginRestOutput* output,
+                const char* /*url*/,
+                const OrthancPluginHttpRequest* request)
+{
+  OrthancPluginContext* context = OrthancPlugins::GetGlobalContext();
+
+  if (request->method != OrthancPluginHttpMethod_Post)
+  {
+    OrthancPluginSendMethodNotAllowed(context, output, "POST");
+  }
+  else
+  {
+    Json::Value answer;
+    GetFromServer(answer, request);
+    
+    if (answer.type() != Json::arrayValue)
+    {
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);
+    }
+
+    Json::Value result = Json::arrayValue;
+    for (Json::Value::ArrayIndex i = 0; i < answer.size(); i++)
+    {
+      if (answer[i].type() != Json::objectValue)
+      {
+        throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);
+      }
+
+      Json::Value::Members tags = answer[i].getMemberNames();
+
+      Json::Value item = Json::objectValue;
+      
+      for (size_t j = 0; j < tags.size(); j++)
+      {
+        Orthanc::DicomTag tag(0, 0);
+        if (Orthanc::DicomTag::ParseHexadecimal(tag, tags[j].c_str()))
+        {
+          Json::Value value = Json::objectValue;
+          value["Group"] = tag.GetGroup();
+          value["Element"] = tag.GetElement();
+          
+#if ORTHANC_PLUGINS_VERSION_IS_ABOVE(1, 5, 7)
+          OrthancPlugins::OrthancString name;
+
+          name.Assign(OrthancPluginGetTagName(context, tag.GetGroup(), tag.GetElement(), NULL));
+          if (name.GetContent() != NULL)
+          {
+            value["Name"] = std::string(name.GetContent());
+          }
+#endif
+
+          const Json::Value& source = answer[i][tags[j]];
+          if (source.type() != Json::objectValue ||
+              !source.isMember("vr") ||
+              source["vr"].type() != Json::stringValue)
+          {
+            throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);
+          }
+
+          value["vr"] = source["vr"].asString();
+
+          if (source.isMember("Value") &&
+              source["Value"].type() == Json::arrayValue &&
+              source["Value"].size() >= 1)
+          {
+            const Json::Value& content = source["Value"][0];
+
+            switch (content.type())
+            {
+              case Json::stringValue:
+                value["Value"] = content.asString();
+                break;
+
+              case Json::objectValue:
+                if (content.isMember("Alphabetic") &&
+                    content["Alphabetic"].type() == Json::stringValue)
+                {
+                  value["Value"] = content["Alphabetic"].asString();
+                }
+                break;
+
+              default:
+                break;
+            }
+          }
+
+          item[tags[j]] = value;
+        }
+      }
+
+      result.append(item);
+    }
+
+    std::string tmp = result.toStyledString();
+    OrthancPluginAnswerBuffer(context, output, tmp.c_str(), tmp.size(), "application/json");
+  }
+}
+
+
+void DeleteClient(OrthancPluginRestOutput* output,
+                const char* /*url*/,
+                const OrthancPluginHttpRequest* request)
+{
+  OrthancPluginContext* context = OrthancPlugins::GetGlobalContext();
+
+  if (request->method != OrthancPluginHttpMethod_Post)
+  {
+    OrthancPluginSendMethodNotAllowed(context, output, "POST");
+  }
+  else
+  {
+    static const char* const LEVEL = "Level";
+    static const char* const HAS_DELETE = "HasDelete";
+    static const char* const SERIES_INSTANCE_UID = "SeriesInstanceUID";
+    static const char* const STUDY_INSTANCE_UID = "StudyInstanceUID";
+    static const char* const SOP_INSTANCE_UID = "SOPInstanceUID";
+
+    const std::string serverName = request->groups[0];
+
+    const Orthanc::WebServiceParameters& server = 
+      OrthancPlugins::DicomWebServers::GetInstance().GetServer(serverName);
+
+    std::string value;
+    if (server.LookupUserProperty(value, HAS_DELETE) &&
+        value != "1")
+    {
+      throw Orthanc::OrthancException(
+        Orthanc::ErrorCode_BadFileFormat,
+        "Cannot delete on DICOMweb server, check out property \"HasDelete\": " + serverName);
+    }
+
+    Json::Value body;
+    OrthancPlugins::ParseJsonBody(body, request);
+
+    if (body.type() != Json::objectValue ||
+        !body.isMember(LEVEL) ||
+        !body.isMember(STUDY_INSTANCE_UID) ||
+        body[LEVEL].type() != Json::stringValue ||
+        body[STUDY_INSTANCE_UID].type() != Json::stringValue)
+    {
+      throw Orthanc::OrthancException(
+        Orthanc::ErrorCode_BadFileFormat,
+        "The request body must contain a JSON object with fields \"Level\" and \"StudyInstanceUID\"");
+    }
+
+    Orthanc::ResourceType level = Orthanc::StringToResourceType(body[LEVEL].asCString());
+
+    const std::string study = body[STUDY_INSTANCE_UID].asString();
+
+    std::string series;    
+    if (level == Orthanc::ResourceType_Series ||
+        level == Orthanc::ResourceType_Instance)
+    {
+      if (!body.isMember(SERIES_INSTANCE_UID) ||
+          body[SERIES_INSTANCE_UID].type() != Json::stringValue)
+      {
+        throw Orthanc::OrthancException(
+          Orthanc::ErrorCode_BadFileFormat,
+          "The request body must contain the field \"SeriesInstanceUID\"");
+      }
+      else
+      {
+        series = body[SERIES_INSTANCE_UID].asString();
+      }
+    }
+
+    std::string instance;    
+    if (level == Orthanc::ResourceType_Instance)
+    {
+      if (!body.isMember(SOP_INSTANCE_UID) ||
+          body[SOP_INSTANCE_UID].type() != Json::stringValue)
+      {
+        throw Orthanc::OrthancException(
+          Orthanc::ErrorCode_BadFileFormat,
+          "The request body must contain the field \"SOPInstanceUID\"");
+      }
+      else
+      {
+        instance = body[SOP_INSTANCE_UID].asString();
+      }
+    }
+
+    std::string uri;
+    switch (level)
+    {
+      case Orthanc::ResourceType_Study:
+        uri = "/studies/" + study;
+        break;
+
+      case Orthanc::ResourceType_Series:
+        uri = "/studies/" + study + "/series/" + series;
+        break;
+
+      case Orthanc::ResourceType_Instance:
+        uri = "/studies/" + study + "/series/" + series + "/instances/" + instance;
+        break;
+
+      default:
+        throw Orthanc::OrthancException(Orthanc::ErrorCode_ParameterOutOfRange);
+    }
+
+    OrthancPlugins::HttpClient client;
+    OrthancPlugins::DicomWebServers::GetInstance().ConfigureHttpClient(client, serverName, uri);
+    client.SetMethod(OrthancPluginHttpMethod_Delete);
+    client.Execute();
+
+    std::string tmp = "{}";
+    OrthancPluginAnswerBuffer(context, output, tmp.c_str(), tmp.size(), "application/json");
+  }
+}
+
+
+
+void RetrieveInstanceRendered(OrthancPluginRestOutput* output,
+                              const char* url,
+                              const OrthancPluginHttpRequest* request)
+{
+  OrthancPluginContext* context = OrthancPlugins::GetGlobalContext();
+
+  if (request->method != OrthancPluginHttpMethod_Get)
+  {
+    OrthancPluginSendMethodNotAllowed(context, output, "GET");
+  }
+  else
+  {
+    Orthanc::MimeType mime = Orthanc::MimeType_Jpeg;
+    
+    std::string publicId;
+    if (LocateInstance(output, publicId, request))
+    {
+      std::map<std::string, std::string> headers;
+      headers["Accept"] = Orthanc::EnumerationToString(mime);
+      
+      OrthancPlugins::MemoryBuffer buffer;
+      if (buffer.RestApiGet("/instances/" + publicId + "/preview", headers, false))
+      {
+        OrthancPluginAnswerBuffer(context, output, buffer.GetData(),
+                                  buffer.GetSize(), Orthanc::EnumerationToString(mime));
+      }
+    }
+  }
+}
+
+
+
 
 
 static bool DisplayPerformanceWarning(OrthancPluginContext* context)
@@ -168,6 +427,56 @@ static bool DisplayPerformanceWarning(OrthancPluginContext* context)
                           "Non-release build, runtime debug assertions are turned on");
   return true;
 }
+
+
+template <enum Orthanc::EmbeddedResources::DirectoryResourceId folder>
+void ServeEmbeddedFolder(OrthancPluginRestOutput* output,
+                         const char* url,
+                         const OrthancPluginHttpRequest* request)
+{
+  OrthancPluginContext* context = OrthancPlugins::GetGlobalContext();
+
+  if (request->method != OrthancPluginHttpMethod_Get)
+  {
+    OrthancPluginSendMethodNotAllowed(context, output, "GET");
+  }
+  else
+  {
+    std::string path = "/" + std::string(request->groups[0]);
+    const char* mime = Orthanc::EnumerationToString(Orthanc::SystemToolbox::AutodetectMimeType(path));
+
+    std::string s;
+    Orthanc::EmbeddedResources::GetDirectoryResource(s, folder, path.c_str());
+
+    const char* resource = s.size() ? s.c_str() : NULL;
+    OrthancPluginAnswerBuffer(context, output, resource, s.size(), mime);
+  }
+}
+
+
+#if ORTHANC_STANDALONE == 0
+void ServeDicomWebClient(OrthancPluginRestOutput* output,
+                         const char* url,
+                         const OrthancPluginHttpRequest* request)
+{
+  OrthancPluginContext* context = OrthancPlugins::GetGlobalContext();
+
+  if (request->method != OrthancPluginHttpMethod_Get)
+  {
+    OrthancPluginSendMethodNotAllowed(context, output, "GET");
+  }
+  else
+  {
+    const std::string path = std::string(DICOMWEB_CLIENT_PATH) + std::string(request->groups[0]);
+    const char* mime = Orthanc::EnumerationToString(Orthanc::SystemToolbox::AutodetectMimeType(path));
+
+    OrthancPlugins::MemoryBuffer f;
+    f.ReadFile(path);
+
+    OrthancPluginAnswerBuffer(context, output, f.GetData(), f.GetSize(), mime);
+  }
+}
+#endif
 
 
 extern "C"
@@ -204,15 +513,21 @@ extern "C"
       // Configure the DICOMweb callbacks
       if (OrthancPlugins::Configuration::GetBooleanValue("Enable", true))
       {
-        std::string root = OrthancPlugins::Configuration::GetRoot();
+        std::string root = OrthancPlugins::Configuration::GetDicomWebRoot();
         assert(!root.empty() && root[root.size() - 1] == '/');
 
         OrthancPlugins::LogWarning("URI to the DICOMweb REST API: " + root);
 
+        OrthancPlugins::ChunkedRestRegistration<
+          SearchForStudies /* TODO => Rename as QIDO-RS */,
+          OrthancPlugins::StowServer::PostCallback>::Apply(root + "studies");
+
+        OrthancPlugins::ChunkedRestRegistration<
+          RetrieveDicomStudy /* TODO => Rename as WADO-RS */,
+          OrthancPlugins::StowServer::PostCallback>::Apply(root + "studies/([^/]*)");
+
         OrthancPlugins::RegisterRestCallback<SearchForInstances>(root + "instances", true);
         OrthancPlugins::RegisterRestCallback<SearchForSeries>(root + "series", true);    
-        OrthancPlugins::RegisterRestCallback<SwitchStudies>(root + "studies", true);
-        OrthancPlugins::RegisterRestCallback<SwitchStudy>(root + "studies/([^/]*)", true);
         OrthancPlugins::RegisterRestCallback<SearchForInstances>(root + "studies/([^/]*)/instances", true);    
         OrthancPlugins::RegisterRestCallback<RetrieveStudyMetadata>(root + "studies/([^/]*)/metadata", true);
         OrthancPlugins::RegisterRestCallback<SearchForSeries>(root + "studies/([^/]*)/series", true);    
@@ -228,8 +543,43 @@ extern "C"
         OrthancPlugins::RegisterRestCallback<ListServers>(root + "servers", true);
         OrthancPlugins::RegisterRestCallback<ListServerOperations>(root + "servers/([^/]*)", true);
         OrthancPlugins::RegisterRestCallback<StowClient>(root + "servers/([^/]*)/stow", true);
+        OrthancPlugins::RegisterRestCallback<WadoRetrieveClient>(root + "servers/([^/]*)/wado", true);
         OrthancPlugins::RegisterRestCallback<GetFromServer>(root + "servers/([^/]*)/get", true);
         OrthancPlugins::RegisterRestCallback<RetrieveFromServer>(root + "servers/([^/]*)/retrieve", true);
+        OrthancPlugins::RegisterRestCallback<QidoClient>(root + "servers/([^/]*)/qido", true);
+        OrthancPlugins::RegisterRestCallback<DeleteClient>(root + "servers/([^/]*)/delete", true);
+
+        OrthancPlugins::RegisterRestCallback
+          <ServeEmbeddedFolder<Orthanc::EmbeddedResources::JAVASCRIPT_LIBS> >
+          (root + "app/libs/(.*)", true);
+
+        OrthancPlugins::RegisterRestCallback<GetClientInformation>(root + "app/info", true);
+
+        OrthancPlugins::RegisterRestCallback<RetrieveInstanceRendered>(root + "studies/([^/]*)/series/([^/]*)/instances/([^/]*)/rendered", true);
+
+
+        // Extend the default Orthanc Explorer with custom JavaScript for STOW client
+        std::string explorer;
+
+#if ORTHANC_STANDALONE == 1
+        Orthanc::EmbeddedResources::GetFileResource(explorer, Orthanc::EmbeddedResources::ORTHANC_EXPLORER);
+        OrthancPlugins::RegisterRestCallback
+          <ServeEmbeddedFolder<Orthanc::EmbeddedResources::WEB_APPLICATION> >
+          (root + "app/client/(.*)", true);
+#else
+        Orthanc::SystemToolbox::ReadFile(explorer, std::string(DICOMWEB_CLIENT_PATH) + "../Plugin/OrthancExplorer.js");
+        OrthancPlugins::RegisterRestCallback<ServeDicomWebClient>(root + "app/client/(.*)", true);
+#endif
+
+        std::map<std::string, std::string> dictionary;
+        dictionary["DICOMWEB_ROOT"] = OrthancPlugins::Configuration::GetDicomWebRoot();
+        std::string configured = Orthanc::Toolbox::SubstituteVariables(explorer, dictionary);
+        
+        OrthancPluginExtendOrthancExplorer(OrthancPlugins::GetGlobalContext(), configured.c_str());
+        
+        
+        std::string uri = root + "app/client/index.html";
+        OrthancPluginSetRootUri(context, uri.c_str());
       }
       else
       {
