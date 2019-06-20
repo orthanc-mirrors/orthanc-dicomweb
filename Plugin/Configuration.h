@@ -45,26 +45,13 @@ namespace OrthancPlugins
   static const Orthanc::DicomTag DICOM_TAG_REFERENCED_SOP_CLASS_UID(0x0008, 0x1150);
   static const Orthanc::DicomTag DICOM_TAG_REFERENCED_SOP_INSTANCE_UID(0x0008, 0x1155);
 
-  struct MultipartItem
-  {
-    const char*   data_;
-    size_t        size_;
-    std::string   contentType_;
-  };
-
   bool LookupHttpHeader(std::string& value,
                         const OrthancPluginHttpRequest* request,
                         const std::string& header);
 
-  // TODO => REMOVE (use Orthanc core instead)
   void ParseContentType(std::string& application,
                         std::map<std::string, std::string>& attributes,
                         const std::string& header);
-
-  void ParseMultipartBody(std::vector<MultipartItem>& result,
-                          const void* body,
-                          const uint64_t bodySize,
-                          const std::string& boundary);
 
   void ParseAssociativeArray(std::map<std::string, std::string>& target,
                              const Json::Value& value,
