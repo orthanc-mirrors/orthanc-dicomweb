@@ -81,6 +81,18 @@ namespace OrthancPlugins
 
   std::string RemoveMultipleSlashes(const std::string& source);
 
+  bool LookupStringValue(std::string& target,
+                         const Json::Value& json,
+                         const std::string& key);
+
+  bool LookupIntegerValue(int& target,
+                          const Json::Value& json,
+                          const std::string& key);
+
+  bool LookupBooleanValue(bool& target,
+                          const Json::Value& json,
+                          const std::string& key);
+
   namespace Configuration
   {
     void Initialize();

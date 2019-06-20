@@ -47,15 +47,14 @@ static const std::string MULTIPART_RELATED = "multipart/related";
 static void AddInstance(std::list<std::string>& target,
                         const Json::Value& instance)
 {
-  if (instance.type() != Json::objectValue ||
-      !instance.isMember("ID") ||
-      instance["ID"].type() != Json::stringValue)
+  std::string id;
+  if (OrthancPlugins::LookupStringValue(id, instance, "ID"))
   {
-    throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
+    target.push_back(id);
   }
   else
   {
-    target.push_back(instance["ID"].asString());
+    throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
   }
 }
 
@@ -564,15 +563,15 @@ void StowClient(OrthancPluginRestOutput* output,
 {
   OrthancPluginContext* context = OrthancPlugins::GetGlobalContext();
 
-  if (request->groupsCount != 1)
-  {
-    throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest);
-  }
-
   if (request->method != OrthancPluginHttpMethod_Post)
   {
     OrthancPluginSendMethodNotAllowed(context, output, "POST");
     return;
+  }
+
+  if (request->groupsCount != 1)
+  {
+    throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest);
   }
 
   std::string serverName(request->groups[0]);
@@ -646,34 +645,6 @@ void StowClient(OrthancPluginRestOutput* output,
 }
 
 
-static bool GetStringValue(std::string& target,
-                           const Json::Value& json,
-                           const std::string& key)
-{
-  if (json.type() != Json::objectValue)
-  {
-    throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
-  }
-  else if (!json.isMember(key))
-  {
-    target.clear();
-    return false;
-  }
-  else if (json[key].type() != Json::stringValue)
-  {
-    throw Orthanc::OrthancException(
-      Orthanc::ErrorCode_BadFileFormat,
-      "The field \"" + key + "\" in a JSON object should be a string");
-  }
-  else
-  {
-    target = json[key].asString();
-    return true;
-  }
-}
-
-
-
 static void ParseGetFromServer(std::string& uri,
                                std::map<std::string, std::string>& additionalHeaders,
                                const Json::Value& resource)
@@ -684,7 +655,7 @@ static void ParseGetFromServer(std::string& uri,
 
   std::string tmp;
   if (resource.type() != Json::objectValue ||
-      !GetStringValue(tmp, resource, URI))
+      !OrthancPlugins::LookupStringValue(tmp, resource, URI))
   {
     throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat,
                                     "A request to the DICOMweb client must provide a JSON object "
@@ -802,7 +773,7 @@ static void RetrieveFromServerInternal(std::set<std::string>& instances,
   }
 
   std::string study, series, instance;
-  if (!GetStringValue(study, resource, STUDY) ||
+  if (!OrthancPlugins::LookupStringValue(study, resource, STUDY) ||
       study.empty())
   {
     throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat,
@@ -810,8 +781,8 @@ static void RetrieveFromServerInternal(std::set<std::string>& instances,
                                     "DICOMweb WADO-RS Retrieve client");
   }
 
-  GetStringValue(series, resource, SERIES);
-  GetStringValue(instance, resource, INSTANCE);
+  OrthancPlugins::LookupStringValue(series, resource, SERIES);
+  OrthancPlugins::LookupStringValue(instance, resource, INSTANCE);
 
   if (series.empty() && 
       !instance.empty())
@@ -967,15 +938,14 @@ static void RetrieveFromServerInternal(std::set<std::string>& instances,
     Json::Value result;
     tmp.ToJson(result);
 
-    if (result.type() != Json::objectValue ||
-        !result.isMember("ID") ||
-        result["ID"].type() != Json::stringValue)
+    std::string id;
+    if (OrthancPlugins::LookupStringValue(id, result, "ID"))
     {
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);      
+      instances.insert(id);
     }
     else
     {
-      instances.insert(result["ID"].asString());
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);      
     }
   }
 }
@@ -1091,15 +1061,14 @@ private:
     Json::Value result;
     tmp.ToJson(result);
 
-    if (result.type() != Json::objectValue ||
-        !result.isMember("ID") ||
-        result["ID"].type() != Json::stringValue)
+    std::string id;
+    if (OrthancPlugins::LookupStringValue(id, result, "ID"))
     {
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);      
+      instances_.push_back(id);
     }
     else
     {
-      instances_.push_back(result["ID"].asString());
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);      
     }
   }
 
@@ -1211,43 +1180,6 @@ public:
   }
 };
 
-
-
-void WadoRetrieveClient(OrthancPluginRestOutput* output,
-                        const char* url,
-                        const OrthancPluginHttpRequest* request)
-{
-  OrthancPlugins::HttpClient client;
-  ConfigureGetFromServer(client, request);
-
-  std::list<std::string> instances;
-
-  // Do some loop
-  {
-    WadoRetrieveAnswer answer;
-    answer.Cancel();
-    client.Execute(answer);
-    answer.Close();
-
-    std::list<std::string> tmp;
-    answer.GetReceivedInstances(tmp);
-    instances.splice(instances.end(), tmp);
-  }
-
-  Json::Value result = Json::objectValue;
-  result["InstancesCount"] = static_cast<int32_t>(instances.size());
-
-  std::string tmp = result.toStyledString();
-  OrthancPluginAnswerBuffer(OrthancPlugins::GetGlobalContext(), output, 
-                            tmp.c_str(), tmp.size(), "application/json");
-
-}
-
-
-
-
-
-#include <Core/IDynamicObject.h>
 
 
 class SingleFunctionJob : public OrthancPlugins::OrthancJob
@@ -1546,6 +1478,56 @@ public:
     content_ = Json::objectValue;
     ClearContent();
   }
+
+
+  static void SubmitJob(OrthancPluginRestOutput* output,
+                        OrthancPlugins::OrthancJob* job,
+                        const Json::Value& body)
+  {
+    std::auto_ptr<OrthancPlugins::OrthancJob> protection(job);
+
+    bool synchronous;
+
+    bool b;
+    if (OrthancPlugins::LookupBooleanValue(b, body, "Synchronous"))
+    {
+      synchronous = b;
+    }
+    else if (OrthancPlugins::LookupBooleanValue(b, body, "Asynchronous"))
+    {
+      synchronous = !b;
+    }
+    else
+    {
+      synchronous = false;
+    }
+
+    int priority;
+    if (!OrthancPlugins::LookupIntegerValue(priority, body, "Priority"))
+    {
+      priority = 0;
+    }
+
+    Json::Value answer;
+
+    if (synchronous)
+    {
+      OrthancPlugins::OrthancJob::SubmitAndWait(answer, protection.release(), priority);
+    }
+    else
+    {
+      std::string jobId = OrthancPlugins::OrthancJob::Submit(protection.release(), priority);
+
+      answer = Json::objectValue;
+      answer["ID"] = jobId;
+      answer["Path"] = OrthancPlugins::RemoveMultipleSlashes
+        ("../../" + OrthancPlugins::Configuration::GetOrthancApiRoot() + "/jobs/" + jobId);
+    }
+
+    std::string s = answer.toStyledString();
+    OrthancPluginAnswerBuffer(OrthancPlugins::GetGlobalContext(),
+                              output, s.c_str(), s.size(), "application/json");    
+  }
 };
 
 
@@ -1750,16 +1732,28 @@ public:
 };
 
 
-
-void WadoTest()
+void WadoRetrieveClient(OrthancPluginRestOutput* output,
+                        const char* url,
+                        const OrthancPluginHttpRequest* request)
 {
-  std::auto_ptr<WadoRetrieveJob>  job(new WadoRetrieveJob("self"));
-  //job->AddResource("studies/2.16.840.1.113669.632.20.1211.10000315526");  // VIX
-  job->AddResource("studies/1.3.51.0.1.1.192.168.29.133.1688840.1688819");  // Cardiac
+  if (request->method != OrthancPluginHttpMethod_Post)
+  {
+    throw Orthanc::OrthancException(Orthanc::ErrorCode_ParameterOutOfRange);
+  }
 
-  //OrthancPlugins::OrthancJob::Submit(job.release(), 0);
+  if (request->groupsCount != 1)
+  {
+    throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest);
+  }
 
-  Json::Value result;
-  OrthancPlugins::OrthancJob::SubmitAndWait(result, job.release(), 0);
-  std::cout << result.toStyledString() << std::endl;
+  std::string serverName(request->groups[0]);
+
+  Json::Value body;
+  OrthancPlugins::ParseJsonBody(body, request);
+
+  std::auto_ptr<WadoRetrieveJob>  job(new WadoRetrieveJob(serverName));
+  job->AddResourceFromRequest(body);
+
+  SingleFunctionJob::SubmitJob(output, job.release(), body);
 }
+

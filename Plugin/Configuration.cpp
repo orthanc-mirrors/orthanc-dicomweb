@@ -374,6 +374,82 @@ namespace OrthancPlugins
   }
 
 
+  bool LookupStringValue(std::string& target,
+                         const Json::Value& json,
+                         const std::string& key)
+  {
+    if (json.type() != Json::objectValue)
+    {
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
+    }
+    else if (!json.isMember(key))
+    {
+      return false;
+    }
+    else if (json[key].type() != Json::stringValue)
+    {
+      throw Orthanc::OrthancException(
+        Orthanc::ErrorCode_BadFileFormat,
+        "The field \"" + key + "\" in a JSON object should be a string");
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);      
+    }
+    else
+    {
+      target = json[key].asString();
+      return true;
+    }
+  }
+
+
+  bool LookupIntegerValue(int& target,
+                          const Json::Value& json,
+                          const std::string& key)
+  {
+    if (json.type() != Json::objectValue)
+    {
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
+    }
+    else if (!json.isMember(key))
+    {
+      return false;
+    }
+    else if (json[key].type() != Json::intValue &&
+             json[key].type() != Json::uintValue)
+    {
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);      
+    }
+    else
+    {
+      target = json[key].asInt();
+      return true;
+    }
+  }
+
+
+  bool LookupBooleanValue(bool& target,
+                          const Json::Value& json,
+                          const std::string& key)
+  {
+    if (json.type() != Json::objectValue)
+    {
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
+    }
+    else if (!json.isMember(key))
+    {
+      return false;
+    }
+    else if (json[key].type() != Json::booleanValue)
+    {
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);      
+    }
+    else
+    {
+      target = json[key].asBool();
+      return true;
+    }
+  }
+
+
   namespace Configuration
   {
     // Assume Latin-1 encoding by default (as in the Orthanc core)
