@@ -43,6 +43,10 @@ var app = new Vue({
     lookup: { },
     studies: [ ],
     currentStudy: null,
+    jobId: '',
+    jobLevel: '',
+    jobUri: '',
+    jobDetails: '',
     studiesFields: [
       {
         key: DICOM_TAG_PATIENT_ID + '.Value',
@@ -149,6 +153,16 @@ var app = new Vue({
     ShowErrorModal: function() {
       app.$refs['modal-error'].show();
     },
+    RefreshJobDetails: function() {
+      axios
+        .get(app.jobUri)
+        .then(response => {
+          app.jobDetails = response.data;
+        })
+        .catch(response => {
+          app.jobDetails = 'Job details are not available';
+        })
+    },
 
     
     /**
@@ -232,6 +246,19 @@ var app = new Vue({
       
       app.$refs['study-details'].show();
     },
+    RetrieveStudy: function(study) {
+      axios
+        .post('../../servers/' + app.activeServer + '/wado', {
+          'Uri' : '/studies/' + study[DICOM_TAG_STUDY_INSTANCE_UID].Value
+        })
+        .then(response => {
+          app.jobLevel = 'study';
+          app.jobId = response.data.ID;
+          app.jobUri = app.orthancExplorerUri + '/' + response.data.Path;
+          app.$refs['retrieve-job'].show();
+          app.RefreshJobDetails();
+        });
+    },
     ConfirmDeleteStudy: function(study) {
       app.studyToDelete = study;
       app.$bvModal.show('study-delete-confirm');
@@ -281,6 +308,20 @@ var app = new Vue({
       });
       
       app.$refs['series-details'].show();
+    },
+    RetrieveSeries: function(series) {
+      axios
+        .post('../../servers/' + app.activeServer + '/wado', {
+          'Uri' : ('/studies/' + app.currentStudy + 
+                   '/series/' + series[DICOM_TAG_SERIES_INSTANCE_UID].Value)
+        })
+        .then(response => {
+          app.jobLevel = 'series';
+          app.jobId = response.data.ID;
+          app.jobUri = app.orthancExplorerUri + '/' + response.data.Path;
+          app.$refs['retrieve-job'].show();
+          app.RefreshJobDetails();
+        });
     },
     OpenSeriesPreview: function(series) {
       axios
