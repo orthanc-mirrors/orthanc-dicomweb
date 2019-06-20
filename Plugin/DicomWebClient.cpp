@@ -28,11 +28,19 @@
 #include <set>
 #include <boost/lexical_cast.hpp>
 
+#include <Core/HttpServer/MultipartStreamReader.h>
 #include <Core/ChunkedBuffer.h>
 #include <Core/Toolbox.h>
 
 
 #include <boost/thread.hpp>
+#include <boost/algorithm/string/predicate.hpp>
+
+
+
+
+static const std::string MULTIPART_RELATED = "multipart/related";
+
 
 
 static void AddInstance(std::list<std::string>& target,
@@ -1020,4 +1028,164 @@ void RetrieveFromServer(OrthancPluginRestOutput* output,
 
   std::string s = status.toStyledString();
   OrthancPluginAnswerBuffer(context, output, s.c_str(), s.size(), "application/json");
+}
+
+
+
+
+class WadoRetrieveAnswer : 
+  public OrthancPlugins::HttpClient::IAnswer,
+  private Orthanc::MultipartStreamReader::IHandler
+{
+private:
+  enum State
+  {
+    State_Headers,
+    State_Body
+  };
+
+  State                                          state_;
+  std::list<std::string>                         instances_;
+  std::auto_ptr<Orthanc::MultipartStreamReader>  reader_;
+
+  virtual void HandlePart(const Orthanc::MultipartStreamReader::HttpHeaders& headers,
+                          const void* part,
+                          size_t size)
+  {
+    std::string contentType;
+    if (!Orthanc::MultipartStreamReader::GetMainContentType(contentType, headers))
+    {
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol,
+                                      "Missing Content-Type for a part of WADO-RS answer");
+    }
+
+    size_t pos = contentType.find(';');
+    if (pos != std::string::npos)
+    {
+      contentType = contentType.substr(0, pos);
+    }
+
+    contentType = Orthanc::Toolbox::StripSpaces(contentType);
+    if (!boost::iequals(contentType, "application/dicom"))
+    {
+      throw Orthanc::OrthancException(
+        Orthanc::ErrorCode_NetworkProtocol,
+        "Parts of a WADO-RS retrieve should have \"application/dicom\" type, but received: " + contentType);
+    }
+
+    OrthancPlugins::MemoryBuffer tmp;
+    tmp.RestApiPost("/instances", part, size, false);
+
+    Json::Value result;
+    tmp.ToJson(result);
+
+    if (result.type() != Json::objectValue ||
+        !result.isMember("ID") ||
+        result["ID"].type() != Json::stringValue)
+    {
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);      
+    }
+    else
+    {
+      instances_.push_back(result["ID"].asString());
+    }
+  }
+
+public:
+  WadoRetrieveAnswer() :
+    state_(State_Headers)
+  {
+  }
+
+  virtual ~WadoRetrieveAnswer()
+  {
+  }
+
+  void Close()
+  {
+    if (reader_.get() != NULL)
+    {
+      reader_->CloseStream();
+    }
+  }
+
+  virtual void AddHeader(const std::string& key,
+                         const std::string& value)
+  {
+    if (state_ != State_Headers)
+    {
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
+    }
+
+    if (boost::iequals(key, "Content-Type"))
+    {
+      if (reader_.get() != NULL)
+      {
+        throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol,
+                                        "Received twice a Content-Type header in WADO-RS");
+      }
+
+      std::string contentType, subType, boundary;
+
+      if (!Orthanc::MultipartStreamReader::ParseMultipartContentType
+          (contentType, subType, boundary, value))
+      {
+        throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol,
+                                        "Cannot parse the Content-Type for WADO-RS: " + value);
+      }
+
+      if (!boost::iequals(contentType, MULTIPART_RELATED))
+      {
+        throw Orthanc::OrthancException(
+          Orthanc::ErrorCode_NetworkProtocol,
+          "The remote WADO-RS server answers with a \"" + contentType +
+          "\" Content-Type, but \"" + MULTIPART_RELATED + "\" is expected");
+      }
+
+      reader_.reset(new Orthanc::MultipartStreamReader(boundary));
+      reader_->SetHandler(*this);
+    }
+  }
+
+
+  virtual void AddChunk(const void* data,
+                        size_t size)
+  {
+    if (reader_.get() == NULL)
+    {
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol,
+                                      "No Content-Type provided by the remote WADO-RS server");
+    }
+
+    state_ = State_Body;
+
+    reader_->AddChunk(data, size);
+  }
+
+  const std::list<std::string>& GetReceivedInstances() const
+  {
+    return instances_;
+  }
+};
+
+
+
+void WadoRetrieveClient(OrthancPluginRestOutput* output,
+                        const char* url,
+                        const OrthancPluginHttpRequest* request)
+{
+  OrthancPlugins::HttpClient client;
+  ConfigureGetFromServer(client, request);
+
+  WadoRetrieveAnswer answer;
+  client.Execute(answer);
+  answer.Close();
+
+  Json::Value result = Json::objectValue;
+  result["InstancesCount"] = static_cast<int32_t>(answer.GetReceivedInstances().size());
+
+  std::string tmp = result.toStyledString();
+  OrthancPluginAnswerBuffer(OrthancPlugins::GetGlobalContext(), output, 
+                            tmp.c_str(), tmp.size(), "application/json");
+
 }

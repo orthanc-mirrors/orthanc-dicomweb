@@ -104,8 +104,9 @@ void ListServerOperations(OrthancPluginRestOutput* output,
 
       Json::Value json = Json::arrayValue;
       json.append("get");
-      json.append("retrieve");
+      json.append("retrieve");   // TODO => Mark as deprecated
       json.append("stow");
+      json.append("wado");
       json.append("qido");
 
       std::string value;
@@ -705,6 +706,7 @@ extern "C"
         OrthancPlugins::RegisterRestCallback<ListServers>(root + "servers", true);
         OrthancPlugins::RegisterRestCallback<ListServerOperations>(root + "servers/([^/]*)", true);
         OrthancPlugins::RegisterRestCallback<StowClient>(root + "servers/([^/]*)/stow", true);
+        OrthancPlugins::RegisterRestCallback<WadoRetrieveClient>(root + "servers/([^/]*)/wado", true);
         OrthancPlugins::RegisterRestCallback<GetFromServer>(root + "servers/([^/]*)/get", true);
         OrthancPlugins::RegisterRestCallback<RetrieveFromServer>(root + "servers/([^/]*)/retrieve", true);
         OrthancPlugins::RegisterRestCallback<QidoClient>(root + "servers/([^/]*)/qido", true);

@@ -35,6 +35,11 @@ void GetFromServer(OrthancPluginRestOutput* output,
 void GetFromServer(Json::Value& result,
                    const OrthancPluginHttpRequest* request);
 
+// TODO => Mark as deprecated
 void RetrieveFromServer(OrthancPluginRestOutput* output,
                         const char* /*url*/,
+                        const OrthancPluginHttpRequest* request);
+
+void WadoRetrieveClient(OrthancPluginRestOutput* output,
+                        const char* url,
                         const OrthancPluginHttpRequest* request);
