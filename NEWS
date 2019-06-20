@@ -1,6 +1,12 @@
 Pending changes in the mainline
 ===============================
 
+=> Recommended SDK version: 1.5.7 <=
+=> Minimum SDK version: 1.5.4 <=
+
+* Web user interface for QIDO-RS, WADO-RS and STOW-RS clients
+* Full refactoring of multipart parsing
+* Jobs are available in WADO-RS client and STOW-RS client
 * Support "Transfer-Encoding: chunked" to reduce memory consumption in STOW-RS
   (provided the SDK version is above 1.5.7)
 * Handling of the HTTP header "Forwarded" for WADO-RS
