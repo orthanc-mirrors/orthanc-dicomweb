@@ -429,8 +429,6 @@ static bool DisplayPerformanceWarning(OrthancPluginContext* context)
 }
 
 
-
-
 template <enum Orthanc::EmbeddedResources::DirectoryResourceId folder>
 void ServeEmbeddedFolder(OrthancPluginRestOutput* output,
                          const char* url,
