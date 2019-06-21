@@ -40,6 +40,307 @@
 
 
 
+class SingleFunctionJob : public OrthancPlugins::OrthancJob
+{
+public:
+  class JobContext : public boost::noncopyable
+  {
+  private:
+    SingleFunctionJob&  that_;
+
+  public:
+    JobContext(SingleFunctionJob& that) :
+      that_(that)
+    {
+    }
+
+    void SetContent(const std::string& key,
+                    const std::string& value)
+    {
+      that_.SetContent(key, value);
+    }
+
+    void SetProgress(unsigned int position,
+                     unsigned int maxPosition)
+    {
+      boost::mutex::scoped_lock lock(that_.mutex_);
+      
+      if (maxPosition == 0 || 
+          position > maxPosition)
+      {
+        that_.UpdateProgress(1);
+      }
+      else
+      {
+        that_.UpdateProgress(static_cast<float>(position) / static_cast<float>(maxPosition));
+      }
+    }
+  };
+
+
+  class IFunction : public boost::noncopyable
+  {
+  public:
+    virtual ~IFunction()
+    {
+    }
+
+    // Must return "true" if the job has completed with success, or
+    // "false" if the job has been canceled. Pausing the job
+    // corresponds to canceling it.
+    virtual bool Execute(JobContext& context) = 0;
+  };
+
+
+  class IFunctionFactory : public boost::noncopyable
+  {
+  public:
+    virtual ~IFunctionFactory()
+    {
+    }
+
+    // WARNING: "CancelFunction()" will be invoked while "Execute()"
+    // is running. Mutex is probably necessary.
+    virtual void CancelFunction() = 0;
+
+    // Only called when no function is running, to deal with
+    // "Resubmit()" after job cancelation/failure.
+    virtual void ResetFunction() = 0;
+
+    virtual IFunction* CreateFunction() = 0;
+  };
+
+
+protected:
+  void SetFactory(IFunctionFactory& factory)
+  {
+    boost::mutex::scoped_lock lock(mutex_);
+
+    if (state_ != State_Setup)
+    {
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadSequenceOfCalls);
+    }
+    else
+    {
+      factory_ = &factory;
+    }
+  }
+  
+
+private:
+  enum State
+  {
+    State_Setup,
+    State_Running,
+    State_Success,
+    State_Failure
+  };
+
+  boost::mutex                  mutex_;
+  State                         state_;  // Can only be modified by the "Worker()" function
+  std::auto_ptr<boost::thread>  worker_;
+  Json::Value                   content_;
+  IFunctionFactory*             factory_;
+
+  void JoinWorker()
+  {
+    assert(factory_ != NULL);
+
+    if (worker_.get() != NULL)
+    {
+      if (worker_->joinable())
+      {
+        worker_->join();
+      }
+
+      worker_.reset();
+    }
+  }
+
+  void StartWorker()
+  {
+    assert(factory_ != NULL);
+
+    if (worker_.get() == NULL &&
+        factory_ != NULL)
+    {
+      worker_.reset(new boost::thread(Worker, this, factory_));
+    }
+  }
+
+  void SetContent(const std::string& key,
+                  const std::string& value)
+  {
+    boost::mutex::scoped_lock lock(mutex_);
+    content_[key] = value;
+    UpdateContent(content_);
+  }
+
+  static void Worker(SingleFunctionJob* job,
+                     IFunctionFactory* factory)
+  {
+    assert(job != NULL && factory != NULL);
+
+    JobContext context(*job);
+
+    {
+      boost::mutex::scoped_lock lock(job->mutex_);
+      job->state_ = State_Running;
+    }
+
+    try
+    {
+      std::auto_ptr<IFunction> function(factory->CreateFunction());
+      bool success = function->Execute(context);
+
+      {
+        boost::mutex::scoped_lock lock(job->mutex_);
+        job->state_ = (success ? State_Success : State_Failure);
+        if (success)
+        {
+          job->UpdateProgress(1);
+        }
+      }
+    }
+    catch (Orthanc::OrthancException& e)
+    {
+      LOG(ERROR) << "Error in a job: " << e.What();
+
+      {
+        boost::mutex::scoped_lock lock(job->mutex_);
+        job->state_ = State_Failure;
+        job->content_["FunctionErrorCode"] = e.GetErrorCode();
+        job->content_["FunctionErrorDescription"] = e.What();
+        if (e.HasDetails())
+        {
+          job->content_["FunctionErrorDetails"] = e.GetDetails();
+        }
+        job->UpdateContent(job->content_);
+      }
+    }
+  }  
+
+public:
+  SingleFunctionJob(const std::string& jobName) :
+    OrthancJob(jobName),
+    state_(State_Setup),
+    content_(Json::objectValue),
+    factory_(NULL)
+  {
+  }
+
+  virtual ~SingleFunctionJob()
+  {
+    if (worker_.get() != NULL)
+    {
+      LOG(ERROR) << "Classes deriving from SingleFunctionJob must "
+                 << "explicitly call Finalize() in their destructor";
+
+      try
+      {
+        JoinWorker();
+      }
+      catch (Orthanc::OrthancException&)
+      {
+      }
+    }
+  }
+
+  void Finalize()
+  {
+    try
+    {
+      if (factory_ != NULL)
+      {
+        factory_->CancelFunction();
+        JoinWorker();
+      }
+    }
+    catch (Orthanc::OrthancException&)
+    {
+    }
+  }
+
+  virtual OrthancPluginJobStepStatus Step()
+  {
+    if (factory_ == NULL)
+    {
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadSequenceOfCalls);
+    }
+
+    State state;
+
+    {
+      boost::mutex::scoped_lock lock(mutex_);
+      state = state_;
+    }
+
+    switch (state)
+    {
+      case State_Setup:
+        StartWorker();
+        break;
+
+      case State_Running:
+        break;
+
+      case State_Success:
+        JoinWorker();
+        return OrthancPluginJobStepStatus_Success;
+
+      case State_Failure:
+        JoinWorker();
+        return OrthancPluginJobStepStatus_Failure;
+
+      default:
+        throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
+    }
+
+    boost::this_thread::sleep(boost::posix_time::milliseconds(500));
+    return OrthancPluginJobStepStatus_Continue;
+  }
+
+  virtual void Stop(OrthancPluginJobStopReason reason)
+  {
+    if (factory_ == NULL)
+    {
+      return;
+    }
+
+    if (reason == OrthancPluginJobStopReason_Paused ||
+        reason == OrthancPluginJobStopReason_Canceled)
+    {
+      factory_->CancelFunction();
+    }
+
+    JoinWorker();
+
+    if (reason == OrthancPluginJobStopReason_Paused)
+    {
+      // This type of job cannot be paused: Reset under the hood
+      Reset();
+    }
+  }
+
+  virtual void Reset()
+  {
+    boost::mutex::scoped_lock lock(mutex_);
+
+    if (factory_ != NULL)
+    {
+      factory_->ResetFunction();
+    }
+
+    state_ = State_Setup;    
+
+    content_ = Json::objectValue;
+    ClearContent();
+  }
+};
+
+
+
+
 static const std::string MULTIPART_RELATED = "multipart/related";
 
 
@@ -871,304 +1172,6 @@ public:
 };
 
 
-
-class SingleFunctionJob : public OrthancPlugins::OrthancJob
-{
-public:
-  class JobContext : public boost::noncopyable
-  {
-  private:
-    SingleFunctionJob&  that_;
-
-  public:
-    JobContext(SingleFunctionJob& that) :
-      that_(that)
-    {
-    }
-
-    void SetContent(const std::string& key,
-                    const std::string& value)
-    {
-      that_.SetContent(key, value);
-    }
-
-    void SetProgress(unsigned int position,
-                     unsigned int maxPosition)
-    {
-      boost::mutex::scoped_lock lock(that_.mutex_);
-      
-      if (maxPosition == 0 || 
-          position > maxPosition)
-      {
-        that_.UpdateProgress(1);
-      }
-      else
-      {
-        that_.UpdateProgress(static_cast<float>(position) / static_cast<float>(maxPosition));
-      }
-    }
-  };
-
-
-  class IFunction : public boost::noncopyable
-  {
-  public:
-    virtual ~IFunction()
-    {
-    }
-
-    // Must return "true" if the job has completed with success, or
-    // "false" if the job has been canceled. Pausing the job
-    // corresponds to canceling it.
-    virtual bool Execute(JobContext& context) = 0;
-  };
-
-
-  class IFunctionFactory : public boost::noncopyable
-  {
-  public:
-    virtual ~IFunctionFactory()
-    {
-    }
-
-    // WARNING: "CancelFunction()" will be invoked while "Execute()"
-    // is running. Mutex is probably necessary.
-    virtual void CancelFunction() = 0;
-
-    // Only called when no function is running, to deal with
-    // "Resubmit()" after job cancelation/failure.
-    virtual void ResetFunction() = 0;
-
-    virtual IFunction* CreateFunction() = 0;
-  };
-
-
-protected:
-  void SetFactory(IFunctionFactory& factory)
-  {
-    boost::mutex::scoped_lock lock(mutex_);
-
-    if (state_ != State_Setup)
-    {
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadSequenceOfCalls);
-    }
-    else
-    {
-      factory_ = &factory;
-    }
-  }
-  
-
-private:
-  enum State
-  {
-    State_Setup,
-    State_Running,
-    State_Success,
-    State_Failure
-  };
-
-  boost::mutex                  mutex_;
-  State                         state_;  // Can only be modified by the "Worker()" function
-  std::auto_ptr<boost::thread>  worker_;
-  Json::Value                   content_;
-  IFunctionFactory*             factory_;
-
-  void JoinWorker()
-  {
-    assert(factory_ != NULL);
-
-    if (worker_.get() != NULL)
-    {
-      if (worker_->joinable())
-      {
-        worker_->join();
-      }
-
-      worker_.reset();
-    }
-  }
-
-  void StartWorker()
-  {
-    assert(factory_ != NULL);
-
-    if (worker_.get() == NULL &&
-        factory_ != NULL)
-    {
-      worker_.reset(new boost::thread(Worker, this, factory_));
-    }
-  }
-
-  void SetContent(const std::string& key,
-                  const std::string& value)
-  {
-    boost::mutex::scoped_lock lock(mutex_);
-    content_[key] = value;
-    UpdateContent(content_);
-  }
-
-  static void Worker(SingleFunctionJob* job,
-                     IFunctionFactory* factory)
-  {
-    assert(job != NULL && factory != NULL);
-
-    JobContext context(*job);
-
-    {
-      boost::mutex::scoped_lock lock(job->mutex_);
-      job->state_ = State_Running;
-    }
-
-    try
-    {
-      std::auto_ptr<IFunction> function(factory->CreateFunction());
-      bool success = function->Execute(context);
-
-      {
-        boost::mutex::scoped_lock lock(job->mutex_);
-        job->state_ = (success ? State_Success : State_Failure);
-        if (success)
-        {
-          job->UpdateProgress(1);
-        }
-      }
-    }
-    catch (Orthanc::OrthancException& e)
-    {
-      LOG(ERROR) << "Error in a job: " << e.What();
-
-      {
-        boost::mutex::scoped_lock lock(job->mutex_);
-        job->state_ = State_Failure;
-        job->content_["FunctionErrorCode"] = e.GetErrorCode();
-        job->content_["FunctionErrorDescription"] = e.What();
-        if (e.HasDetails())
-        {
-          job->content_["FunctionErrorDetails"] = e.GetDetails();
-        }
-        job->UpdateContent(job->content_);
-      }
-    }
-  }  
-
-public:
-  SingleFunctionJob(const std::string& jobName) :
-    OrthancJob(jobName),
-    state_(State_Setup),
-    content_(Json::objectValue),
-    factory_(NULL)
-  {
-  }
-
-  virtual ~SingleFunctionJob()
-  {
-    if (worker_.get() != NULL)
-    {
-      LOG(ERROR) << "Classes deriving from SingleFunctionJob must "
-                 << "explicitly call Finalize() in their destructor";
-
-      try
-      {
-        JoinWorker();
-      }
-      catch (Orthanc::OrthancException&)
-      {
-      }
-    }
-  }
-
-  void Finalize()
-  {
-    try
-    {
-      if (factory_ != NULL)
-      {
-        factory_->CancelFunction();
-        JoinWorker();
-      }
-    }
-    catch (Orthanc::OrthancException&)
-    {
-    }
-  }
-
-  virtual OrthancPluginJobStepStatus Step()
-  {
-    if (factory_ == NULL)
-    {
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadSequenceOfCalls);
-    }
-
-    State state;
-
-    {
-      boost::mutex::scoped_lock lock(mutex_);
-      state = state_;
-    }
-
-    switch (state)
-    {
-      case State_Setup:
-        StartWorker();
-        break;
-
-      case State_Running:
-        break;
-
-      case State_Success:
-        JoinWorker();
-        return OrthancPluginJobStepStatus_Success;
-
-      case State_Failure:
-        JoinWorker();
-        return OrthancPluginJobStepStatus_Failure;
-
-      default:
-        throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
-    }
-
-    boost::this_thread::sleep(boost::posix_time::milliseconds(500));
-    return OrthancPluginJobStepStatus_Continue;
-  }
-
-  virtual void Stop(OrthancPluginJobStopReason reason)
-  {
-    if (factory_ == NULL)
-    {
-      return;
-    }
-
-    if (reason == OrthancPluginJobStopReason_Paused ||
-        reason == OrthancPluginJobStopReason_Canceled)
-    {
-      factory_->CancelFunction();
-    }
-
-    JoinWorker();
-
-    if (reason == OrthancPluginJobStopReason_Paused)
-    {
-      // This type of job cannot be paused: Reset under the hood
-      Reset();
-    }
-  }
-
-  virtual void Reset()
-  {
-    boost::mutex::scoped_lock lock(mutex_);
-
-    if (factory_ != NULL)
-    {
-      factory_->ResetFunction();
-    }
-
-    state_ = State_Setup;    
-
-    content_ = Json::objectValue;
-    ClearContent();
-  }
-};
 
 
 
