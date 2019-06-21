@@ -76,7 +76,8 @@ function ConfigureDicomWebStowClient(resourceId, buttonId, positionOnPage)
       ChooseDicomWebServer(function(server) {
         if (server != '' && resourceId != '') {
           var query = {
-            'Resources' : [ resourceId ]
+            'Resources' : [ resourceId ],
+            'Synchronous' : false
           };
           
           $.ajax({
