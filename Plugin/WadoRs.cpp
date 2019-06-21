@@ -439,9 +439,9 @@ bool LocateInstance(OrthancPluginRestOutput* output,
            series["MainDicomTags"]["SeriesInstanceUID"].asString() != std::string(request->groups[1]))
   {
     throw Orthanc::OrthancException(Orthanc::ErrorCode_InexistentItem,
-                                    "No instance " + std::string(request->groups[2]) + 
-                                    " in study " + std::string(request->groups[0]) +
-                                    " or in series " + std::string(request->groups[1]));
+                                    "Instance " + std::string(request->groups[2]) + 
+                                    " is not both in study " + std::string(request->groups[0]) +
+                                    " and in series " + std::string(request->groups[1]));
   }
   else
   {
