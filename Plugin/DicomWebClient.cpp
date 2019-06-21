@@ -1306,7 +1306,8 @@ private:
     retrievedInstances_.splice(retrievedInstances_.end(), instances);
 
     context.SetProgress(position_, resources_.size());
-    context.SetContent("NetworkUsageMB", boost::lexical_cast<std::string>(networkSize_ / (1024llu * 1024llu)));
+    context.SetContent("NetworkUsageMB", boost::lexical_cast<std::string>
+                       (networkSize_ / static_cast<uint64_t>(1024 * 1024)));
     context.SetContent("ReceivedInstancesCount", boost::lexical_cast<std::string>(retrievedInstances_.size()));
   }
 

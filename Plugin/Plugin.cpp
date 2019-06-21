@@ -484,6 +484,7 @@ extern "C"
   ORTHANC_PLUGINS_API int32_t OrthancPluginInitialize(OrthancPluginContext* context)
   {
     assert(DisplayPerformanceWarning(context));
+
     OrthancPlugins::SetGlobalContext(context);
     Orthanc::Logging::Initialize(context);
 
@@ -499,6 +500,11 @@ extern "C"
       OrthancPluginLogError(context, info);
       return -1;
     }
+
+#if HAS_ORTHANC_PLUGIN_CHUNKED_HTTP_CLIENT == 0
+    LOG(WARNING) << "Performance warning in DICOMweb: The plugin was compiled against "
+                 << "Orthanc SDK <= 1.5.6. STOW and WADO chunked transfers will be entirely stored in RAM.";
+#endif
 
     OrthancPluginSetDescription(context, "Implementation of DICOMweb (QIDO-RS, STOW-RS and WADO-RS) and WADO-URI.");
 
