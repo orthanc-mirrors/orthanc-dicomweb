@@ -113,3 +113,29 @@ $('#series').live('pagebeforeshow', function() {
 $('#instance').live('pagebeforeshow', function() {
   ConfigureDicomWebStowClient($.mobile.pageData.uuid, 'stow-instance', 'instance-info');
 });
+
+$('#lookup').live('pagebeforeshow', function() {
+  $('#open-dicomweb-client').remove();
+  
+  var b = $('<fieldset>')
+      .attr('id', 'open-dicomweb-client')
+      .addClass('ui-grid-b')
+      .append($('<div>')
+              .addClass('ui-block-a'))
+      .append($('<div>')
+              .addClass('ui-block-b')
+              .append($('<a>')
+                      .attr('id', 'coucou')
+                      .attr('data-role', 'button')
+                      .attr('href', '#')
+                      .attr('data-icon', 'forward')
+                      .attr('data-theme', 'a')
+                      .text('Open DICOMweb client')
+                      .button()
+                      .click(function(e) {
+                        window.open('../${DICOMWEB_ROOT}/app/client/index.html');
+                      })));
+  
+  b.insertAfter($('#lookup-result'));
+});
+

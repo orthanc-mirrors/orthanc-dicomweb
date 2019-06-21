@@ -577,11 +577,20 @@ extern "C"
         OrthancPlugins::RegisterRestCallback<ServeDicomWebClient>(root + "app/client/(.*)", true);
 #endif
 
-        std::map<std::string, std::string> dictionary;
-        dictionary["DICOMWEB_ROOT"] = OrthancPlugins::Configuration::GetDicomWebRoot();
-        std::string configured = Orthanc::Toolbox::SubstituteVariables(explorer, dictionary);
-        
-        OrthancPluginExtendOrthancExplorer(OrthancPlugins::GetGlobalContext(), configured.c_str());
+        {
+          if (root.size() < 2 ||
+              root[0] != '/' ||
+              root[root.size() - 1] != '/')
+          {
+            throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
+          }
+
+          std::map<std::string, std::string> dictionary;
+          dictionary["DICOMWEB_ROOT"] = root.substr(1, root.size() - 2);  // Remove heading and trailing slashes
+          std::string configured = Orthanc::Toolbox::SubstituteVariables(explorer, dictionary);
+
+          OrthancPluginExtendOrthancExplorer(OrthancPlugins::GetGlobalContext(), configured.c_str());
+        }
         
         
         std::string uri = root + "app/client/index.html";
