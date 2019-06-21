@@ -86,7 +86,7 @@ static void SubmitJob(OrthancPluginRestOutput* output,
     answer = Json::objectValue;
     answer["ID"] = jobId;
     answer["Path"] = OrthancPlugins::RemoveMultipleSlashes
-      ("../../" + OrthancPlugins::Configuration::GetOrthancApiRoot() + "/jobs/" + jobId);
+      ("../" + OrthancPlugins::Configuration::GetOrthancApiRoot() + "/jobs/" + jobId);
   }
 
   std::string s = answer.toStyledString();

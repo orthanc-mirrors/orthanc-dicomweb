@@ -32,7 +32,7 @@ function ChooseDicomWebServer(callback)
       }
 
       // Launch the dialog
-      $('#dialog').simpledialog2({
+      $(document).simpledialog2({
         mode: 'blank',
         animate: false,
         headerText: 'Choose target',

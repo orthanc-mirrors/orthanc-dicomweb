@@ -27,7 +27,7 @@ var app = new Vue({
     }
   },
   data: {
-    orthancExplorerUri: '../../../',
+    orthancApiRoot: '../../../',
     previewFailure: true,
     preview: DEFAULT_PREVIEW,
     showTruncatedStudies: false,
@@ -136,9 +136,13 @@ var app = new Vue({
         app.Clear();
       });
     axios
-      .get('../info')
+      .get('../../info')
       .then(response => {
-        app.orthancExplorerUri = response.data.OrthancApiRoot + '../../';
+        app.orthancApiRoot = response.data.OrthancApiRoot;
+        if (!app.orthancApiRoot.endsWith('/')) {
+          app.orthancApiRoot += '/';
+        }
+        app.orthancApiRoot += '../../';  // To be at the same level as "info"
       });
   },
   methods: {
@@ -247,15 +251,15 @@ var app = new Vue({
       app.$refs['study-details'].show();
     },
     RetrieveStudy: function(study) {
+      var base = '../../servers/';
       axios
-        .post('../../servers/' + app.activeServer + '/wado', {
+        .post(base + app.activeServer + '/wado', {
           'Uri' : '/studies/' + study[DICOM_TAG_STUDY_INSTANCE_UID].Value
         })
         .then(response => {
           app.jobLevel = 'study';
           app.jobId = response.data.ID;
-          // The "replace()" below removes the possible trailing slash
-          app.jobUri = app.orthancExplorerUri.replace(/\/$/, '') + '/' + response.data.Path;
+          app.jobUri = base + response.data.Path;
           app.$refs['retrieve-job'].show();
           app.RefreshJobDetails();
         });
@@ -311,15 +315,16 @@ var app = new Vue({
       app.$refs['series-details'].show();
     },
     RetrieveSeries: function(series) {
+      var base = '../../servers/';
       axios
-        .post('../../servers/' + app.activeServer + '/wado', {
+        .post(base + app.activeServer + '/wado', {
           'Uri' : ('/studies/' + app.currentStudy + 
                    '/series/' + series[DICOM_TAG_SERIES_INSTANCE_UID].Value)
         })
         .then(response => {
           app.jobLevel = 'series';
           app.jobId = response.data.ID;
-          app.jobUri = app.orthancExplorerUri + '/' + response.data.Path;
+          app.jobUri = base + response.data.Path;
           app.$refs['retrieve-job'].show();
           app.RefreshJobDetails();
         });
