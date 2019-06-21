@@ -553,7 +553,7 @@ extern "C"
           <ServeEmbeddedFolder<Orthanc::EmbeddedResources::JAVASCRIPT_LIBS> >
           (root + "app/libs/(.*)", true);
 
-        OrthancPlugins::RegisterRestCallback<GetClientInformation>(root + "app/info", true);
+        OrthancPlugins::RegisterRestCallback<GetClientInformation>(root + "info", true);
 
         OrthancPlugins::RegisterRestCallback<RetrieveInstanceRendered>(root + "studies/([^/]*)/series/([^/]*)/instances/([^/]*)/rendered", true);
 
