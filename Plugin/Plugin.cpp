@@ -32,6 +32,8 @@
 
 #include <EmbeddedResources.h>
 
+#include <boost/algorithm/string/predicate.hpp>
+
 
 bool RequestHasKey(const OrthancPluginHttpRequest* request, const char* key)
 {
@@ -386,9 +388,10 @@ void DeleteClient(OrthancPluginRestOutput* output,
 
 
 
-void RetrieveInstanceRendered(OrthancPluginRestOutput* output,
-                              const char* url,
-                              const OrthancPluginHttpRequest* request)
+
+static void AnswerFrameRendered(OrthancPluginRestOutput* output,
+                                int frame,
+                                const OrthancPluginHttpRequest* request)
 {
   OrthancPluginContext* context = OrthancPlugins::GetGlobalContext();
 
@@ -398,22 +401,66 @@ void RetrieveInstanceRendered(OrthancPluginRestOutput* output,
   }
   else
   {
-    Orthanc::MimeType mime = Orthanc::MimeType_Jpeg;
-    
-    std::string publicId;
-    if (LocateInstance(output, publicId, request))
+    std::string instanceId;
+    if (LocateInstance(output, instanceId, request))
     {
+      Orthanc::MimeType mime = Orthanc::MimeType_Jpeg;  // This is the default in DICOMweb
+      
+      for (uint32_t i = 0; i < request->headersCount; i++)
+      {
+        if (boost::iequals(request->headersKeys[i], "Accept") &&
+            !boost::iequals(request->headersValues[i], "*/*"))
+        {
+          try
+          {
+            // TODO - Support conversion to GIF
+        
+            mime = Orthanc::StringToMimeType(request->headersValues[i]);
+            if (mime != Orthanc::MimeType_Png &&
+                mime != Orthanc::MimeType_Jpeg)
+            {
+              throw Orthanc::OrthancException(Orthanc::ErrorCode_ParameterOutOfRange);
+            }
+          }
+          catch (Orthanc::OrthancException&)
+          {
+            LOG(ERROR) << "Unsupported MIME type in WADO-RS rendered frame: " << request->headersValues[i];
+            throw;
+          }
+        }
+      }
+
       std::map<std::string, std::string> headers;
       headers["Accept"] = Orthanc::EnumerationToString(mime);
-      
+
       OrthancPlugins::MemoryBuffer buffer;
-      if (buffer.RestApiGet("/instances/" + publicId + "/preview", headers, false))
+      if (buffer.RestApiGet("/instances/" + instanceId + "/frames/" +
+                            boost::lexical_cast<std::string>(frame) + "/preview", headers, false))
       {
         OrthancPluginAnswerBuffer(context, output, buffer.GetData(),
                                   buffer.GetSize(), Orthanc::EnumerationToString(mime));
       }
     }
   }
+}
+
+
+void RetrieveInstanceRendered(OrthancPluginRestOutput* output,
+                              const char* url,
+                              const OrthancPluginHttpRequest* request)
+{
+  AnswerFrameRendered(output, 0, request);
+}
+
+
+void RetrieveFrameRendered(OrthancPluginRestOutput* output,
+                           const char* url,
+                           const OrthancPluginHttpRequest* request)
+{
+  assert(request->groupsCount == 4);
+  const char* frame = request->groups[3];
+
+  AnswerFrameRendered(output, boost::lexical_cast<int>(frame), request);
 }
 
 
@@ -562,6 +609,7 @@ extern "C"
         OrthancPlugins::RegisterRestCallback<GetClientInformation>(root + "info", true);
 
         OrthancPlugins::RegisterRestCallback<RetrieveInstanceRendered>(root + "studies/([^/]*)/series/([^/]*)/instances/([^/]*)/rendered", true);
+        OrthancPlugins::RegisterRestCallback<RetrieveFrameRendered>(root + "studies/([^/]*)/series/([^/]*)/instances/([^/]*)/frames/([^/]*)/rendered", true);
 
 
         // Extend the default Orthanc Explorer with custom JavaScript for STOW client

@@ -1,4 +1,4 @@
-Reference: http://medical.nema.org/medical/dicom/current/output/html/part18.html
+Reference: http://dicom.nema.org/MEDICAL/dicom/2019a/output/html/part18.html
 
 
 
@@ -86,7 +86,19 @@ Supported.
 6.5.8 WADO-RS / RetrieveRenderedTransaction
 ===========================================
 
-Not supported yet.
+http://dicom.nema.org/MEDICAL/dicom/2019a/output/chtml/part18/sect_6.5.8.html
+
+Supported
+---------
+
+* Single-frame and multi-frame retrieval
+* JPEG and PNG output
+
+Not supported
+-------------
+
+* GIF output
+* None of the "Retrieve Rendered Query Parameters" (table 6.5.8-2)
 
 
 

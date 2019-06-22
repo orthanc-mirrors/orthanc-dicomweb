@@ -12,7 +12,7 @@ Pending changes in the mainline
 * Handling of the HTTP header "Forwarded" for WADO-RS
 * New URI: /dicom-web/servers/.../qido
 * New URI: /dicom-web/servers/.../delete
-* Basic implementation of WADO-RS "Retrieve rendered instance"
+* First implementation of WADO-RS "Retrieve Rendered Transaction"
 
 
 Version 0.6 (2019-02-27)
