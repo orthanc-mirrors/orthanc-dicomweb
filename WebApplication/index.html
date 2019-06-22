@@ -169,9 +169,7 @@
         <h1>Series</h1>
       </div>
       <div class="row" v-show="showSeries">
-        <b-pagination v-model="currentPage" :per-page="perPage" :total-rows="seriesCount"></b-pagination>
-        <b-table striped hover :current-page="currentPage" :per-page="perPage"
-                 :items="series" :fields="seriesFields" :fixed="false">
+        <b-table striped hover :items="series" :fields="seriesFields" :fixed="false">
           <template slot="operations" slot-scope="data">
             <b-button @click="OpenSeriesPreview(data.item)" title="Preview">
               <i class="fa fa-eye"></i>
