@@ -122,6 +122,8 @@ namespace OrthancPlugins
                                             const std::string& name,
                                             const std::string& uri)
   {
+    static const char* HAS_CHUNKED_TRANSFERS = "ChunkedTransfers";
+    
     const Orthanc::WebServiceParameters parameters = GetServer(name);
 
     client.SetUrl(RemoveMultipleSlashes(parameters.GetUrl() + "/" + uri));
@@ -131,6 +133,10 @@ namespace OrthancPlugins
     {
       client.SetCredentials(parameters.GetUsername(), parameters.GetPassword());
     }
+
+    // By default, enable chunked transfers
+    client.SetChunkedTransfersAllowed(
+      parameters.GetBooleanUserProperty(HAS_CHUNKED_TRANSFERS, true));
   }    
 
 

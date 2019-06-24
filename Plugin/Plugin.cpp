@@ -35,6 +35,10 @@
 #include <boost/algorithm/string/predicate.hpp>
 
 
+static const char* const HAS_DELETE = "HasDelete";
+
+
+
 bool RequestHasKey(const OrthancPluginHttpRequest* request, const char* key)
 {
   for (uint32_t i = 0; i < request->getCount; i++)
@@ -106,14 +110,12 @@ void ListServerOperations(OrthancPluginRestOutput* output,
 
       Json::Value json = Json::arrayValue;
       json.append("get");
-      json.append("retrieve");   // TODO => Mark as deprecated
+      json.append("retrieve");
       json.append("stow");
       json.append("wado");
       json.append("qido");
 
-      std::string value;
-      if (server.LookupUserProperty(value, "HasDelete") &&
-          value == "1")
+      if (server.GetBooleanUserProperty(HAS_DELETE, false))
       {
         json.append("delete");
       }
@@ -287,7 +289,6 @@ void DeleteClient(OrthancPluginRestOutput* output,
   else
   {
     static const char* const LEVEL = "Level";
-    static const char* const HAS_DELETE = "HasDelete";
     static const char* const SERIES_INSTANCE_UID = "SeriesInstanceUID";
     static const char* const STUDY_INSTANCE_UID = "StudyInstanceUID";
     static const char* const SOP_INSTANCE_UID = "SOPInstanceUID";
@@ -297,13 +298,11 @@ void DeleteClient(OrthancPluginRestOutput* output,
     const Orthanc::WebServiceParameters& server = 
       OrthancPlugins::DicomWebServers::GetInstance().GetServer(serverName);
 
-    std::string value;
-    if (server.LookupUserProperty(value, HAS_DELETE) &&
-        value != "1")
+    if (!server.GetBooleanUserProperty(HAS_DELETE, false))
     {
       throw Orthanc::OrthancException(
         Orthanc::ErrorCode_BadFileFormat,
-        "Cannot delete on DICOMweb server, check out property \"HasDelete\": " + serverName);
+        "Cannot delete on DICOMweb server, check out property \"" + std::string(HAS_DELETE) + "\": " + serverName);
     }
 
     Json::Value body;

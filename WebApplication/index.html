@@ -130,7 +130,7 @@
               <i class="fa fa-cloud-download"></i>
             </b-button>
             <b-button @click="ConfirmDeleteStudy(data.item)"
-                      v-if="serversInfo[activeServer].HasDelete" title="Delete remote study">
+                      v-if="serversInfo[activeServer].HasDelete == '1'" title="Delete remote study">
               <i class="fa fa-trash"></i>
             </b-button>
           </template>

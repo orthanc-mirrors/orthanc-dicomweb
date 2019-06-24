@@ -676,6 +676,7 @@ private:
 
     virtual void Execute(JobContext& context)
     {
+      std::string serverName;
       size_t startPosition;
 
       // The lifetime of "body" should be larger than "client"
@@ -685,12 +686,13 @@ private:
       {
         boost::mutex::scoped_lock lock(that_.mutex_);
         context.SetContent("InstancesCount", boost::lexical_cast<std::string>(that_.instances_.size()));
+        serverName = that_.serverName_;
         
         startPosition = that_.position_;        
         body.reset(new RequestBody(that_, context));
 
         client.reset(new OrthancPlugins::HttpClient);
-        OrthancPlugins::DicomWebServers::GetInstance().ConfigureHttpClient(*client, that_.serverName_, "/studies");
+        OrthancPlugins::DicomWebServers::GetInstance().ConfigureHttpClient(*client, serverName, "/studies");
         client->SetMethod(OrthancPluginHttpMethod_Post);
         client->AddHeaders(that_.headers_);
       }
@@ -699,14 +701,33 @@ private:
       Json::Value answerBody;
 
       client->SetBody(*body);
-      client->Execute(answerHeaders, answerBody);
+
+      try
+      {
+        client->Execute(answerHeaders, answerBody);
+      }
+      catch (Orthanc::OrthancException&)
+      {
+        if (client->GetHttpStatus() == 411)
+        {
+          /**
+           * "Length required" error. This might indicate an older
+           * version of Orthanc (<= 1.5.6) that does not support
+           * chunked transfers.
+           **/
+          LOG(ERROR) << "The remote DICOMweb server \"" << serverName << "\" does not support chunked transfers, "
+                     << "set configuration option \"ChunkedTransfers\" to \"0\" in the configuration";
+        }
+
+        throw;
+      }
 
       size_t endPosition;
 
       {
         boost::mutex::scoped_lock lock(that_.mutex_);
         endPosition = that_.position_;
-        CheckStowAnswer(answerBody, that_.serverName_, endPosition - startPosition);
+        CheckStowAnswer(answerBody, serverName, endPosition - startPosition);
 
         if (that_.action_ == Action_Cancel)
         {
