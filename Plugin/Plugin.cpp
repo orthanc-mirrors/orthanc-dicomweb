@@ -432,9 +432,11 @@ static void AnswerFrameRendered(OrthancPluginRestOutput* output,
       std::map<std::string, std::string> headers;
       headers["Accept"] = Orthanc::EnumerationToString(mime);
 
+      // NB: In DICOMweb, the "frame" parameter is in the range [1..N], whereas
+      // Orthanc uses range [0..N-1], hence the "-1" below
       OrthancPlugins::MemoryBuffer buffer;
       if (buffer.RestApiGet("/instances/" + instanceId + "/frames/" +
-                            boost::lexical_cast<std::string>(frame) + "/preview", headers, false))
+                            boost::lexical_cast<std::string>(frame - 1) + "/preview", headers, false))
       {
         OrthancPluginAnswerBuffer(context, output, buffer.GetData(),
                                   buffer.GetSize(), Orthanc::EnumerationToString(mime));
@@ -448,7 +450,7 @@ void RetrieveInstanceRendered(OrthancPluginRestOutput* output,
                               const char* url,
                               const OrthancPluginHttpRequest* request)
 {
-  AnswerFrameRendered(output, 0, request);
+  AnswerFrameRendered(output, 1 /* first frame */, request);
 }
 
 
