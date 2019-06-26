@@ -93,12 +93,6 @@ namespace OrthancPlugins
     if (value.type() != Json::objectValue)
     {
       throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat,
-                                      "This is not a JSON object");
-    }
-
-    if (value.type() != Json::objectValue)
-    {
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat,
                                       "The JSON object is not a JSON associative array as expected");
     }
 
@@ -232,7 +226,6 @@ namespace OrthancPlugins
       throw Orthanc::OrthancException(
         Orthanc::ErrorCode_BadFileFormat,
         "The field \"" + key + "\" in a JSON object should be a string");
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);      
     }
     else
     {

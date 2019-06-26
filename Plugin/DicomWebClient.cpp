@@ -49,7 +49,7 @@ public:
     SingleFunctionJob&  that_;
 
   public:
-    JobContext(SingleFunctionJob& that) :
+    explicit JobContext(SingleFunctionJob& that) :
       that_(that)
     {
     }
@@ -214,11 +214,12 @@ private:
   }  
 
 public:
-  SingleFunctionJob(const std::string& jobName) :
+  explicit SingleFunctionJob(const std::string& jobName) :
     OrthancJob(jobName),
     functionResult_(FunctionResult_Running),
     content_(Json::objectValue),
-    factory_(NULL)
+    factory_(NULL),
+    stopping_(false)
   {
   }
 
@@ -669,7 +670,7 @@ private:
     StowClientJob& that_;
 
   public:
-    F(StowClientJob& that) :
+    explicit F(StowClientJob& that) :
       that_(that)
     {
     }
@@ -722,11 +723,9 @@ private:
         throw;
       }
 
-      size_t endPosition;
-
       {
         boost::mutex::scoped_lock lock(that_.mutex_);
-        endPosition = that_.position_;
+        size_t endPosition = that_.position_;
         CheckStowAnswer(answerBody, serverName, endPosition - startPosition);
 
         if (that_.action_ == Action_Cancel)
@@ -1156,7 +1155,7 @@ private:
     std::map<std::string, std::string> additionalHeaders_;
 
   public:
-    Resource(const std::string& uri) :
+    explicit Resource(const std::string& uri) :
       uri_(uri)
     {
     }
@@ -1186,7 +1185,7 @@ private:
     WadoRetrieveJob&   that_;
 
   public:
-    F(WadoRetrieveJob& that) :
+    explicit F(WadoRetrieveJob& that) :
       that_(that)
     {
     }
@@ -1303,7 +1302,7 @@ private:
   }
 
 public:
-  WadoRetrieveJob(const std::string& serverName) :
+  explicit WadoRetrieveJob(const std::string& serverName) :
     SingleFunctionJob("DicomWebWadoRetrieveClient"),
     serverName_(serverName),
     position_(0),
@@ -1330,12 +1329,12 @@ public:
     debug_ = debug;
   }
 
-  void AddResource(const std::string uri)
+  void AddResource(const std::string& uri)
   {
     resources_.push_back(new Resource(uri));
   }
 
-  void AddResource(const std::string uri,
+  void AddResource(const std::string& uri,
                    const std::map<std::string, std::string>& additionalHeaders)
   {
     resources_.push_back(new Resource(uri, additionalHeaders));
