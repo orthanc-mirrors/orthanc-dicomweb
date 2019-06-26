@@ -1,18 +1,22 @@
 Pending changes in the mainline
 ===============================
 
+
+Version 1.0 (2019-06-26)
+========================
+
 => Recommended SDK version: 1.5.7 <=
 => Minimum SDK version: 1.5.4 <=
 
-* Web user interface for QIDO-RS, WADO-RS and STOW-RS clients
-* Full refactoring of multipart parsing
-* Jobs are available in WADO-RS client and STOW-RS client
+* Web user interface to QIDO-RS, WADO-RS and STOW-RS client
+* First implementation of WADO-RS "Retrieve Rendered Transaction"
+* WADO-RS and STOW-RS client now create Orthanc jobs
 * Support "Transfer-Encoding: chunked" to reduce memory consumption in STOW-RS
   (provided the SDK version is above 1.5.7)
-* Handling of the HTTP header "Forwarded" for WADO-RS
 * New URI: /dicom-web/servers/.../qido
 * New URI: /dicom-web/servers/.../delete
-* First implementation of WADO-RS "Retrieve Rendered Transaction"
+* Handling of the HTTP header "Forwarded" for WADO-RS
+* Full refactoring of multipart parsing
 
 
 Version 0.6 (2019-02-27)
