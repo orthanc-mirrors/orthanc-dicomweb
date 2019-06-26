@@ -27,7 +27,7 @@ if (ORTHANC_DICOM_WEB_VERSION STREQUAL "mainline")
   set(ORTHANC_FRAMEWORK_VERSION "mainline")
   set(ORTHANC_FRAMEWORK_DEFAULT_SOURCE "hg")
 else()
-  set(ORTHANC_FRAMEWORK_VERSION "1.5.5")
+  set(ORTHANC_FRAMEWORK_VERSION "1.5.7")
   set(ORTHANC_FRAMEWORK_DEFAULT_SOURCE "web")
 endif()
 
@@ -42,7 +42,7 @@ set(ORTHANC_FRAMEWORK_ROOT "" CACHE STRING "Path to the Orthanc source directory
 # Advanced parameters to fine-tune linking against system libraries
 set(USE_SYSTEM_GDCM ON CACHE BOOL "Use the system version of Grassroot DICOM (GDCM)")
 set(USE_SYSTEM_ORTHANC_SDK ON CACHE BOOL "Use the system version of the Orthanc plugin SDK")
-set(ORTHANC_SDK_VERSION "1.5.4" CACHE STRING "Version of the Orthanc plugin SDK to use, if not using the system version (can be \"1.5.4\", or \"framework\")")
+set(ORTHANC_SDK_VERSION "1.5.7" CACHE STRING "Version of the Orthanc plugin SDK to use, if not using the system version (can be \"1.5.4\", \"1.5.7\", or \"framework\")")
 
 
 set(BUILD_BOOTSTRAP_VUE OFF CACHE BOOL "Compile Bootstrap-Vue from sources")
@@ -71,6 +71,8 @@ include(${CMAKE_SOURCE_DIR}/Resources/CMake/JavaScriptLibraries.cmake)
 if (STATIC_BUILD OR NOT USE_SYSTEM_ORTHANC_SDK)
   if (ORTHANC_SDK_VERSION STREQUAL "1.5.4")
     include_directories(${CMAKE_SOURCE_DIR}/Resources/Orthanc/Sdk-1.5.4)
+  elseif (ORTHANC_SDK_VERSION STREQUAL "1.5.7")
+    include_directories(${CMAKE_SOURCE_DIR}/Resources/Orthanc/Sdk-1.5.7)
   elseif (ORTHANC_SDK_VERSION STREQUAL "framework")
     include_directories(${ORTHANC_ROOT}/Plugins/Include)
   else()
