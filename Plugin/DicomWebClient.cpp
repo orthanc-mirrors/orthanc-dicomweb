@@ -1243,9 +1243,34 @@ private:
         throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
       }
 
+      const std::map<std::string, std::string>& headers = resource->GetAdditionalHeaders();
+
       OrthancPlugins::DicomWebServers::GetInstance().ConfigureHttpClient
         (client, serverName_, resource->GetUri());
-      client.AddHeaders(resource->GetAdditionalHeaders());
+      client.AddHeaders(headers);
+
+      if (headers.find("Accept") == headers.end())
+      {
+        /**
+         * From documentation of Google Healthcare API: "The
+         * response's default transfer syntax is Little Endian
+         * Explicit. As a result, if the file was uploaded using a
+         * compressed transfer syntax, the returned object will be
+         * decompressed. This can negatively impact performance and
+         * lead to errors for transfer syntaxes that the Cloud
+         * Healthcare API doesn't support. To avoid these issues, and
+         * if the returned object's transfer syntax does not matter to
+         * your application, use the [...] Accept Header."
+         * https://cloud.google.com/healthcare/docs/dicom
+         * https://groups.google.com/d/msg/orthanc-users/w1Ekrsc6-U8/T2a_DoQ5CwAJ
+         *
+         * TODO - This breaks compatibility with Orthanc servers
+         * equiped with DICOMweb <= 1.0, as can be seen in integration
+         * test "Orthanc.test_server_retrieve". Decide what can be
+         * done!
+         **/
+        client.AddHeader("Accept", "multipart/related; type=\"application/dicom\"; transfer-syntax=*");
+      }
 
       return true;
     }

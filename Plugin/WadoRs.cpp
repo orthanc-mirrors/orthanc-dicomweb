@@ -82,7 +82,14 @@ static bool AcceptMultipartDicom(const OrthancPluginHttpRequest* request)
     }
   }
 
-  if (attributes.find("transfer-syntax") != attributes.end())
+  static const char* const TRANSFER_SYNTAX = "transfer-syntax";
+
+  /**
+   * The "*" case below is related to Google Healthcare API:
+   * https://groups.google.com/d/msg/orthanc-users/w1Ekrsc6-U8/T2a_DoQ5CwAJ
+   **/
+  if (attributes.find(TRANSFER_SYNTAX) != attributes.end() &&
+      attributes[TRANSFER_SYNTAX] != "*")
   {
     throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest,
                                     "This WADO-RS plugin cannot change the transfer syntax to " + 

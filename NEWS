@@ -1,6 +1,9 @@
 Pending changes in the mainline
 ===============================
 
+* Added explicit "Accept" header to avoid uncompressing DICOM files by Google cloud
+  https://groups.google.com/d/msg/orthanc-users/w1Ekrsc6-U8/T2a_DoQ5CwAJ
+
 
 Version 1.0 (2019-06-26)
 ========================
