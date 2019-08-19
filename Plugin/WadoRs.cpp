@@ -250,7 +250,10 @@ static bool GetDicomIdentifiers(std::string& studyInstanceUid,
                                 std::string& sopInstanceUid,
                                 const std::string& orthancId)
 {
-  // TODO - Any way of speeding this up?
+#if 0
+  // This version is slow, as one access is done to the filesystem
+  // (cf. "/instances/.../tags"). It was in use in versions <= 1.0 of
+  // the DICOMweb plugin.
 
   static const char* const STUDY_INSTANCE_UID = "0020,000d";
   static const char* const SERIES_INSTANCE_UID = "0020,000e";
@@ -274,6 +277,44 @@ static bool GetDicomIdentifiers(std::string& studyInstanceUid,
   {
     return false;
   }
+
+#else
+  // This version is faster, as it only queries the database (no file
+  // is opened on the filesystem, besides the SQLite database).
+
+  Json::Value study, series, instance;
+
+  static const char* const MAIN_DICOM_TAGS = "MainDicomTags";
+  static const char* const STUDY_INSTANCE_UID = "StudyInstanceUID";
+  static const char* const SERIES_INSTANCE_UID = "SeriesInstanceUID";
+  static const char* const SOP_INSTANCE_UID = "SOPInstanceUID";
+
+  if (OrthancPlugins::RestApiGet(study, "/instances/" + orthancId + "/study", false) &&
+      OrthancPlugins::RestApiGet(series, "/instances/" + orthancId + "/series", false) &&
+      OrthancPlugins::RestApiGet(instance, "/instances/" + orthancId, false) &&
+      study.isMember(MAIN_DICOM_TAGS) &&
+      series.isMember(MAIN_DICOM_TAGS) &&
+      instance.isMember(MAIN_DICOM_TAGS) &&
+      study[MAIN_DICOM_TAGS].type() == Json::objectValue &&
+      series[MAIN_DICOM_TAGS].type() == Json::objectValue &&
+      instance[MAIN_DICOM_TAGS].type() == Json::objectValue &&
+      study[MAIN_DICOM_TAGS].isMember(STUDY_INSTANCE_UID) &&
+      series[MAIN_DICOM_TAGS].isMember(SERIES_INSTANCE_UID) &&
+      instance[MAIN_DICOM_TAGS].isMember(SOP_INSTANCE_UID) &&
+      study[MAIN_DICOM_TAGS][STUDY_INSTANCE_UID].type() == Json::stringValue &&
+      series[MAIN_DICOM_TAGS][SERIES_INSTANCE_UID].type() == Json::stringValue &&
+      instance[MAIN_DICOM_TAGS][SOP_INSTANCE_UID].type() == Json::stringValue)
+  {
+    studyInstanceUid = study[MAIN_DICOM_TAGS][STUDY_INSTANCE_UID].asString();
+    seriesInstanceUid = series[MAIN_DICOM_TAGS][SERIES_INSTANCE_UID].asString();
+    sopInstanceUid = instance[MAIN_DICOM_TAGS][SOP_INSTANCE_UID].asString();
+    return true;
+  }
+  else
+  {
+    return false;
+  }
+#endif
 }
 
 
