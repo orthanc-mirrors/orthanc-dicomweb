@@ -245,11 +245,39 @@ static void AnswerListOfDicomInstances(OrthancPluginRestOutput* output,
 }
 
 
-static bool GetDicomIdentifiers(std::string& studyInstanceUid,
-                                std::string& seriesInstanceUid,
-                                std::string& sopInstanceUid,
-                                const std::string& orthancId)
+
+static void CopyDictionary(Json::Value& target,
+                           const Json::Value& source)
 {
+  if (target.type() != Json::objectValue ||
+      source.type() != Json::objectValue)
+  {
+    throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
+  }
+  
+  Json::Value::Members members = source.getMemberNames();
+
+  for (size_t i = 0; i < members.size(); i++)
+  {
+    if (source[members[i]].type() != Json::stringValue)
+    {
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
+    }
+    else
+    {
+      target[members[i]] = source[members[i]].asString();
+    }
+  }
+}
+
+
+static void WriteInstanceMetadata(OrthancPlugins::DicomWebFormatter::HttpWriter& writer,
+                                  const std::string& orthancId,
+                                  const std::string& wadoBase)
+{
+  std::string studyInstanceUid, seriesInstanceUid, sopInstanceUid;
+  bool found;
+  
 #if 0
   // This version is slow, as one access is done to the filesystem
   // (cf. "/instances/.../tags"). It was in use in versions <= 1.0 of
@@ -271,30 +299,33 @@ static bool GetDicomIdentifiers(std::string& studyInstanceUid,
     studyInstanceUid = dicom[STUDY_INSTANCE_UID].asString();
     seriesInstanceUid = dicom[SERIES_INSTANCE_UID].asString();
     sopInstanceUid = dicom[SOP_INSTANCE_UID].asString();
-    return true;
+    found = true;
   }
   else
   {
-    return false;
+    found = false;
   }
 
 #else
   // This version is faster, as it only queries the database (no file
   // is opened on the filesystem, besides the SQLite database).
 
-  Json::Value study, series, instance;
+  Json::Value patient, study, series, instance;
 
   static const char* const MAIN_DICOM_TAGS = "MainDicomTags";
   static const char* const STUDY_INSTANCE_UID = "StudyInstanceUID";
   static const char* const SERIES_INSTANCE_UID = "SeriesInstanceUID";
   static const char* const SOP_INSTANCE_UID = "SOPInstanceUID";
 
-  if (OrthancPlugins::RestApiGet(study, "/instances/" + orthancId + "/study", false) &&
+  if (OrthancPlugins::RestApiGet(patient, "/instances/" + orthancId + "/patient", false) &&
+      OrthancPlugins::RestApiGet(study, "/instances/" + orthancId + "/study", false) &&
       OrthancPlugins::RestApiGet(series, "/instances/" + orthancId + "/series", false) &&
       OrthancPlugins::RestApiGet(instance, "/instances/" + orthancId, false) &&
+      patient.isMember(MAIN_DICOM_TAGS) &&
       study.isMember(MAIN_DICOM_TAGS) &&
       series.isMember(MAIN_DICOM_TAGS) &&
       instance.isMember(MAIN_DICOM_TAGS) &&
+      patient[MAIN_DICOM_TAGS].type() == Json::objectValue &&
       study[MAIN_DICOM_TAGS].type() == Json::objectValue &&
       series[MAIN_DICOM_TAGS].type() == Json::objectValue &&
       instance[MAIN_DICOM_TAGS].type() == Json::objectValue &&
@@ -308,13 +339,50 @@ static bool GetDicomIdentifiers(std::string& studyInstanceUid,
     studyInstanceUid = study[MAIN_DICOM_TAGS][STUDY_INSTANCE_UID].asString();
     seriesInstanceUid = series[MAIN_DICOM_TAGS][SERIES_INSTANCE_UID].asString();
     sopInstanceUid = instance[MAIN_DICOM_TAGS][SOP_INSTANCE_UID].asString();
-    return true;
+    found = true;
+
+#if 0
+    // This is a FAST version, that does not access the filesystem. It
+    // only uses the main DICOM tags as stored in the database, so
+    // less common tags will be missing. This is important if the
+    // DICOM/JSON files are stored on low-speed filesystem (e.g. AWS
+    // S3). TODO - Add a configuration option in the plugin
+    const std::string bulkRoot = (wadoBase +
+                                  "studies/" + studyInstanceUid +
+                                  "/series/" + seriesInstanceUid + 
+                                  "/instances/" + sopInstanceUid + "/bulk");
+      
+    Json::Value combined = Json::objectValue;
+    CopyDictionary(combined, patient[MAIN_DICOM_TAGS]);
+    CopyDictionary(combined, study[MAIN_DICOM_TAGS]);
+    CopyDictionary(combined, series[MAIN_DICOM_TAGS]);
+    CopyDictionary(combined, instance[MAIN_DICOM_TAGS]);
+
+    OrthancPlugins::MemoryBuffer dicom;
+    dicom.CreateDicom(combined, OrthancPluginCreateDicomFlags_None);
+    writer.AddDicom(dicom.GetData(), dicom.GetSize(), bulkRoot);
+    return;
+#endif
   }
   else
   {
-    return false;
+    found = false;
   }
 #endif
+
+  if (found)
+  {
+    const std::string bulkRoot = (wadoBase +
+                                  "studies/" + studyInstanceUid +
+                                  "/series/" + seriesInstanceUid + 
+                                  "/instances/" + sopInstanceUid + "/bulk");
+      
+    OrthancPlugins::MemoryBuffer dicom;
+    if (dicom.RestApiGet("/instances/" + orthancId + "/file", false))
+    {
+      writer.AddDicom(dicom.GetData(), dicom.GetSize(), bulkRoot);
+    }
+  }
 }
 
 
@@ -356,20 +424,7 @@ static void AnswerMetadata(OrthancPluginRestOutput* output,
   for (std::list<std::string>::const_iterator
          it = instances.begin(); it != instances.end(); ++it)
   {
-    std::string studyInstanceUid, seriesInstanceUid, sopInstanceUid;
-    if (GetDicomIdentifiers(studyInstanceUid, seriesInstanceUid, sopInstanceUid, *it))
-    {
-      const std::string bulkRoot = (wadoBase +
-                                    "studies/" + studyInstanceUid +
-                                    "/series/" + seriesInstanceUid + 
-                                    "/instances/" + sopInstanceUid + "/bulk");
-      
-      OrthancPlugins::MemoryBuffer dicom;
-      if (dicom.RestApiGet("/instances/" + *it + "/file", false))
-      {
-        writer.AddDicom(dicom.GetData(), dicom.GetSize(), bulkRoot);
-      }
-    }
+    WriteInstanceMetadata(writer, *it, wadoBase);
   }
 
   writer.Send();
