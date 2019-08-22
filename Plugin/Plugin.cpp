@@ -441,6 +441,15 @@ static void AnswerFrameRendered(OrthancPluginRestOutput* output,
         OrthancPluginAnswerBuffer(context, output, buffer.GetData(),
                                   buffer.GetSize(), Orthanc::EnumerationToString(mime));
       }
+      else
+      {
+        throw Orthanc::OrthancException(Orthanc::ErrorCode_ParameterOutOfRange,
+                                        "Inexistent frame index in this image: " + boost::lexical_cast<std::string>(frame));
+      }
+    }
+    else
+    {
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_InexistentItem, "Inexistent instance");
     }
   }
 }

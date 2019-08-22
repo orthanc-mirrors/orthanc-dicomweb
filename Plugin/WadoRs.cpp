@@ -344,9 +344,10 @@ static void WriteInstanceMetadata(OrthancPlugins::DicomWebFormatter::HttpWriter&
 #if 0
     // This is a FAST version, that does not access the filesystem. It
     // only uses the main DICOM tags as stored in the database, so
-    // less common tags will be missing. This is important if the
-    // DICOM/JSON files are stored on low-speed filesystem (e.g. AWS
-    // S3). TODO - Add a configuration option in the plugin
+    // less common tags will be missing (this is INCOMPATIBLE with Web
+    // Viewer 2). This is important if the DICOM/JSON files are stored
+    // on low-speed filesystem (e.g. AWS S3). TODO - Add a
+    // configuration option in the plugin
     const std::string bulkRoot = (wadoBase +
                                   "studies/" + studyInstanceUid +
                                   "/series/" + seriesInstanceUid + 
