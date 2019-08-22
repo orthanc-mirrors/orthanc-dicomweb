@@ -78,7 +78,7 @@ static gdcm::TransferSyntax ParseTransferSyntax(const OrthancPluginHttpRequest* 
       if (tokens.size() == 0 ||
           tokens[0] == "*/*")
       {
-        return gdcm::TransferSyntax::ImplicitVRLittleEndian;
+        return gdcm::TransferSyntax::ExplicitVRLittleEndian;
       }
 
       if (tokens[0] != "multipart/related")
@@ -116,7 +116,7 @@ static gdcm::TransferSyntax ParseTransferSyntax(const OrthancPluginHttpRequest* 
       {
         if (transferSyntax.empty())
         {
-          return gdcm::TransferSyntax(gdcm::TransferSyntax::ImplicitVRLittleEndian);
+          return gdcm::TransferSyntax(gdcm::TransferSyntax::ExplicitVRLittleEndian);
         }
         else if (transferSyntax == "*")
         {
@@ -251,7 +251,7 @@ static gdcm::TransferSyntax ParseTransferSyntax(const OrthancPluginHttpRequest* 
   }
 
   // By default, DICOMweb expectes Little Endian uncompressed pixel data
-  return gdcm::TransferSyntax::ImplicitVRLittleEndian;
+  return gdcm::TransferSyntax::ExplicitVRLittleEndian;
 }
 
 
@@ -297,6 +297,9 @@ static const char* GetMimeType(const gdcm::TransferSyntax& syntax)
   {
     case gdcm::TransferSyntax::ImplicitVRLittleEndian:
       // The "transfer-syntax" info was added in version 1.1 of the plugin
+      return "application/octet-stream; transfer-syntax=1.2.840.10008.1.2";
+
+    case gdcm::TransferSyntax::ExplicitVRLittleEndian:
       return "application/octet-stream; transfer-syntax=1.2.840.10008.1.2.1";
 
     case gdcm::TransferSyntax::JPEGBaselineProcess1:
@@ -532,9 +535,7 @@ void RetrieveFrames(OrthancPluginRestOutput* output,
 
     gdcm::TransferSyntax targetSyntax(ParseTransferSyntax(request, sourceSyntax));
 
-    if (sourceSyntax == targetSyntax ||
-        (targetSyntax == gdcm::TransferSyntax::ImplicitVRLittleEndian &&
-         sourceSyntax == gdcm::TransferSyntax::ExplicitVRLittleEndian))
+    if (sourceSyntax == targetSyntax)
     {
       // No need to change the transfer syntax
 
