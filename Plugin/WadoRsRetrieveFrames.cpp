@@ -62,7 +62,8 @@ static void RemoveSurroundingQuotes(std::string& value)
 
 
 
-static gdcm::TransferSyntax ParseTransferSyntax(const OrthancPluginHttpRequest* request)
+static gdcm::TransferSyntax ParseTransferSyntax(const OrthancPluginHttpRequest* request,
+                                                gdcm::TransferSyntax sourceTransferSyntax)
 {
   for (uint32_t i = 0; i < request->headersCount; i++)
   {
@@ -116,6 +117,11 @@ static gdcm::TransferSyntax ParseTransferSyntax(const OrthancPluginHttpRequest* 
         if (transferSyntax.empty())
         {
           return gdcm::TransferSyntax(gdcm::TransferSyntax::ImplicitVRLittleEndian);
+        }
+        else if (transferSyntax == "*")
+        {
+          // New in DICOMweb plugin 1.1.0
+          return sourceTransferSyntax;
         }
         else
         {
@@ -285,11 +291,13 @@ static void ParseFrameList(std::list<unsigned int>& frames,
 static const char* GetMimeType(const gdcm::TransferSyntax& syntax)
 {
   // http://dicom.nema.org/medical/dicom/current/output/html/part18.html#table_6.1.1.8-3b
-  
+  // http://dicom.nema.org/MEDICAL/dicom/2019a/output/chtml/part18/chapter_6.html#table_6.1.1.8-3b
+
   switch (syntax)
   {
     case gdcm::TransferSyntax::ImplicitVRLittleEndian:
-      return "application/octet-stream";
+      // The "transfer-syntax" info was added in version 1.1 of the plugin
+      return "application/octet-stream; transfer-syntax=1.2.840.10008.1.2.1";
 
     case gdcm::TransferSyntax::JPEGBaselineProcess1:
       return "image/jpeg; transfer-syntax=1.2.840.10008.1.2.4.50";
@@ -486,8 +494,6 @@ void RetrieveFrames(OrthancPluginRestOutput* output,
                     const char* url,
                     const OrthancPluginHttpRequest* request)
 {
-  gdcm::TransferSyntax targetSyntax(ParseTransferSyntax(request));
-
   std::list<unsigned int> frames;
   ParseFrameList(frames, request);
 
@@ -523,6 +529,8 @@ void RetrieveFrames(OrthancPluginRestOutput* output,
       source.reset(new OrthancPlugins::GdcmParsedDicomFile(content));
       sourceSyntax = source->GetFile().GetHeader().GetDataSetTransferSyntax();
     }
+
+    gdcm::TransferSyntax targetSyntax(ParseTransferSyntax(request, sourceSyntax));
 
     if (sourceSyntax == targetSyntax ||
         (targetSyntax == gdcm::TransferSyntax::ImplicitVRLittleEndian &&
