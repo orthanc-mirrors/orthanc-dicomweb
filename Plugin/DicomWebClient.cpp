@@ -783,6 +783,13 @@ public:
     {
       OrthancPlugins::OrthancString tmp;
       tmp.Assign(OrthancPluginGenerateUuid(OrthancPlugins::GetGlobalContext()));
+
+      if (tmp.GetContent() == NULL)
+      {
+        throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError,
+                                        "Cannot generate a UUID");
+      }
+
       tmp.ToString(boundary_);
     }
 

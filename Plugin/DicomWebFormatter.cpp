@@ -100,7 +100,15 @@ namespace OrthancPlugins
       s.Assign(OrthancPluginEncodeDicomWebJson(context, data, size, Callback));
     }
 
-    s.ToString(target);
+    if (s.GetContent() == NULL)
+    {
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError,
+                                      "Cannot convert DICOM to DICOMweb");
+    }
+    else
+    {
+      s.ToString(target);
+    }
   }
 
 

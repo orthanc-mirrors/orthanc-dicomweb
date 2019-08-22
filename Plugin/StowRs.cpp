@@ -80,6 +80,7 @@ namespace OrthancPlugins
     }
 
     Json::Value dicom;
+    bool ok = false;
 
     try
     {
@@ -87,14 +88,23 @@ namespace OrthancPlugins
       s.Assign(OrthancPluginDicomBufferToJson(context_, part, size,
                                               OrthancPluginDicomToJsonFormat_Short,
                                               OrthancPluginDicomToJsonFlags_None, 256));
-      s.ToJson(dicom);
+
+      if (s.GetContent() != NULL)
+      {
+        ok = true;
+        s.ToJson(dicom);
+      }
     }
     catch (Orthanc::OrthancException&)
+    {
+    }           
+
+    if (!ok)
     {
       // Bad DICOM file => TODO add to error
       LogWarning("STOW-RS cannot parse an incoming DICOM file");
       return;
-    }           
+    }
 
     if (dicom.type() != Json::objectValue ||
         !dicom.isMember(Orthanc::DICOM_TAG_SERIES_INSTANCE_UID.Format()) ||

@@ -448,16 +448,20 @@ static bool LocateStudy(OrthancPluginRestOutput* output,
   {
     OrthancPlugins::OrthancString tmp;
     tmp.Assign(OrthancPluginLookupStudy(context, request->groups[0]));
-    tmp.ToString(publicId);
+
+    if (tmp.GetContent() != NULL)
+    {
+      tmp.ToString(publicId);
+      return true;
+    }
   }
   catch (Orthanc::OrthancException&)
   {
-    throw Orthanc::OrthancException(Orthanc::ErrorCode_InexistentItem, 
-                                    "Accessing an inexistent study with WADO-RS: " +
-                                    std::string(request->groups[0]));
   }
-  
-  return true;
+
+  throw Orthanc::OrthancException(Orthanc::ErrorCode_InexistentItem, 
+                                  "Accessing an inexistent study with WADO-RS: " +
+                                  std::string(request->groups[0]));
 }
 
 
@@ -473,13 +477,24 @@ static bool LocateSeries(OrthancPluginRestOutput* output,
     return false;
   }
 
+  bool found = false;
+
   try
   {
     OrthancPlugins::OrthancString tmp;
     tmp.Assign(OrthancPluginLookupSeries(context, request->groups[1]));
-    tmp.ToString(publicId);
+
+    if (tmp.GetContent() != NULL)
+    {
+      tmp.ToString(publicId);
+      found = true;
+    }
   }
   catch (Orthanc::OrthancException&)
+  {
+  }
+
+  if (!found)
   {
     throw Orthanc::OrthancException(Orthanc::ErrorCode_InexistentItem, 
                                     "Accessing an inexistent series with WADO-RS: " +
