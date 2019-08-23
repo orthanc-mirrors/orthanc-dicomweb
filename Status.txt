@@ -93,12 +93,16 @@ Supported
 
 * Single-frame and multi-frame retrieval
 * JPEG and PNG output
+* "quality" parameter
+* "viewport" parameter
+* "window" parameter
 
 Not supported
 -------------
 
 * GIF output
-* None of the "Retrieve Rendered Query Parameters" (table 6.5.8-2)
+* The following "Retrieve Rendered Query Parameters" (table 6.5.8-2):
+  annotation, charset, iccprofile
 
 
 

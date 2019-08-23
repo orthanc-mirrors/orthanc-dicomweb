@@ -36,13 +36,16 @@ namespace Orthanc
   namespace ImageProcessing
   {
     template <PixelFormat Format>
-    void ResizeInternal(ImageAccessor& target,
-                        const ImageAccessor& source)
-    {     
-      const unsigned int sourceHeight = source.GetHeight();
+    static void ResizeInternal(ImageAccessor& target,
+                               const ImageAccessor& source)
+    {
+      assert(target.GetFormat() == source.GetFormat() &&
+             target.GetFormat() == Format);
+      
       const unsigned int sourceWidth = source.GetWidth();
-      const unsigned int targetHeight = target.GetHeight();
+      const unsigned int sourceHeight = source.GetHeight();
       const unsigned int targetWidth = target.GetWidth();
+      const unsigned int targetHeight = target.GetHeight();
 
       if (targetWidth == 0 || targetHeight == 0)
       {
@@ -120,7 +123,8 @@ namespace Orthanc
       }            
     }
 
-    
+
+
     void Resize(ImageAccessor& target,
                 const ImageAccessor& source)
     {
@@ -150,17 +154,114 @@ namespace Orthanc
           throw OrthancException(ErrorCode_NotImplemented);
       }
     }
+
+
+    Orthanc::ImageAccessor* Halve(const ImageAccessor& source)
+    {
+      std::auto_ptr<Orthanc::Image> target(new Orthanc::Image(source.GetFormat(), source.GetWidth() / 2,
+                                                              source.GetHeight() / 2, false));
+      Resize(*target, source);
+      return target.release();
+    }
+
+    
+    template <PixelFormat Format>
+    static void FlipXInternal(ImageAccessor& image)
+    {     
+      const unsigned int height = image.GetHeight();
+      const unsigned int width = image.GetWidth();
+
+      for (unsigned int y = 0; y < height; y++)
+      {
+        for (unsigned int x1 = 0; x1 < width / 2; x1++)
+        {
+          unsigned int x2 = width - 1 - x1;
+          
+          typename ImageTraits<Format>::PixelType a, b;
+          ImageTraits<Format>::GetPixel(a, image, x1, y);
+          ImageTraits<Format>::GetPixel(b, image, x2, y);
+          ImageTraits<Format>::SetPixel(image, a, x2, y);
+          ImageTraits<Format>::SetPixel(image, b, x1, y);
+        }
+      }        
+    }
+
+    
+    void FlipX(ImageAccessor& image)
+    {
+      switch (image.GetFormat())
+      {
+        case PixelFormat_Grayscale8:
+          FlipXInternal<PixelFormat_Grayscale8>(image);
+          break;
+
+        case PixelFormat_RGB24:
+          FlipXInternal<PixelFormat_RGB24>(image);
+          break;
+
+        default:
+          throw OrthancException(ErrorCode_NotImplemented);
+      }
+    }
+
+    
+    template <PixelFormat Format>
+    static void FlipYInternal(ImageAccessor& image)
+    {     
+      const unsigned int height = image.GetHeight();
+      const unsigned int width = image.GetWidth();
+
+      for (unsigned int y1 = 0; y1 < height / 2; y1++)
+      {
+        unsigned int y2 = height - 1 - y1;
+        
+        for (unsigned int x = 0; x < width; x++)
+        {
+          typename ImageTraits<Format>::PixelType a, b;
+          ImageTraits<Format>::GetPixel(a, image, x, y1);
+          ImageTraits<Format>::GetPixel(b, image, x, y2);
+          ImageTraits<Format>::SetPixel(image, a, x, y2);
+          ImageTraits<Format>::SetPixel(image, b, x, y1);
+        }
+      }        
+    }
+
+    
+    void FlipY(ImageAccessor& image)
+    {
+      switch (image.GetFormat())
+      {
+        case PixelFormat_Grayscale8:
+          FlipYInternal<PixelFormat_Grayscale8>(image);
+          break;
+
+        case PixelFormat_RGB24:
+          FlipYInternal<PixelFormat_RGB24>(image);
+          break;
+
+        default:
+          throw OrthancException(ErrorCode_NotImplemented);
+      }
+    }
   }
 }
 
 
 namespace
 {
+  enum WindowingMode
+  {
+    WindowingMode_Linear,
+    WindowingMode_LinearExact,
+    WindowingMode_Sigmoid
+  };
+
   class RenderingParameters : public boost::noncopyable
   {
   private:
     bool          hasViewport_;
     bool          hasQuality_;
+    bool          hasWindowing_;
     bool          hasVW_;
     bool          hasVH_;
     bool          hasSW_;
@@ -174,6 +275,9 @@ namespace
     bool          flipX_;
     bool          flipY_;
     unsigned int  quality_;
+    float         windowCenter_;
+    float         windowWidth_;
+    WindowingMode windowingMode_;
 
     static bool GetIntegerValue(int& target,
                                 std::vector<std::string>& tokens,
@@ -219,6 +323,7 @@ namespace
     RenderingParameters(const OrthancPluginHttpRequest* request) :
       hasViewport_(false),
       hasQuality_(false),
+      hasWindowing_(false),
       hasVW_(false),
       hasVH_(false),
       hasSW_(false),
@@ -229,9 +334,15 @@ namespace
       sy_(0),
       sw_(0),
       sh_(0),
-      quality_(90)   // Default quality for JPEG previews (the same as in Orthanc core)
+      flipX_(false),
+      flipY_(false),
+      quality_(90),   // Default quality for JPEG previews (the same as in Orthanc core)
+      windowCenter_(128),
+      windowWidth_(256),
+      windowingMode_(WindowingMode_Linear)
     {
       static const std::string VIEWPORT("\"viewport\" in WADO-RS Retrieve Rendered Transaction");
+      static const std::string WINDOWING("\"windowing\" in WADO-RS Retrieve Rendered Transaction");
       
       for (uint32_t i = 0; i < request->getCount; i++)
       {
@@ -285,17 +396,17 @@ namespace
             sy_ = 0;  // Default is zero
           }
 
-          hasSW_ = GetIntegerValue(tmp, tokens, 0, true, true, VIEWPORT);
+          hasSW_ = GetIntegerValue(tmp, tokens, 4, true, true, VIEWPORT);
           if (hasSW_)
           {
-            vw_ = static_cast<unsigned int>(tmp < 0 ? -tmp : tmp);  // Take absolute value
+            sw_ = static_cast<unsigned int>(tmp < 0 ? -tmp : tmp);  // Take absolute value
             flipX_ = (tmp < 0);
           }
 
-          hasSH_ = GetIntegerValue(tmp, tokens, 1, true, true, VIEWPORT);
+          hasSH_ = GetIntegerValue(tmp, tokens, 5, true, true, VIEWPORT);
           if (hasSH_)
           {
-            vh_ = static_cast<unsigned int>(tmp < 0 ? -tmp : tmp);  // Take absolute value
+            sh_ = static_cast<unsigned int>(tmp < 0 ? -tmp : tmp);  // Take absolute value
             flipY_ = (tmp < 0);
           }
         }
@@ -323,23 +434,80 @@ namespace
 
           quality_ = static_cast<unsigned int>(q);
         }
+        else if (key == "windowing")
+        {
+          hasWindowing_ = true;
+
+          std::vector<std::string> tokens;
+          Orthanc::Toolbox::TokenizeString(tokens, value, ',');
+
+          if (tokens.size() != 3)
+          {
+            throw Orthanc::OrthancException(Orthanc::ErrorCode_ParameterOutOfRange,
+                                            "The number arguments to " + WINDOWING + " must be 3");
+          }
+
+          try
+          {
+            windowCenter_ = boost::lexical_cast<float>(tokens[0]);
+            windowWidth_ = boost::lexical_cast<float>(tokens[1]);
+          }
+          catch (boost::bad_lexical_cast&)
+          {
+            throw Orthanc::OrthancException(Orthanc::ErrorCode_ParameterOutOfRange,
+                                            "The first and second arguments to " + WINDOWING + " must be floats: " + value);
+          }
+
+          if (tokens[2] == "linear")
+          {
+            windowingMode_ = WindowingMode_Linear;
+          }
+          else if (tokens[2] == "linear-exact")
+          {
+            windowingMode_ = WindowingMode_LinearExact;
+          }
+          else if (tokens[2] == "sigmoid")
+          {
+            windowingMode_ = WindowingMode_Sigmoid;
+          }
+          else
+          {
+            throw Orthanc::OrthancException(
+              Orthanc::ErrorCode_ParameterOutOfRange,
+              "The third argument to " + WINDOWING + " must be linear, linear-exact or sigmoid: " + tokens[2]);
+          }
+        }
       }
     }
 
 
     bool HasCustomization() const
     {
-      return (hasViewport_ || hasQuality_);
+      return (hasViewport_ || hasQuality_ || hasWindowing_);
     }
 
     unsigned int GetTargetWidth(unsigned int sourceWidth) const
     {
-      return (hasVW_ ? vw_ : sourceWidth);
+      if (hasVW_)
+      {
+        return vw_;
+      }
+      else
+      {
+        return sourceWidth;
+      }
     }
 
     unsigned int GetTargetHeight(unsigned int sourceHeight) const
     {
-      return (hasVH_ ? vh_ : sourceHeight);
+      if (hasVH_)
+      {
+        return vh_;
+      }
+      else
+      {
+        return sourceHeight;
+      }
     }
 
     bool IsFlipX() const
@@ -388,6 +556,26 @@ namespace
     {
       return quality_;
     }
+
+    bool IsWindowing() const
+    {
+      return hasWindowing_;
+    }
+
+    float GetWindowCenter() const
+    {
+      return windowCenter_;
+    }
+
+    float GetWindowWidth() const
+    {
+      return windowWidth_;
+    }
+
+    WindowingMode GetWindowingMode() const
+    {
+      return windowingMode_;
+    }    
   };
 }
 
@@ -432,13 +620,218 @@ static Orthanc::PixelFormat Convert(OrthancPluginPixelFormat format)
 }
 
 
+template <Orthanc::PixelFormat SourceFormat>
+static void ApplyWindowing(Orthanc::ImageAccessor& target,
+                           const Orthanc::ImageAccessor& source,
+                           float c,
+                           float w,
+                           WindowingMode mode)
+{
+  assert(target.GetFormat() == Orthanc::PixelFormat_Grayscale8 &&
+         source.GetFormat() == SourceFormat);
+
+  if (source.GetWidth() != target.GetWidth() ||
+      source.GetHeight() != target.GetHeight())
+  {
+    throw Orthanc::OrthancException(Orthanc::ErrorCode_IncompatibleImageSize);
+  }
+
+  const unsigned int width = source.GetWidth();
+  const unsigned int height = source.GetHeight();
+
+  const float ymin = 0;
+  const float ymax = 255;
+  
+
+  /**
+     
+     LINEAR:
+     http://dicom.nema.org/MEDICAL/dicom/2019a/output/chtml/part03/sect_C.11.2.html#sect_C.11.2.1.2.1
+
+     Python
+     ------
+
+     import sympy as sym
+     x, c, w, ymin, ymax = sym.symbols('x c w ymin ymax')
+
+     e = ((x - (c - 0.5)) / (w-1) + 0.5) * (ymax- ymin) + ymin
+     print(sym.simplify(sym.collect(sym.expand(e), [ x, ymin, ymax ])))
+
+     Result
+     ------
+
+     (x*(ymax - ymin) + ymax*(-c + 0.5*w) + ymin*(c + 0.5*w - 1.0))/(w - 1)
+
+   **/
+
+  const float linearXMin = (c - 0.5f - (w - 1.0f) / 2.0f);
+  const float linearXMax = (c - 0.5f + (w - 1.0f) / 2.0f);
+  const float linearYScaling = (ymax - ymin) / (w - 1.0f);
+  const float linearYOffset = (ymax * (-c + 0.5f * w) + ymin * (c + 0.5f * w - 1.0f)) / (w - 1.0f);
+
+
+  /**
+
+     LINEAR-EXACT:
+     http://dicom.nema.org/MEDICAL/dicom/2019a/output/chtml/part03/sect_C.11.2.html#sect_C.11.2.1.3.2
+
+     Python
+     ------
+
+     import sympy as sym
+     x, c, w, ymin, ymax = sym.symbols('x c w ymin ymax')
+
+     e = (x - c) / w * (ymax- ymin) + ymin
+     print(sym.simplify(sym.collect(sym.expand(e), [ x, ymin, ymax ])))
+
+     Result
+     ------
+
+     (-c*ymax + x*(ymax - ymin) + ymin*(c + w))/w
+
+   **/
+  const float exactXMin = (c - w / 2.0f);
+  const float exactXMax = (c + w / 2.0f);
+  const float exactYScaling = (ymax - ymin) / w;
+  const float exactYOffset = (-c * ymax + ymin * (c + w)) / w;
+         
+  
+  for (unsigned int y = 0; y < height; y++)
+  {
+    for (unsigned int x = 0; x < width; x++)
+    {
+      float a = Orthanc::ImageTraits<SourceFormat>::GetFloatPixel(source, x, y);
+      float b;
+
+      switch (mode)
+      {
+        case WindowingMode_Linear:
+        {
+          if (a <= linearXMin)
+          {
+            b = ymin;
+          }
+          else if (a > linearXMax)
+          {
+            b = ymax;
+          }
+          else
+          {
+            b = a * linearYScaling + linearYOffset;
+          }
+
+          break;
+        }
+
+        case WindowingMode_LinearExact:
+        {
+          if (a <= exactXMin)
+          {
+            b = ymin;
+          }
+          else if (a > exactXMax)
+          {
+            b = ymax;
+          }
+          else
+          {
+            b = a * exactYScaling + exactYOffset;
+          }
+
+          break;
+        }
+
+        case WindowingMode_Sigmoid:
+        {
+          // http://dicom.nema.org/MEDICAL/dicom/2019a/output/chtml/part03/sect_C.11.2.html#sect_C.11.2.1.3.1
+          b = ymax / (1.0f + expf(-4.0f * (a - c) / w));
+          break;
+        }
+
+        default:
+          throw Orthanc::OrthancException(Orthanc::ErrorCode_NotImplemented);
+      }
+
+      Orthanc::ImageTraits<Orthanc::PixelFormat_Grayscale8>::SetFloatPixel(target, b, x, y);
+    }
+  }
+}
+
+
 static void ApplyRendering(Orthanc::ImageAccessor& target,
                            const Orthanc::ImageAccessor& source,
                            const RenderingParameters& parameters)
 {
-  Orthanc::Image tmp(target.GetFormat(), source.GetWidth(), source.GetHeight(), false);
-  Orthanc::ImageProcessing::Convert(tmp, source);
-  Orthanc::ImageProcessing::Resize(target, tmp);
+  Orthanc::ImageProcessing::Set(target, 0);
+
+  Orthanc::ImageAccessor region;
+  parameters.GetSourceRegion(region, source);
+  
+  Orthanc::Image scaled(target.GetFormat(), region.GetWidth(), region.GetHeight(), false);
+
+  if (scaled.GetWidth() == 0 ||
+      scaled.GetHeight() == 0)
+  {
+    return;
+  }  
+
+  switch (target.GetFormat())
+  {
+    case Orthanc::PixelFormat_RGB24:
+      Orthanc::ImageProcessing::Convert(scaled, region);
+      break;
+
+    case Orthanc::PixelFormat_Grayscale8:
+    {
+      switch (source.GetFormat())
+      {
+        case Orthanc::PixelFormat_Grayscale16:
+          ApplyWindowing<Orthanc::PixelFormat_Grayscale16>(scaled, region, parameters.GetWindowCenter(),
+                                                           parameters.GetWindowWidth(),
+                                                           parameters.GetWindowingMode());
+          break;
+
+        default:
+          throw Orthanc::OrthancException(Orthanc::ErrorCode_NotImplemented);
+      }
+          
+      break;
+    }
+
+    default:
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_NotImplemented);
+  }
+
+  if (parameters.IsFlipX())
+  {
+    Orthanc::ImageProcessing::FlipX(scaled);
+  }
+
+  if (parameters.IsFlipY())
+  {
+    Orthanc::ImageProcessing::FlipY(scaled);
+  }
+
+  // Preserve the aspect ratio
+  float cw = static_cast<float>(scaled.GetWidth());
+  float ch = static_cast<float>(scaled.GetHeight());
+  float r = std::min(
+    static_cast<float>(target.GetWidth()) / cw,
+    static_cast<float>(target.GetHeight()) / ch);
+
+  unsigned int sw = std::min(static_cast<unsigned int>(boost::math::iround(cw * r)), target.GetWidth());  
+  unsigned int sh = std::min(static_cast<unsigned int>(boost::math::iround(ch * r)), target.GetHeight());
+  Orthanc::Image resized(target.GetFormat(), sw, sh, false);
+  
+  Orthanc::ImageProcessing::Resize(resized, scaled);
+
+  assert(target.GetWidth() >= resized.GetWidth() &&
+         target.GetHeight() >= resized.GetHeight());
+  unsigned int offsetX = (target.GetWidth() - resized.GetWidth()) / 2;
+  unsigned int offsetY = (target.GetHeight() - resized.GetHeight()) / 2;
+
+  target.GetRegion(region, offsetX, offsetY, resized.GetWidth(), resized.GetHeight());
+  Orthanc::ImageProcessing::Copy(region, resized);
 }
 
 
