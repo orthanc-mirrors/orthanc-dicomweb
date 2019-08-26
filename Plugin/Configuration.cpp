@@ -439,7 +439,7 @@ namespace OrthancPlugins
         if (boost::iequals(it->first, name))
         {
           value = it->second;
-          return false;
+          return true;
         }
       }
 
