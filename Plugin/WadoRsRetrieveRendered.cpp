@@ -61,6 +61,8 @@ namespace
     float         windowCenter_;
     float         windowWidth_;
     WindowingMode windowingMode_;
+    float         rescaleSlope_;
+    float         rescaleIntercept_;
 
     static bool GetIntegerValue(int& target,
                                 std::vector<std::string>& tokens,
@@ -122,7 +124,9 @@ namespace
       quality_(90),   // Default quality for JPEG previews (the same as in Orthanc core)
       windowCenter_(128),
       windowWidth_(256),
-      windowingMode_(WindowingMode_Linear)
+      windowingMode_(WindowingMode_Linear),
+      rescaleSlope_(1),
+      rescaleIntercept_(0)
     {
       static const std::string VIEWPORT("\"viewport\" in WADO-RS Retrieve Rendered Transaction");
       static const std::string WINDOWING("\"windowing\" in WADO-RS Retrieve Rendered Transaction");
@@ -359,6 +363,26 @@ namespace
     {
       return windowingMode_;
     }    
+
+    void SetRescaleSlope(float v) 
+    {
+      rescaleSlope_ = v;
+    }
+
+    float GetRescaleSlope() const
+    {
+      return rescaleSlope_;
+    }
+
+    void SetRescaleIntercept(float v) 
+    {
+      rescaleIntercept_ = v;
+    }
+
+    float GetRescaleIntercept() const
+    {
+      return rescaleIntercept_;
+    }
   };
 }
 
@@ -408,7 +432,9 @@ static void ApplyWindowing(Orthanc::ImageAccessor& target,
                            const Orthanc::ImageAccessor& source,
                            float c,
                            float w,
-                           WindowingMode mode)
+                           WindowingMode mode,
+                           float rescaleSlope,
+                           float rescaleIntercept)
 {
   assert(target.GetFormat() == Orthanc::PixelFormat_Grayscale8 &&
          source.GetFormat() == SourceFormat);
@@ -484,6 +510,8 @@ static void ApplyWindowing(Orthanc::ImageAccessor& target,
     for (unsigned int x = 0; x < width; x++)
     {
       float a = Orthanc::ImageTraits<SourceFormat>::GetFloatPixel(source, x, y);
+      a = rescaleSlope * a + rescaleIntercept;
+
       float b;
 
       switch (mode)
@@ -571,7 +599,17 @@ static void ApplyRendering(Orthanc::ImageAccessor& target,
         case Orthanc::PixelFormat_Grayscale16:
           ApplyWindowing<Orthanc::PixelFormat_Grayscale16>(scaled, region, parameters.GetWindowCenter(),
                                                            parameters.GetWindowWidth(),
-                                                           parameters.GetWindowingMode());
+                                                           parameters.GetWindowingMode(),
+                                                           parameters.GetRescaleSlope(),
+                                                           parameters.GetRescaleIntercept());
+          break;
+
+        case Orthanc::PixelFormat_SignedGrayscale16:
+          ApplyWindowing<Orthanc::PixelFormat_SignedGrayscale16>(scaled, region, parameters.GetWindowCenter(),
+                                                                 parameters.GetWindowWidth(),
+                                                                 parameters.GetWindowingMode(),
+                                                                 parameters.GetRescaleSlope(),
+                                                                 parameters.GetRescaleIntercept());
           break;
 
         default:
@@ -622,6 +660,9 @@ static void AnswerFrameRendered(OrthancPluginRestOutput* output,
                                 int frame,
                                 const OrthancPluginHttpRequest* request)
 {
+  static const char* const RESCALE_INTERCEPT = "0028,1052";
+  static const char* const RESCALE_SLOPE = "0028,1053";
+
   OrthancPluginContext* context = OrthancPlugins::GetGlobalContext();
 
   if (request->method != OrthancPluginHttpMethod_Get)
@@ -673,6 +714,37 @@ static void AnswerFrameRendered(OrthancPluginRestOutput* output,
         else
         {
           buffer.GetDicomInstance(instanceId);
+
+          Json::Value tags;
+          buffer.DicomToJson(tags, OrthancPluginDicomToJsonFormat_Short, OrthancPluginDicomToJsonFlags_None, 255);
+          
+          if (tags.isMember(RESCALE_SLOPE) &&
+              tags[RESCALE_SLOPE].type() == Json::stringValue)
+          {
+            try
+            {
+              parameters.SetRescaleSlope
+                (boost::lexical_cast<float>
+                 (Orthanc::Toolbox::StripSpaces(tags[RESCALE_SLOPE].asString())));
+            }
+            catch (boost::bad_lexical_cast&)
+            {
+            }
+          }
+
+          if (tags.isMember(RESCALE_INTERCEPT) &&
+              tags[RESCALE_INTERCEPT].type() == Json::stringValue)
+          {
+            try
+            {
+              parameters.SetRescaleIntercept
+                (boost::lexical_cast<float>
+                 (Orthanc::Toolbox::StripSpaces(tags[RESCALE_INTERCEPT].asString())));
+            }
+            catch (boost::bad_lexical_cast&)
+            {
+            }
+          }
 
           OrthancPlugins::OrthancImage dicom;
           dicom.DecodeDicomImage(buffer.GetData(), buffer.GetSize(), static_cast<unsigned int>(frame - 1));
