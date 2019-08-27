@@ -34,6 +34,7 @@ namespace
 {
   enum WindowingMode
   {
+    WindowingMode_WholeDynamics,
     WindowingMode_Linear,
     WindowingMode_LinearExact,
     WindowingMode_Sigmoid
@@ -124,7 +125,7 @@ namespace
       quality_(90),   // Default quality for JPEG previews (the same as in Orthanc core)
       windowCenter_(128),
       windowWidth_(256),
-      windowingMode_(WindowingMode_Linear),
+      windowingMode_(WindowingMode_WholeDynamics),
       rescaleSlope_(1),
       rescaleIntercept_(0)
     {
@@ -503,7 +504,29 @@ static void ApplyWindowing(Orthanc::ImageAccessor& target,
   const float exactXMax = (c + w / 2.0f);
   const float exactYScaling = (ymax - ymin) / w;
   const float exactYOffset = (-c * ymax + ymin * (c + w)) / w;
-         
+       
+
+  float minValue = std::numeric_limits<float>::infinity();
+  float maxValue = -std::numeric_limits<float>::infinity();
+  float wholeDynamicsScale = 1;
+ 
+  if (mode == WindowingMode_WholeDynamics)
+  {
+    for (unsigned int y = 0; y < height; y++)
+    {
+      for (unsigned int x = 0; x < width; x++)
+      {
+        float a = Orthanc::ImageTraits<SourceFormat>::GetFloatPixel(source, x, y);
+        minValue = std::min(minValue, a);
+        maxValue = std::max(maxValue, a);
+      }
+    }
+
+    minValue = rescaleSlope * minValue + rescaleIntercept;
+    maxValue = rescaleSlope * maxValue + rescaleIntercept;
+    wholeDynamicsScale = 255.0f / (maxValue - minValue);
+  }
+  
   
   for (unsigned int y = 0; y < height; y++)
   {
@@ -516,6 +539,10 @@ static void ApplyWindowing(Orthanc::ImageAccessor& target,
 
       switch (mode)
       {
+        case WindowingMode_WholeDynamics:
+          b = (a - minValue) * wholeDynamicsScale;
+          break;
+
         case WindowingMode_Linear:
         {
           if (a <= linearXMin)
