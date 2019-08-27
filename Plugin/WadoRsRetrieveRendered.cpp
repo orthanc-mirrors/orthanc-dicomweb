@@ -616,6 +616,7 @@ static void ApplyRendering(Orthanc::ImageAccessor& target,
   switch (target.GetFormat())
   {
     case Orthanc::PixelFormat_RGB24:
+      // Windowing is not taken into consideration for color images
       Orthanc::ImageProcessing::Convert(scaled, region);
       break;
 
@@ -671,6 +672,7 @@ static void ApplyRendering(Orthanc::ImageAccessor& target,
   unsigned int sh = std::min(static_cast<unsigned int>(boost::math::iround(ch * r)), target.GetHeight());
   Orthanc::Image resized(target.GetFormat(), sw, sh, false);
   
+  //Orthanc::ImageProcessing::SmoothGaussian5x5(scaled);
   Orthanc::ImageProcessing::Resize(resized, scaled);
 
   assert(target.GetWidth() >= resized.GetWidth() &&
