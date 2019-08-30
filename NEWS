@@ -3,6 +3,7 @@ Pending changes in the mainline
 
 * Support of "window", "viewport" and "quality" parameters in "Retrieve Rendered Transaction"
 * Fix handling of the "Forwarded" HTTP header
+* Accept multiple MIME types in Accept header for WADO-RS "Retrieve Metadata"
 * Added explicit "Accept" header to avoid uncompressing DICOM files by Google cloud
   https://groups.google.com/d/msg/orthanc-users/w1Ekrsc6-U8/T2a_DoQ5CwAJ
 

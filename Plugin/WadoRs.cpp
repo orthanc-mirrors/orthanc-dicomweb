@@ -116,11 +116,19 @@ static bool AcceptMetadata(const OrthancPluginHttpRequest* request,
   std::map<std::string, std::string> attributes;
   OrthancPlugins::ParseContentType(application, attributes, accept);
 
-  if (application == "application/json" ||
-      application == "application/dicom+json" ||
-      application == "*/*")
+  std::vector<std::string> applicationTokens;
+  Orthanc::Toolbox::TokenizeString(applicationTokens, application, ',');
+
+  for (size_t i = 0; i < applicationTokens.size(); i++)
   {
-    return true;
+    std::string token = Orthanc::Toolbox::StripSpaces(applicationTokens[i]);
+    
+    if (token == "application/json" ||
+        token == "application/dicom+json" ||
+        token == "*/*")
+    {
+      return true;
+    }
   }
 
   if (application != "multipart/related")
