@@ -258,9 +258,10 @@ namespace
     }
 
 
-    void InjectDerivedTags(Orthanc::DicomMap& target,
-                           Orthanc::ResourceType level,
-                           const std::string& resource) const
+    void ComputeDerivedTags(Orthanc::DicomMap& target,
+                            std::string& someInstance,
+                            Orthanc::ResourceType level,
+                            const std::string& resource) const
     {
       static const char* const INSTANCES = "Instances";      
       static const char* const MAIN_DICOM_TAGS = "MainDicomTags";
@@ -268,6 +269,10 @@ namespace
       
       switch (level)
       {
+        case Orthanc::ResourceType_Instance:
+          someInstance = resource;
+          break;
+
         case Orthanc::ResourceType_Study:
         {
           Json::Value series;
@@ -293,6 +298,12 @@ namespace
                 if (series[i].isMember(INSTANCES) &&
                     series[i][INSTANCES].type() == Json::arrayValue)
                 {
+                  if (series[i][INSTANCES].size() > 0 &&
+                      series[i][INSTANCES][0].type() == Json::stringValue)
+                  {
+                    someInstance = series[i][INSTANCES][0].asString();
+                  }
+                  
                   countInstances += series[i][INSTANCES].size();
                 }
               }
@@ -336,12 +347,19 @@ namespace
               series.isMember(INSTANCES) &&
               series[INSTANCES].type() == Json::arrayValue)
           {
+            if (series[INSTANCES].size() > 0 &&
+                series[INSTANCES][0].type() == Json::stringValue)
+            {
+              someInstance = series[INSTANCES][0].asString();
+            }
+            
             // Number of Series Related Instances
             target.SetValue(Orthanc::DICOM_TAG_NUMBER_OF_SERIES_RELATED_INSTANCES, 
                             boost::lexical_cast<std::string>(series[INSTANCES].size()), false);
           }
           else
           {
+            // Should never happen
             target.SetValue(Orthanc::DICOM_TAG_NUMBER_OF_SERIES_RELATED_INSTANCES, "0", false);
           }
 
@@ -349,7 +367,7 @@ namespace
         }
 
         default:
-          break;
+          throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
       }
     }                              
 
@@ -428,8 +446,6 @@ static void ApplyMatcher(OrthancPluginRestOutput* output,
                          const ModuleMatcher& matcher,
                          Orthanc::ResourceType level)
 {
-  static const char* const INSTANCES = "Instances";      
-
   Json::Value find;
   matcher.ConvertToOrthanc(find, level);
 
@@ -447,57 +463,23 @@ static void ApplyMatcher(OrthancPluginRestOutput* output,
     throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
   }
 
-  typedef std::list< std::pair<std::string, std::string> > ResourcesAndInstances;
-
-  ResourcesAndInstances resourcesAndInstances;
-  std::string root = (level == Orthanc::ResourceType_Study ? "/studies/" : "/series/");
-
-  for (Json::Value::ArrayIndex i = 0; i < resources.size(); i++)
-  {
-    const std::string resource = resources[i].asString();
-
-    if (level == Orthanc::ResourceType_Study)
-    {
-      // Find one child instance of this study
-      Json::Value tmp;
-      if (OrthancPlugins::RestApiGet(tmp, root + resource + "/instances", false) &&
-          tmp.type() == Json::arrayValue &&
-          tmp.size() > 0)
-      {
-        resourcesAndInstances.push_back(std::make_pair(resource, tmp[0]["ID"].asString()));
-      }
-    }
-    else if (level == Orthanc::ResourceType_Series)
-    {
-      // Find one child instance of this series
-      Json::Value tmp;
-      if (OrthancPlugins::RestApiGet(tmp, root + resource, false) &&
-          tmp.type() == Json::objectValue &&
-          tmp.isMember(INSTANCES) &&
-          tmp[INSTANCES].type() == Json::arrayValue &&
-          tmp[INSTANCES].size() > 0 &&
-          tmp[INSTANCES][0].type() == Json::stringValue)
-      {
-        resourcesAndInstances.push_back(std::make_pair(resource, tmp[INSTANCES][0].asString()));
-      }
-    }
-    else
-    {
-      resourcesAndInstances.push_back(std::make_pair(resource, resource));
-    }
-  }
-  
   std::string wadoBase = OrthancPlugins::Configuration::GetBaseUrl(request);
 
   OrthancPlugins::DicomWebFormatter::HttpWriter writer(
     output, OrthancPlugins::Configuration::IsXmlExpected(request));
 
   // Fix of issue #13
-  for (ResourcesAndInstances::const_iterator
-         it = resourcesAndInstances.begin(); it != resourcesAndInstances.end(); ++it)
+  for (Json::Value::ArrayIndex i = 0; i < resources.size(); i++)
   {
+    const std::string resource = resources[i].asString();
+
+    Orthanc::DicomMap derivedTags;
+    std::string someInstance;
+    matcher.ComputeDerivedTags(derivedTags, someInstance, level, resource);
+    
     Json::Value tags;
-    if (OrthancPlugins::RestApiGet(tags, "/instances/" + it->second + "/tags", false))
+    if (!someInstance.empty() &&
+        OrthancPlugins::RestApiGet(tags, "/instances/" + someInstance + "/tags", false))
     {
       Orthanc::DicomMap source;
       source.FromDicomAsJson(tags);
@@ -509,8 +491,8 @@ static void ApplyMatcher(OrthancPluginRestOutput* output,
         source.GetStringValue(Orthanc::DICOM_TAG_SOP_INSTANCE_UID, "", false));
 
       Orthanc::DicomMap target;
+      target.Assign(derivedTags);
       matcher.ExtractFields(target, source, wadoBase, level);
-      matcher.InjectDerivedTags(target, level, it->first);
 
       writer.AddOrthancMap(target);
     }
