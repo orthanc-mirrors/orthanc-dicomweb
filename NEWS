@@ -1,12 +1,20 @@
 Pending changes in the mainline
 ===============================
 
+New features
+------------
+
 * Support of "window", "viewport" and "quality" parameters in "Retrieve Rendered Transaction"
+* QIDO-RS: Allow to query against a list of multiple values separated by commas
+
+Maintenance
+-----------
+
+* Optimization of QIDO-RS for large studies/series
 * Fix handling of the "Forwarded" HTTP header
 * Accept multiple MIME types in Accept header for WADO-RS "Retrieve Metadata"
 * Added explicit "Accept" header to avoid uncompressing DICOM files by Google cloud
   https://groups.google.com/d/msg/orthanc-users/w1Ekrsc6-U8/T2a_DoQ5CwAJ
-* Optimization of QIDO-RS for large studies/series
 
 
 Version 1.0 (2019-06-26)
