@@ -22,6 +22,7 @@
 #pragma once
 
 #include <Core/ChunkedBuffer.h>
+#include <Core/DicomFormat/DicomMap.h>
 
 #include <orthanc/OrthancCPlugin.h>
 
@@ -108,6 +109,8 @@ namespace OrthancPlugins
       {
         AddInternal(dicom, size, OrthancPluginDicomWebBinaryMode_BulkDataUri, bulkRoot);
       }
+
+      void AddOrthancMap(const Orthanc::DicomMap& value);
 
       void AddOrthancJson(const Json::Value& value);
 

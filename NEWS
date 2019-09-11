@@ -6,6 +6,7 @@ Pending changes in the mainline
 * Accept multiple MIME types in Accept header for WADO-RS "Retrieve Metadata"
 * Added explicit "Accept" header to avoid uncompressing DICOM files by Google cloud
   https://groups.google.com/d/msg/orthanc-users/w1Ekrsc6-U8/T2a_DoQ5CwAJ
+* Optimization of QIDO-RS for large studies/series
 
 
 Version 1.0 (2019-06-26)

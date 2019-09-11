@@ -183,6 +183,27 @@ namespace OrthancPlugins
   }
 
                   
+  void DicomWebFormatter::HttpWriter::AddOrthancMap(const Orthanc::DicomMap& value)
+  {
+    Json::Value json = Json::objectValue;
+
+    std::set<Orthanc::DicomTag> tags;
+    value.GetTags(tags);
+    
+    for (std::set<Orthanc::DicomTag>::const_iterator
+           it = tags.begin(); it != tags.end(); ++it)
+    {
+      std::string s;
+      if (value.LookupStringValue(s, *it, false))
+      {
+        json[it->Format()] = s;
+      }
+    }
+    
+    AddOrthancJson(json);
+  }
+
+
   void DicomWebFormatter::HttpWriter::AddOrthancJson(const Json::Value& value)
   {
     MemoryBuffer dicom;
