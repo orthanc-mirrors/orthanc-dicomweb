@@ -522,7 +522,7 @@ static void ApplyMatcher(OrthancPluginRestOutput* output,
         result[tag->first.Format()] = tag->second;
       }
 
-      writer.AddJson(result);
+      writer.AddOrthancJson(result);
     }
   }
 

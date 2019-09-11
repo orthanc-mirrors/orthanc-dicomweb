@@ -23,6 +23,10 @@
 
 #include <Plugins/Samples/Common/OrthancPluginCppWrapper.h>
 
+#if !defined(NDEBUG)
+#  include <json/reader.h>
+#endif
+
 
 namespace OrthancPlugins
 {
@@ -179,12 +183,44 @@ namespace OrthancPlugins
   }
 
                   
-  void DicomWebFormatter::HttpWriter::AddJson(const Json::Value& value)
+  void DicomWebFormatter::HttpWriter::AddOrthancJson(const Json::Value& value)
   {
     MemoryBuffer dicom;
     dicom.CreateDicom(value, OrthancPluginCreateDicomFlags_None);
 
     AddInternal(dicom.GetData(), dicom.GetSize(), OrthancPluginDicomWebBinaryMode_Ignore, "");
+  }
+
+
+  void DicomWebFormatter::HttpWriter::AddDicomWebSerializedJson(const void* data,
+                                                                size_t size)
+  {
+    if (isXml_)
+    {
+      // This function can only be used in the JSON case
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadSequenceOfCalls);
+    }
+
+#if !defined(NDEBUG)  // In debug mode, check that the value is actually a JSON string
+    Json::Reader reader;
+    Json::Value json;
+    if (!reader.parse(reinterpret_cast<const char*>(data),
+                      reinterpret_cast<const char*>(data) + size, json))
+    {
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
+    }
+#endif
+    
+    if (first_)
+    {
+      first_ = false;
+    }
+    else
+    {
+      jsonBuffer_.AddChunk(",");
+    }
+    
+    jsonBuffer_.AddChunk(data, size);
   }
 
 

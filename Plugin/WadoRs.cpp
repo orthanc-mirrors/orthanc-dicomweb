@@ -385,12 +385,58 @@ static void WriteInstanceMetadata(OrthancPlugins::DicomWebFormatter::HttpWriter&
                                   "studies/" + studyInstanceUid +
                                   "/series/" + seriesInstanceUid + 
                                   "/instances/" + sopInstanceUid + "/bulk");
-      
+
+#if 1
+    // On a SSD drive, this version is twice slower than if using
+    // cache (see below)
+    
     OrthancPlugins::MemoryBuffer dicom;
     if (dicom.RestApiGet("/instances/" + orthancId + "/file", false))
     {
       writer.AddDicom(dicom.GetData(), dicom.GetSize(), bulkRoot);
     }
+#else
+
+    // TODO - Have a global setting to enable/disable caching of DICOMweb
+
+    // TODO - Have a way to clear the "4444" attachments if Orthanc
+    // version changes => Store Orthanc core version in a prefix or in
+    // another attachments?
+    
+    OrthancPlugins::MemoryBuffer buffer;
+
+    if (writer.IsXml())
+    {
+      // DICOMweb XML is not cached
+      if (buffer.RestApiGet("/instances/" + orthancId + "/file", false))
+      {
+        writer.AddDicom(buffer.GetData(), buffer.GetSize(), bulkRoot);
+      }
+    }
+    else
+    {
+      if (buffer.RestApiGet("/instances/" + orthancId + "/attachments/4444/data", false))
+      {
+        writer.AddDicomWebSerializedJson(buffer.GetData(), buffer.GetSize());
+      }
+      else if (buffer.RestApiGet("/instances/" + orthancId + "/file", false))
+      {
+        // "Ignore binary mode" in DICOMweb conversion if caching is
+        // enabled, as the bulk root can change across executions
+
+        std::string dicomweb;
+        {
+          // TODO - Avoid a global mutex => Need to change Orthanc SDK
+          OrthancPlugins::DicomWebFormatter::Locker locker(OrthancPluginDicomWebBinaryMode_Ignore, "");
+          locker.Apply(dicomweb, OrthancPlugins::GetGlobalContext(),
+                       buffer.GetData(), buffer.GetSize(), false /* JSON */);
+        }
+
+        buffer.RestApiPut("/instances/" + orthancId + "/attachments/4444", dicomweb, false);
+        writer.AddDicomWebSerializedJson(dicomweb.c_str(), dicomweb.size());
+      }
+    }
+#endif
   }
 }
 

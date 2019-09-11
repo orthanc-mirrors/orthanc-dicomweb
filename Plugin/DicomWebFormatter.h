@@ -97,6 +97,11 @@ namespace OrthancPlugins
       HttpWriter(OrthancPluginRestOutput* output,
                  bool isXml);
 
+      bool IsXml() const
+      {
+        return isXml_;
+      }
+
       void AddDicom(const void* dicom,
                     size_t size,
                     const std::string& bulkRoot)
@@ -104,7 +109,10 @@ namespace OrthancPlugins
         AddInternal(dicom, size, OrthancPluginDicomWebBinaryMode_BulkDataUri, bulkRoot);
       }
 
-      void AddJson(const Json::Value& value);
+      void AddOrthancJson(const Json::Value& value);
+
+      void AddDicomWebSerializedJson(const void* data,
+                                     size_t size);
 
       void Send();
     };
