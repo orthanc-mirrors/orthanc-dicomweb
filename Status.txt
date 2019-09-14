@@ -103,6 +103,7 @@ Not supported
 * GIF output
 * The following "Retrieve Rendered Query Parameters" (table 6.5.8-2):
   annotation, charset, iccprofile
+* URI "/studies/.../rendered" (only available for series, instances and frames)
 
 
 

@@ -520,9 +520,9 @@ static bool LocateStudy(OrthancPluginRestOutput* output,
 }
 
 
-static bool LocateSeries(OrthancPluginRestOutput* output,
-                         std::string& publicId,
-                         const OrthancPluginHttpRequest* request)
+bool LocateSeries(OrthancPluginRestOutput* output,
+                  std::string& publicId,
+                  const OrthancPluginHttpRequest* request)
 {
   OrthancPluginContext* context = OrthancPlugins::GetGlobalContext();
 

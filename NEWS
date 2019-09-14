@@ -5,6 +5,7 @@ New features
 ------------
 
 * Support of "window", "viewport" and "quality" parameters in "Retrieve Rendered Transaction"
+* Support of "/studies/.../series/.../rendered"
 * QIDO-RS: Allow to query against a list of multiple values separated by commas
 
 Maintenance

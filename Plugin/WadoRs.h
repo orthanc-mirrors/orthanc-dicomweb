@@ -24,6 +24,10 @@
 #include "Configuration.h"
 
 
+bool LocateSeries(OrthancPluginRestOutput* output,
+                  std::string& uri,
+                  const OrthancPluginHttpRequest* request);
+
 bool LocateInstance(OrthancPluginRestOutput* output,
                     std::string& uri,
                     const OrthancPluginHttpRequest* request);
@@ -67,3 +71,7 @@ void RetrieveInstanceRendered(OrthancPluginRestOutput* output,
 void RetrieveFrameRendered(OrthancPluginRestOutput* output,
                            const char* url,
                            const OrthancPluginHttpRequest* request);
+
+void RetrieveSeriesRendered(OrthancPluginRestOutput* output,
+                            const char* url,
+                            const OrthancPluginHttpRequest* request);

@@ -685,165 +685,174 @@ static void ApplyRendering(Orthanc::ImageAccessor& target,
 }
 
 
+
 static void AnswerFrameRendered(OrthancPluginRestOutput* output,
+                                std::string instanceId,
                                 int frame,
                                 const OrthancPluginHttpRequest* request)
 {
   static const char* const RESCALE_INTERCEPT = "0028,1052";
   static const char* const RESCALE_SLOPE = "0028,1053";
 
-  OrthancPluginContext* context = OrthancPlugins::GetGlobalContext();
+  Orthanc::MimeType mime = Orthanc::MimeType_Jpeg;  // This is the default in DICOMweb
+      
+  for (uint32_t i = 0; i < request->headersCount; i++)
+  {
+    if (boost::iequals(request->headersKeys[i], "Accept") &&
+        !boost::iequals(request->headersValues[i], "*/*"))
+    {
+      try
+      {
+        // TODO - Support conversion to GIF
+        
+        mime = Orthanc::StringToMimeType(request->headersValues[i]);
+        if (mime != Orthanc::MimeType_Png &&
+            mime != Orthanc::MimeType_Jpeg)
+        {
+          throw Orthanc::OrthancException(Orthanc::ErrorCode_ParameterOutOfRange);
+        }
+      }
+      catch (Orthanc::OrthancException&)
+      {
+        LOG(ERROR) << "Unsupported MIME type in WADO-RS rendered frame: "
+                   << request->headersValues[i];
+        throw;
+      }
+    }
+  }
 
+  RenderingParameters parameters(request);
+      
+  OrthancPlugins::MemoryBuffer buffer;
+  bool badFrameError = false;
+      
+  if (parameters.HasCustomization())
+  {
+    if (frame <= 0)
+    {
+      badFrameError = true;
+    }
+    else
+    {
+      buffer.GetDicomInstance(instanceId);
+
+      Json::Value tags;
+      buffer.DicomToJson(tags, OrthancPluginDicomToJsonFormat_Short, OrthancPluginDicomToJsonFlags_None, 255);
+          
+      if (tags.isMember(RESCALE_SLOPE) &&
+          tags[RESCALE_SLOPE].type() == Json::stringValue)
+      {
+        try
+        {
+          parameters.SetRescaleSlope
+            (boost::lexical_cast<float>
+             (Orthanc::Toolbox::StripSpaces(tags[RESCALE_SLOPE].asString())));
+        }
+        catch (boost::bad_lexical_cast&)
+        {
+        }
+      }
+
+      if (tags.isMember(RESCALE_INTERCEPT) &&
+          tags[RESCALE_INTERCEPT].type() == Json::stringValue)
+      {
+        try
+        {
+          parameters.SetRescaleIntercept
+            (boost::lexical_cast<float>
+             (Orthanc::Toolbox::StripSpaces(tags[RESCALE_INTERCEPT].asString())));
+        }
+        catch (boost::bad_lexical_cast&)
+        {
+        }
+      }
+
+      OrthancPlugins::OrthancImage dicom;
+      dicom.DecodeDicomImage(buffer.GetData(), buffer.GetSize(), static_cast<unsigned int>(frame - 1));
+
+      Orthanc::PixelFormat targetFormat;
+      OrthancPluginPixelFormat sdkFormat;
+      if (dicom.GetPixelFormat() == OrthancPluginPixelFormat_RGB24)
+      {
+        targetFormat = Orthanc::PixelFormat_RGB24;
+        sdkFormat = OrthancPluginPixelFormat_RGB24;
+      }
+      else
+      {
+        targetFormat = Orthanc::PixelFormat_Grayscale8;
+        sdkFormat = OrthancPluginPixelFormat_Grayscale8;
+      }
+
+      Orthanc::ImageAccessor source;
+      source.AssignReadOnly(Convert(dicom.GetPixelFormat()),
+                            dicom.GetWidth(), dicom.GetHeight(), dicom.GetPitch(), dicom.GetBuffer());
+          
+      Orthanc::Image target(targetFormat, parameters.GetTargetWidth(source.GetWidth()),
+                            parameters.GetTargetHeight(source.GetHeight()), false);
+
+      ApplyRendering(target, source, parameters);
+          
+      switch (mime)
+      {
+        case Orthanc::MimeType_Png:
+          OrthancPluginCompressAndAnswerPngImage(OrthancPlugins::GetGlobalContext(), output, sdkFormat,
+                                                 target.GetWidth(), target.GetHeight(), target.GetPitch(), target.GetBuffer());
+          break;
+              
+        case Orthanc::MimeType_Jpeg:
+          OrthancPluginCompressAndAnswerJpegImage(OrthancPlugins::GetGlobalContext(), output, sdkFormat,
+                                                  target.GetWidth(), target.GetHeight(), target.GetPitch(), target.GetBuffer(),
+                                                  parameters.GetQuality());
+          break;
+
+        default:
+          throw Orthanc::OrthancException(Orthanc::ErrorCode_NotImplemented);
+      }
+    }
+  }
+  else
+  {
+    // No customization of the rendering. Return the default
+    // preview of Orthanc.
+    std::map<std::string, std::string> headers;
+    headers["Accept"] = Orthanc::EnumerationToString(mime);
+
+    // In DICOMweb, the "frame" parameter is in the range [1..N],
+    // whereas Orthanc uses range [0..N-1], hence the "-1" below.
+    if (buffer.RestApiGet("/instances/" + instanceId + "/frames/" +
+                          boost::lexical_cast<std::string>(frame - 1) + "/preview", headers, false))
+    {
+      OrthancPluginAnswerBuffer(OrthancPlugins::GetGlobalContext(), output, buffer.GetData(),
+                                buffer.GetSize(), Orthanc::EnumerationToString(mime));
+    }
+    else
+    {
+      badFrameError = true;
+    }
+  }
+
+  if (badFrameError)
+  {
+    throw Orthanc::OrthancException(Orthanc::ErrorCode_ParameterOutOfRange,
+                                    "Inexistent frame index in this image: " + boost::lexical_cast<std::string>(frame));
+  }
+}
+
+
+static void AnswerFrameRendered(OrthancPluginRestOutput* output,
+                                int frame,
+                                const OrthancPluginHttpRequest* request)
+{
   if (request->method != OrthancPluginHttpMethod_Get)
   {
-    OrthancPluginSendMethodNotAllowed(context, output, "GET");
+    OrthancPluginSendMethodNotAllowed(OrthancPlugins::GetGlobalContext(), output, "GET");
   }
   else
   {
     std::string instanceId;
     if (LocateInstance(output, instanceId, request))
     {
-      Orthanc::MimeType mime = Orthanc::MimeType_Jpeg;  // This is the default in DICOMweb
-      
-      for (uint32_t i = 0; i < request->headersCount; i++)
-      {
-        if (boost::iequals(request->headersKeys[i], "Accept") &&
-            !boost::iequals(request->headersValues[i], "*/*"))
-        {
-          try
-          {
-            // TODO - Support conversion to GIF
-        
-            mime = Orthanc::StringToMimeType(request->headersValues[i]);
-            if (mime != Orthanc::MimeType_Png &&
-                mime != Orthanc::MimeType_Jpeg)
-            {
-              throw Orthanc::OrthancException(Orthanc::ErrorCode_ParameterOutOfRange);
-            }
-          }
-          catch (Orthanc::OrthancException&)
-          {
-            LOG(ERROR) << "Unsupported MIME type in WADO-RS rendered frame: " << request->headersValues[i];
-            throw;
-          }
-        }
-      }
-
-      RenderingParameters parameters(request);
-      
-      OrthancPlugins::MemoryBuffer buffer;
-      bool badFrameError = false;
-      
-      if (parameters.HasCustomization())
-      {
-        if (frame <= 0)
-        {
-          badFrameError = true;
-        }
-        else
-        {
-          buffer.GetDicomInstance(instanceId);
-
-          Json::Value tags;
-          buffer.DicomToJson(tags, OrthancPluginDicomToJsonFormat_Short, OrthancPluginDicomToJsonFlags_None, 255);
-          
-          if (tags.isMember(RESCALE_SLOPE) &&
-              tags[RESCALE_SLOPE].type() == Json::stringValue)
-          {
-            try
-            {
-              parameters.SetRescaleSlope
-                (boost::lexical_cast<float>
-                 (Orthanc::Toolbox::StripSpaces(tags[RESCALE_SLOPE].asString())));
-            }
-            catch (boost::bad_lexical_cast&)
-            {
-            }
-          }
-
-          if (tags.isMember(RESCALE_INTERCEPT) &&
-              tags[RESCALE_INTERCEPT].type() == Json::stringValue)
-          {
-            try
-            {
-              parameters.SetRescaleIntercept
-                (boost::lexical_cast<float>
-                 (Orthanc::Toolbox::StripSpaces(tags[RESCALE_INTERCEPT].asString())));
-            }
-            catch (boost::bad_lexical_cast&)
-            {
-            }
-          }
-
-          OrthancPlugins::OrthancImage dicom;
-          dicom.DecodeDicomImage(buffer.GetData(), buffer.GetSize(), static_cast<unsigned int>(frame - 1));
-
-          Orthanc::PixelFormat targetFormat;
-          OrthancPluginPixelFormat sdkFormat;
-          if (dicom.GetPixelFormat() == OrthancPluginPixelFormat_RGB24)
-          {
-            targetFormat = Orthanc::PixelFormat_RGB24;
-            sdkFormat = OrthancPluginPixelFormat_RGB24;
-          }
-          else
-          {
-            targetFormat = Orthanc::PixelFormat_Grayscale8;
-            sdkFormat = OrthancPluginPixelFormat_Grayscale8;
-          }
-
-          Orthanc::ImageAccessor source;
-          source.AssignReadOnly(Convert(dicom.GetPixelFormat()),
-                                dicom.GetWidth(), dicom.GetHeight(), dicom.GetPitch(), dicom.GetBuffer());
-          
-          Orthanc::Image target(targetFormat, parameters.GetTargetWidth(source.GetWidth()),
-                                parameters.GetTargetHeight(source.GetHeight()), false);
-
-          ApplyRendering(target, source, parameters);
-          
-          switch (mime)
-          {
-            case Orthanc::MimeType_Png:
-              OrthancPluginCompressAndAnswerPngImage(OrthancPlugins::GetGlobalContext(), output, sdkFormat,
-                                                     target.GetWidth(), target.GetHeight(), target.GetPitch(), target.GetBuffer());
-              break;
-              
-            case Orthanc::MimeType_Jpeg:
-              OrthancPluginCompressAndAnswerJpegImage(OrthancPlugins::GetGlobalContext(), output, sdkFormat,
-                                                      target.GetWidth(), target.GetHeight(), target.GetPitch(), target.GetBuffer(),
-                                                      parameters.GetQuality());
-              break;
-
-            default:
-              throw Orthanc::OrthancException(Orthanc::ErrorCode_NotImplemented);
-          }
-        }
-      }
-      else
-      {
-        // No customization of the rendering. Return the default
-        // preview of Orthanc.
-        std::map<std::string, std::string> headers;
-        headers["Accept"] = Orthanc::EnumerationToString(mime);
-
-        // In DICOMweb, the "frame" parameter is in the range [1..N],
-        // whereas Orthanc uses range [0..N-1], hence the "-1" below.
-        if (buffer.RestApiGet("/instances/" + instanceId + "/frames/" +
-                              boost::lexical_cast<std::string>(frame - 1) + "/preview", headers, false))
-        {
-          OrthancPluginAnswerBuffer(context, output, buffer.GetData(),
-                                    buffer.GetSize(), Orthanc::EnumerationToString(mime));
-        }
-        else
-        {
-          badFrameError = true;
-        }
-      }
-
-      if (badFrameError)
-      {
-        throw Orthanc::OrthancException(Orthanc::ErrorCode_ParameterOutOfRange,
-                                        "Inexistent frame index in this image: " + boost::lexical_cast<std::string>(frame));
-      }
+      AnswerFrameRendered(output, instanceId, frame, request);
     }
     else
     {
@@ -857,6 +866,7 @@ void RetrieveInstanceRendered(OrthancPluginRestOutput* output,
                               const char* url,
                               const OrthancPluginHttpRequest* request)
 {
+  assert(request->groupsCount == 3);
   AnswerFrameRendered(output, 1 /* first frame */, request);
 }
 
@@ -869,4 +879,42 @@ void RetrieveFrameRendered(OrthancPluginRestOutput* output,
   const char* frame = request->groups[3];
 
   AnswerFrameRendered(output, boost::lexical_cast<int>(frame), request);
+}
+
+
+void RetrieveSeriesRendered(OrthancPluginRestOutput* output,
+                            const char* url,
+                            const OrthancPluginHttpRequest* request)
+{
+  static const char* const INSTANCES = "Instances";
+  
+  assert(request->groupsCount == 2);
+
+  if (request->method != OrthancPluginHttpMethod_Get)
+  {
+    OrthancPluginSendMethodNotAllowed(OrthancPlugins::GetGlobalContext(), output, "GET");
+  }
+  else
+  {
+    std::string seriesId;
+    if (LocateSeries(output, seriesId, request))
+    {
+      Json::Value series;
+      if (OrthancPlugins::RestApiGet(series, "/series/" + seriesId, false) &&
+          series.type() == Json::objectValue &&
+          series.isMember(INSTANCES) &&
+          series[INSTANCES].type() == Json::arrayValue &&
+          series[INSTANCES].size() > 0)
+      {
+        Json::Value::ArrayIndex i = series[INSTANCES].size() / 2;
+        if (series[INSTANCES][i].type() == Json::stringValue)
+        {
+          std::string instanceId = series[INSTANCES][i].asString();
+          AnswerFrameRendered(output, instanceId, 1 /* first frame */, request);
+        }
+      }
+    }
+
+    throw Orthanc::OrthancException(Orthanc::ErrorCode_InexistentItem, "Inexistent series");
+  }
 }
