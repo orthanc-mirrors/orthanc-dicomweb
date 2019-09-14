@@ -911,6 +911,7 @@ void RetrieveSeriesRendered(OrthancPluginRestOutput* output,
         {
           std::string instanceId = series[INSTANCES][i].asString();
           AnswerFrameRendered(output, instanceId, 1 /* first frame */, request);
+          return;  // Success
         }
       }
     }
