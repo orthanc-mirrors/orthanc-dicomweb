@@ -130,7 +130,7 @@ namespace
       rescaleIntercept_(0)
     {
       static const std::string VIEWPORT("\"viewport\" in WADO-RS Retrieve Rendered Transaction");
-      static const std::string WINDOWING("\"windowing\" in WADO-RS Retrieve Rendered Transaction");
+      static const std::string WINDOW("\"window\" in WADO-RS Retrieve Rendered Transaction");
       
       for (uint32_t i = 0; i < request->getCount; i++)
       {
@@ -222,7 +222,7 @@ namespace
 
           quality_ = static_cast<unsigned int>(q);
         }
-        else if (key == "windowing")
+        else if (key == "window")
         {
           hasWindowing_ = true;
 
@@ -232,7 +232,7 @@ namespace
           if (tokens.size() != 3)
           {
             throw Orthanc::OrthancException(Orthanc::ErrorCode_ParameterOutOfRange,
-                                            "The number arguments to " + WINDOWING + " must be 3");
+                                            "The number arguments to " + WINDOW + " must be 3");
           }
 
           try
@@ -243,7 +243,7 @@ namespace
           catch (boost::bad_lexical_cast&)
           {
             throw Orthanc::OrthancException(Orthanc::ErrorCode_ParameterOutOfRange,
-                                            "The first and second arguments to " + WINDOWING + " must be floats: " + value);
+                                            "The first and second arguments to " + WINDOW + " must be floats: " + value);
           }
 
           if (tokens[2] == "linear")
@@ -262,7 +262,7 @@ namespace
           {
             throw Orthanc::OrthancException(
               Orthanc::ErrorCode_ParameterOutOfRange,
-              "The third argument to " + WINDOWING + " must be linear, linear-exact or sigmoid: " + tokens[2]);
+              "The third argument to " + WINDOW + " must be linear, linear-exact or sigmoid: " + tokens[2]);
           }
         }
       }
@@ -725,7 +725,8 @@ static void AnswerFrameRendered(OrthancPluginRestOutput* output,
       
   OrthancPlugins::MemoryBuffer buffer;
   bool badFrameError = false;
-      
+
+
   if (parameters.HasCustomization())
   {
     if (frame <= 0)
