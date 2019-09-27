@@ -272,7 +272,7 @@ static void WriteInstanceMetadata(OrthancPlugins::DicomWebFormatter::HttpWriter&
                                 "/series/" + seriesInstanceUid + 
                                 "/instances/" + sopInstanceUid + "/bulk");
   
-#if 0
+#if 1
   // On a SSD drive, this version is twice slower than if using
   // cache (see below)
     
@@ -667,7 +667,6 @@ void RetrieveStudyMetadata(OrthancPluginRestOutput* output,
         {
           WriteInstanceMetadata(writer, b->GetOrthancId(), studyInstanceUid, a->GetDicomUid(), b->GetDicomUid(),
                                 OrthancPlugins::Configuration::GetBaseUrl(request));
-
         }
       }
 
@@ -703,7 +702,6 @@ void RetrieveSeriesMetadata(OrthancPluginRestOutput* output,
       {
         WriteInstanceMetadata(writer, a->GetOrthancId(), studyInstanceUid, seriesOrthancId, a->GetDicomUid(),
                               OrthancPlugins::Configuration::GetBaseUrl(request));
-
       }
 
       writer.Send();
