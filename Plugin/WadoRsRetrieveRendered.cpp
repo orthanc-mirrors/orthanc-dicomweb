@@ -850,8 +850,8 @@ static void AnswerFrameRendered(OrthancPluginRestOutput* output,
   }
   else
   {
-    std::string instanceId;
-    if (LocateInstance(output, instanceId, request))
+    std::string instanceId, studyInstanceUid, seriesInstanceUid, sopInstanceUid;
+    if (LocateInstance(output, instanceId, studyInstanceUid, seriesInstanceUid, sopInstanceUid, request))
     {
       AnswerFrameRendered(output, instanceId, frame, request);
     }
@@ -897,11 +897,11 @@ void RetrieveSeriesRendered(OrthancPluginRestOutput* output,
   }
   else
   {
-    std::string seriesId;
-    if (LocateSeries(output, seriesId, request))
+    std::string orthancId, studyInstanceUid, seriesInstanceUid;
+    if (LocateSeries(output, orthancId, studyInstanceUid, seriesInstanceUid, request))
     {
       Json::Value series;
-      if (OrthancPlugins::RestApiGet(series, "/series/" + seriesId, false) &&
+      if (OrthancPlugins::RestApiGet(series, "/series/" + orthancId, false) &&
           series.type() == Json::objectValue &&
           series.isMember(INSTANCES) &&
           series[INSTANCES].type() == Json::arrayValue &&

@@ -254,297 +254,82 @@ static void AnswerListOfDicomInstances(OrthancPluginRestOutput* output,
 
 
 
-static void CopyDictionary(Json::Value& target,
-                           const Json::Value& source)
-{
-  if (target.type() != Json::objectValue ||
-      source.type() != Json::objectValue)
-  {
-    throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
-  }
-  
-  Json::Value::Members members = source.getMemberNames();
-
-  for (size_t i = 0; i < members.size(); i++)
-  {
-    if (source[members[i]].type() != Json::stringValue)
-    {
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
-    }
-    else
-    {
-      target[members[i]] = source[members[i]].asString();
-    }
-  }
-}
-
-
 static void WriteInstanceMetadata(OrthancPlugins::DicomWebFormatter::HttpWriter& writer,
                                   const std::string& orthancId,
+                                  const std::string& studyInstanceUid,
+                                  const std::string& seriesInstanceUid,
+                                  const std::string& sopInstanceUid,
                                   const std::string& wadoBase)
 {
-  std::string studyInstanceUid, seriesInstanceUid, sopInstanceUid;
-  bool found;
+  assert(!orthancId.empty() &&
+         !studyInstanceUid.empty() &&
+         !seriesInstanceUid.empty() &&
+         !sopInstanceUid.empty() &&
+         !wadoBase.empty());
+  
+  const std::string bulkRoot = (wadoBase +
+                                "studies/" + studyInstanceUid +
+                                "/series/" + seriesInstanceUid + 
+                                "/instances/" + sopInstanceUid + "/bulk");
   
 #if 0
-  // This version is slow, as one access is done to the filesystem
-  // (cf. "/instances/.../tags"). It was in use in versions <= 1.0 of
-  // the DICOMweb plugin.
-
-  static const char* const STUDY_INSTANCE_UID = "0020,000d";
-  static const char* const SERIES_INSTANCE_UID = "0020,000e";
-  static const char* const SOP_INSTANCE_UID = "0008,0018";
-  
-  Json::Value dicom;
-  if (OrthancPlugins::RestApiGet(dicom, "/instances/" + orthancId + "/tags?short", false) &&
-      dicom.isMember(STUDY_INSTANCE_UID) &&
-      dicom.isMember(SERIES_INSTANCE_UID) &&
-      dicom.isMember(SOP_INSTANCE_UID) &&
-      dicom[STUDY_INSTANCE_UID].type() == Json::stringValue &&
-      dicom[SERIES_INSTANCE_UID].type() == Json::stringValue &&
-      dicom[SOP_INSTANCE_UID].type() == Json::stringValue)
+  // On a SSD drive, this version is twice slower than if using
+  // cache (see below)
+    
+  OrthancPlugins::MemoryBuffer dicom;
+  if (dicom.RestApiGet("/instances/" + orthancId + "/file", false))
   {
-    studyInstanceUid = dicom[STUDY_INSTANCE_UID].asString();
-    seriesInstanceUid = dicom[SERIES_INSTANCE_UID].asString();
-    sopInstanceUid = dicom[SOP_INSTANCE_UID].asString();
-    found = true;
-  }
-  else
-  {
-    found = false;
-  }
-
-#else
-  // This version is faster, as it only queries the database (no file
-  // is opened on the filesystem, besides the SQLite database).
-
-  Json::Value patient, study, series, instance;
-
-  static const char* const MAIN_DICOM_TAGS = "MainDicomTags";
-  static const char* const STUDY_INSTANCE_UID = "StudyInstanceUID";
-  static const char* const SERIES_INSTANCE_UID = "SeriesInstanceUID";
-  static const char* const SOP_INSTANCE_UID = "SOPInstanceUID";
-
-  if (OrthancPlugins::RestApiGet(patient, "/instances/" + orthancId + "/patient", false) &&
-      OrthancPlugins::RestApiGet(study, "/instances/" + orthancId + "/study", false) &&
-      OrthancPlugins::RestApiGet(series, "/instances/" + orthancId + "/series", false) &&
-      OrthancPlugins::RestApiGet(instance, "/instances/" + orthancId, false) &&
-      patient.isMember(MAIN_DICOM_TAGS) &&
-      study.isMember(MAIN_DICOM_TAGS) &&
-      series.isMember(MAIN_DICOM_TAGS) &&
-      instance.isMember(MAIN_DICOM_TAGS) &&
-      patient[MAIN_DICOM_TAGS].type() == Json::objectValue &&
-      study[MAIN_DICOM_TAGS].type() == Json::objectValue &&
-      series[MAIN_DICOM_TAGS].type() == Json::objectValue &&
-      instance[MAIN_DICOM_TAGS].type() == Json::objectValue &&
-      study[MAIN_DICOM_TAGS].isMember(STUDY_INSTANCE_UID) &&
-      series[MAIN_DICOM_TAGS].isMember(SERIES_INSTANCE_UID) &&
-      instance[MAIN_DICOM_TAGS].isMember(SOP_INSTANCE_UID) &&
-      study[MAIN_DICOM_TAGS][STUDY_INSTANCE_UID].type() == Json::stringValue &&
-      series[MAIN_DICOM_TAGS][SERIES_INSTANCE_UID].type() == Json::stringValue &&
-      instance[MAIN_DICOM_TAGS][SOP_INSTANCE_UID].type() == Json::stringValue)
-  {
-    studyInstanceUid = study[MAIN_DICOM_TAGS][STUDY_INSTANCE_UID].asString();
-    seriesInstanceUid = series[MAIN_DICOM_TAGS][SERIES_INSTANCE_UID].asString();
-    sopInstanceUid = instance[MAIN_DICOM_TAGS][SOP_INSTANCE_UID].asString();
-    found = true;
-
-#if 0
-    // This is a FAST version, that does not access the filesystem. It
-    // only uses the main DICOM tags as stored in the database, so
-    // less common tags will be missing (this is INCOMPATIBLE with Web
-    // Viewer 2). This is important if the DICOM/JSON files are stored
-    // on low-speed filesystem (e.g. AWS S3). TODO - Add a
-    // configuration option in the plugin
-    const std::string bulkRoot = (wadoBase +
-                                  "studies/" + studyInstanceUid +
-                                  "/series/" + seriesInstanceUid + 
-                                  "/instances/" + sopInstanceUid + "/bulk");
-      
-    Json::Value combined = Json::objectValue;
-    CopyDictionary(combined, patient[MAIN_DICOM_TAGS]);
-    CopyDictionary(combined, study[MAIN_DICOM_TAGS]);
-    CopyDictionary(combined, series[MAIN_DICOM_TAGS]);
-    CopyDictionary(combined, instance[MAIN_DICOM_TAGS]);
-
-    OrthancPlugins::MemoryBuffer dicom;
-    dicom.CreateDicom(combined, OrthancPluginCreateDicomFlags_None);
     writer.AddDicom(dicom.GetData(), dicom.GetSize(), bulkRoot);
-    return;
-#endif
+  }
+#else
+
+  // TODO - Have a global setting to enable/disable caching of DICOMweb
+
+  // TODO - Have a way to clear the "4444" attachments if Orthanc
+  // version changes => Store Orthanc core version in a prefix or in
+  // another attachment?
+    
+  OrthancPlugins::MemoryBuffer buffer;
+
+  if (writer.IsXml())
+  {
+    // DICOMweb XML is not cached
+    if (buffer.RestApiGet("/instances/" + orthancId + "/file", false))
+    {
+      writer.AddDicom(buffer.GetData(), buffer.GetSize(), bulkRoot);
+    }
   }
   else
   {
-    found = false;
+    if (buffer.RestApiGet("/instances/" + orthancId + "/attachments/4444/data", false))
+    {
+      writer.AddDicomWebSerializedJson(buffer.GetData(), buffer.GetSize());
+    }
+    else if (buffer.RestApiGet("/instances/" + orthancId + "/file", false))
+    {
+      // "Ignore binary mode" in DICOMweb conversion if caching is
+      // enabled, as the bulk root can change across executions
+
+      std::string dicomweb;
+      {
+        // TODO - Avoid a global mutex => Need to change Orthanc SDK
+        OrthancPlugins::DicomWebFormatter::Locker locker(OrthancPluginDicomWebBinaryMode_Ignore, "");
+        locker.Apply(dicomweb, OrthancPlugins::GetGlobalContext(),
+                     buffer.GetData(), buffer.GetSize(), false /* JSON */);
+      }
+
+      buffer.RestApiPut("/instances/" + orthancId + "/attachments/4444", dicomweb, false);
+      writer.AddDicomWebSerializedJson(dicomweb.c_str(), dicomweb.size());
+    }
   }
 #endif
-
-  if (found)
-  {
-    const std::string bulkRoot = (wadoBase +
-                                  "studies/" + studyInstanceUid +
-                                  "/series/" + seriesInstanceUid + 
-                                  "/instances/" + sopInstanceUid + "/bulk");
-
-#if 1
-    // On a SSD drive, this version is twice slower than if using
-    // cache (see below)
-    
-    OrthancPlugins::MemoryBuffer dicom;
-    if (dicom.RestApiGet("/instances/" + orthancId + "/file", false))
-    {
-      writer.AddDicom(dicom.GetData(), dicom.GetSize(), bulkRoot);
-    }
-#else
-
-    // TODO - Have a global setting to enable/disable caching of DICOMweb
-
-    // TODO - Have a way to clear the "4444" attachments if Orthanc
-    // version changes => Store Orthanc core version in a prefix or in
-    // another attachments?
-    
-    OrthancPlugins::MemoryBuffer buffer;
-
-    if (writer.IsXml())
-    {
-      // DICOMweb XML is not cached
-      if (buffer.RestApiGet("/instances/" + orthancId + "/file", false))
-      {
-        writer.AddDicom(buffer.GetData(), buffer.GetSize(), bulkRoot);
-      }
-    }
-    else
-    {
-      if (buffer.RestApiGet("/instances/" + orthancId + "/attachments/4444/data", false))
-      {
-        writer.AddDicomWebSerializedJson(buffer.GetData(), buffer.GetSize());
-      }
-      else if (buffer.RestApiGet("/instances/" + orthancId + "/file", false))
-      {
-        // "Ignore binary mode" in DICOMweb conversion if caching is
-        // enabled, as the bulk root can change across executions
-
-        std::string dicomweb;
-        {
-          // TODO - Avoid a global mutex => Need to change Orthanc SDK
-          OrthancPlugins::DicomWebFormatter::Locker locker(OrthancPluginDicomWebBinaryMode_Ignore, "");
-          locker.Apply(dicomweb, OrthancPlugins::GetGlobalContext(),
-                       buffer.GetData(), buffer.GetSize(), false /* JSON */);
-        }
-
-        buffer.RestApiPut("/instances/" + orthancId + "/attachments/4444", dicomweb, false);
-        writer.AddDicomWebSerializedJson(dicomweb.c_str(), dicomweb.size());
-      }
-    }
-#endif
-  }
-}
-
-
-
-
-static void AnswerMetadata(OrthancPluginRestOutput* output,
-                           const OrthancPluginHttpRequest* request,
-                           Orthanc::ResourceType level,
-                           const std::string& resource,
-                           bool isXml)
-{
-  static const char* const ID = "ID";
-  static const char* const INSTANCES = "Instances";
-  
-  OrthancPluginContext* context = OrthancPlugins::GetGlobalContext();
-
-  std::list<std::string> instances;
-
-  switch (level)
-  {
-    case Orthanc::ResourceType_Instance:
-      instances.push_back(resource);
-      break;
-
-    case Orthanc::ResourceType_Series:
-    {
-      Json::Value series;
-      if (!OrthancPlugins::RestApiGet(series, GetResourceUri(level, resource), false))
-      {
-        // Internal error
-        OrthancPluginSendHttpStatusCode(context, output, 400);
-        return;
-      }
-
-      if (series.type() != Json::objectValue ||
-          !series.isMember(INSTANCES) ||
-          series[INSTANCES].type() != Json::arrayValue)
-      {
-        throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);
-      }
-          
-      for (Json::Value::ArrayIndex i = 0; i < series[INSTANCES].size(); i++)
-      {
-        if (series[INSTANCES][i].type() != Json::stringValue)
-        {
-          throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);
-        }
-        else
-        {
-          instances.push_back(series[INSTANCES][i].asString());
-        }
-      }
-      break;
-    }
-
-    case Orthanc::ResourceType_Study:
-    {
-      Json::Value children;
-      if (!OrthancPlugins::RestApiGet(children, GetResourceUri(level, resource) + "/instances", false))
-      {
-        // Internal error
-        OrthancPluginSendHttpStatusCode(context, output, 400);
-        return;
-      }
-
-      if (children.type() != Json::arrayValue)
-      {
-        throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);
-      }
-
-      for (Json::Value::ArrayIndex i = 0; i < children.size(); i++)
-      {
-        if (children[i].type() != Json::objectValue ||
-            !children[i].isMember(ID) ||
-            children[i][ID].type() != Json::stringValue)
-        {
-          throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);
-        }
-        else
-        {
-          instances.push_back(children[i][ID].asString());
-        }
-      }
-      break;
-    }
-
-    default:
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
-  }
-
-  const std::string wadoBase = OrthancPlugins::Configuration::GetBaseUrl(request);
-
-  OrthancPlugins::DicomWebFormatter::HttpWriter writer(output, isXml);
-
-  for (std::list<std::string>::const_iterator
-         it = instances.begin(); it != instances.end(); ++it)
-  {
-    WriteInstanceMetadata(writer, *it, wadoBase);
-  }
-
-  writer.Send();
 }
 
 
 
 static bool LocateStudy(OrthancPluginRestOutput* output,
-                        std::string& publicId,
+                        std::string& orthancId,
+                        std::string& studyInstanceUid,
                         const OrthancPluginHttpRequest* request)
 {
   OrthancPluginContext* context = OrthancPlugins::GetGlobalContext();
@@ -555,14 +340,16 @@ static bool LocateStudy(OrthancPluginRestOutput* output,
     return false;
   }
 
+  studyInstanceUid = request->groups[0];
+
   try
   {
     OrthancPlugins::OrthancString tmp;
-    tmp.Assign(OrthancPluginLookupStudy(context, request->groups[0]));
+    tmp.Assign(OrthancPluginLookupStudy(context, studyInstanceUid.c_str()));
 
     if (tmp.GetContent() != NULL)
     {
-      tmp.ToString(publicId);
+      tmp.ToString(orthancId);
       return true;
     }
   }
@@ -571,13 +358,14 @@ static bool LocateStudy(OrthancPluginRestOutput* output,
   }
 
   throw Orthanc::OrthancException(Orthanc::ErrorCode_InexistentItem, 
-                                  "Accessing an inexistent study with WADO-RS: " +
-                                  std::string(request->groups[0]));
+                                  "Accessing an inexistent study with WADO-RS: " + studyInstanceUid);
 }
 
 
 bool LocateSeries(OrthancPluginRestOutput* output,
-                  std::string& publicId,
+                  std::string& orthancId,
+                  std::string& studyInstanceUid,
+                  std::string& seriesInstanceUid,
                   const OrthancPluginHttpRequest* request)
 {
   OrthancPluginContext* context = OrthancPlugins::GetGlobalContext();
@@ -588,16 +376,19 @@ bool LocateSeries(OrthancPluginRestOutput* output,
     return false;
   }
 
+  studyInstanceUid = request->groups[0];
+  seriesInstanceUid = request->groups[1];
+
   bool found = false;
 
   try
   {
     OrthancPlugins::OrthancString tmp;
-    tmp.Assign(OrthancPluginLookupSeries(context, request->groups[1]));
+    tmp.Assign(OrthancPluginLookupSeries(context, seriesInstanceUid.c_str()));
 
     if (tmp.GetContent() != NULL)
     {
-      tmp.ToString(publicId);
+      tmp.ToString(orthancId);
       found = true;
     }
   }
@@ -608,21 +399,19 @@ bool LocateSeries(OrthancPluginRestOutput* output,
   if (!found)
   {
     throw Orthanc::OrthancException(Orthanc::ErrorCode_InexistentItem, 
-                                    "Accessing an inexistent series with WADO-RS: " +
-                                    std::string(request->groups[1]));
+                                    "Accessing an inexistent series with WADO-RS: " + seriesInstanceUid);
   }
   
   Json::Value study;
-  if (!OrthancPlugins::RestApiGet(study, "/series/" + publicId + "/study", false))
+  if (!OrthancPlugins::RestApiGet(study, "/series/" + orthancId + "/study", false))
   {
     OrthancPluginSendHttpStatusCode(context, output, 404);
     return false;
   }
-  else if (study["MainDicomTags"]["StudyInstanceUID"].asString() != std::string(request->groups[0]))
+  else if (study["MainDicomTags"]["StudyInstanceUID"].asString() != studyInstanceUid)
   {
     throw Orthanc::OrthancException(Orthanc::ErrorCode_InexistentItem, 
-                                    "No series " + std::string(request->groups[1]) + 
-                                    " in study " + std::string(request->groups[0]));
+                                    "No series " + seriesInstanceUid + " in study " + studyInstanceUid);
   }
   else
   {
@@ -632,7 +421,10 @@ bool LocateSeries(OrthancPluginRestOutput* output,
 
 
 bool LocateInstance(OrthancPluginRestOutput* output,
-                    std::string& publicId,
+                    std::string& orthancId,
+                    std::string& studyInstanceUid,
+                    std::string& seriesInstanceUid,
+                    std::string& sopInstanceUid,
                     const OrthancPluginHttpRequest* request)
 {
   OrthancPluginContext* context = OrthancPlugins::GetGlobalContext();
@@ -643,34 +435,37 @@ bool LocateInstance(OrthancPluginRestOutput* output,
     return false;
   }
 
+  studyInstanceUid = request->groups[0];
+  seriesInstanceUid = request->groups[1];
+  sopInstanceUid = request->groups[2];
+  
   {
     OrthancPlugins::OrthancString tmp;
-    tmp.Assign(OrthancPluginLookupInstance(context, request->groups[2]));
+    tmp.Assign(OrthancPluginLookupInstance(context, sopInstanceUid.c_str()));
 
     if (tmp.GetContent() == NULL)
     {
       throw Orthanc::OrthancException(Orthanc::ErrorCode_InexistentItem,
-                                      "Accessing an inexistent instance with WADO-RS: " + 
-                                      std::string(request->groups[2]));
+                                      "Accessing an inexistent instance with WADO-RS: " + sopInstanceUid);
     }
 
-    tmp.ToString(publicId);
+    tmp.ToString(orthancId);
   }
   
   Json::Value study, series;
-  if (!OrthancPlugins::RestApiGet(series, "/instances/" + publicId + "/series", false) ||
-      !OrthancPlugins::RestApiGet(study, "/instances/" + publicId + "/study", false))
+  if (!OrthancPlugins::RestApiGet(series, "/instances/" + orthancId + "/series", false) ||
+      !OrthancPlugins::RestApiGet(study, "/instances/" + orthancId + "/study", false))
   {
     OrthancPluginSendHttpStatusCode(context, output, 404);
     return false;
   }
-  else if (study["MainDicomTags"]["StudyInstanceUID"].asString() != std::string(request->groups[0]) ||
-           series["MainDicomTags"]["SeriesInstanceUID"].asString() != std::string(request->groups[1]))
+  else if (study["MainDicomTags"]["StudyInstanceUID"].asString() != studyInstanceUid ||
+           series["MainDicomTags"]["SeriesInstanceUID"].asString() != seriesInstanceUid)
   {
     throw Orthanc::OrthancException(Orthanc::ErrorCode_InexistentItem,
-                                    "Instance " + std::string(request->groups[2]) + 
-                                    " is not both in study " + std::string(request->groups[0]) +
-                                    " and in series " + std::string(request->groups[1]));
+                                    "Instance " + sopInstanceUid + 
+                                    " is not both in study " + studyInstanceUid +
+                                    " and in series " + seriesInstanceUid);
   }
   else
   {
@@ -689,10 +484,10 @@ void RetrieveDicomStudy(OrthancPluginRestOutput* output,
   }
   else
   {
-    std::string publicId;
-    if (LocateStudy(output, publicId, request))
+    std::string orthancId, studyInstanceUid;
+    if (LocateStudy(output, orthancId, studyInstanceUid, request))
     {
-      AnswerListOfDicomInstances(output, Orthanc::ResourceType_Study, publicId);
+      AnswerListOfDicomInstances(output, Orthanc::ResourceType_Study, orthancId);
     }
   }
 }
@@ -708,10 +503,10 @@ void RetrieveDicomSeries(OrthancPluginRestOutput* output,
   }
   else
   {
-    std::string publicId;
-    if (LocateSeries(output, publicId, request))
+    std::string orthancId, studyInstanceUid, seriesInstanceUid;
+    if (LocateSeries(output, orthancId, studyInstanceUid, seriesInstanceUid, request))
     {
-      AnswerListOfDicomInstances(output, Orthanc::ResourceType_Series, publicId);
+      AnswerListOfDicomInstances(output, Orthanc::ResourceType_Series, orthancId);
     }
   }
 }
@@ -730,8 +525,8 @@ void RetrieveDicomInstance(OrthancPluginRestOutput* output,
   }
   else
   {
-    std::string publicId;
-    if (LocateInstance(output, publicId, request))
+    std::string orthancId, studyInstanceUid, seriesInstanceUid, sopInstanceUid;
+    if (LocateInstance(output, orthancId, studyInstanceUid, seriesInstanceUid, sopInstanceUid, request))
     {
       if (OrthancPluginStartMultipartAnswer(context, output, "related", "application/dicom"))
       {
@@ -739,13 +534,106 @@ void RetrieveDicomInstance(OrthancPluginRestOutput* output,
       }
 
       OrthancPlugins::MemoryBuffer dicom;
-      if (dicom.RestApiGet("/instances/" + publicId + "/file", false) &&
+      if (dicom.RestApiGet("/instances/" + orthancId + "/file", false) &&
           OrthancPluginSendMultipartItem(context, output, dicom.GetData(), dicom.GetSize()) != 0)
       {
         throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);
       }
     }
   }
+}
+
+
+
+namespace
+{
+  class Identifier
+  {
+  private:
+    std::string  orthancId_;
+    std::string  dicomUid_;
+
+  public:
+    Identifier(const std::string& orthancId,
+               const std::string& dicomUid) :
+      orthancId_(orthancId),
+      dicomUid_(dicomUid)
+    {
+    }
+
+    const std::string& GetOrthancId() const
+    {
+      return orthancId_;
+    }
+
+    const std::string& GetDicomUid() const
+    {
+      return dicomUid_;
+    }
+  };
+}
+
+
+static void GetChildrenIdentifiers(std::list<Identifier>& target,
+                                   Orthanc::ResourceType level,
+                                   const std::string& orthancId)
+{
+  static const char* const ID = "ID";
+  static const char* const MAIN_DICOM_TAGS = "MainDicomTags";
+  static const char* const SERIES_INSTANCE_UID = "SeriesInstanceUID";
+  static const char* const SOP_INSTANCE_UID = "SOPInstanceUID";
+
+  target.clear();
+
+  const char* tag = NULL;
+  std::string uri;
+
+  switch (level)
+  {
+    case Orthanc::ResourceType_Study:
+      uri = "/studies/" + orthancId + "/series";
+      tag = SERIES_INSTANCE_UID;
+      break;
+       
+    case Orthanc::ResourceType_Series:
+      uri = "/series/" + orthancId + "/instances";
+      tag = SOP_INSTANCE_UID;
+      break;
+
+    default:
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_ParameterOutOfRange);
+  }
+
+  assert(tag != NULL);
+  
+  Json::Value children;
+  if (OrthancPlugins::RestApiGet(children, uri, false))
+  {
+    if (children.type() != Json::arrayValue)
+    {
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);
+    }
+
+    for (Json::Value::ArrayIndex i = 0; i < children.size(); i++)
+    {
+      if (children[i].type() != Json::objectValue ||
+          !children[i].isMember(ID) ||
+          !children[i].isMember(MAIN_DICOM_TAGS) ||
+          children[i][ID].type() != Json::stringValue ||
+          children[i][MAIN_DICOM_TAGS].type() != Json::objectValue ||
+          !children[i][MAIN_DICOM_TAGS].isMember(tag) ||
+          children[i][MAIN_DICOM_TAGS][tag].type() != Json::stringValue)
+      {
+        throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);
+      }
+      else
+      {
+        target.push_back(Identifier(children[i][ID].asString(),
+                                    children[i][MAIN_DICOM_TAGS][tag].asString()));
+                                    
+      }
+    }
+  }  
 }
 
 
@@ -761,10 +649,29 @@ void RetrieveStudyMetadata(OrthancPluginRestOutput* output,
   }
   else
   {
-    std::string publicId;
-    if (LocateStudy(output, publicId, request))
+    std::string studyOrthancId, studyInstanceUid;
+    if (LocateStudy(output, studyOrthancId, studyInstanceUid, request))
     {
-      AnswerMetadata(output, request, Orthanc::ResourceType_Study, publicId, isXml);
+      OrthancPlugins::DicomWebFormatter::HttpWriter writer(output, isXml);
+      const std::string& wadoBase = OrthancPlugins::Configuration::GetBaseUrl(request);
+
+      std::list<Identifier> series;
+      GetChildrenIdentifiers(series, Orthanc::ResourceType_Study, studyOrthancId);
+
+      for (std::list<Identifier>::const_iterator a = series.begin(); a != series.end(); ++a)
+      {
+        std::list<Identifier> instances;
+        GetChildrenIdentifiers(instances, Orthanc::ResourceType_Series, a->GetOrthancId());
+
+        for (std::list<Identifier>::const_iterator b = instances.begin(); b != instances.end(); ++b)
+        {
+          WriteInstanceMetadata(writer, b->GetOrthancId(), studyInstanceUid, a->GetDicomUid(), b->GetDicomUid(),
+                                OrthancPlugins::Configuration::GetBaseUrl(request));
+
+        }
+      }
+
+      writer.Send();
     }
   }
 }
@@ -774,17 +681,32 @@ void RetrieveSeriesMetadata(OrthancPluginRestOutput* output,
                             const char* url,
                             const OrthancPluginHttpRequest* request)
 {
+  OrthancPluginContext* context = OrthancPlugins::GetGlobalContext();
+  
   bool isXml;
   if (!AcceptMetadata(request, isXml))
   {
-    OrthancPluginSendHttpStatusCode(OrthancPlugins::GetGlobalContext(), output, 400 /* Bad request */);
+    OrthancPluginSendHttpStatusCode(context, output, 400 /* Bad request */);
   }
   else
   {
-    std::string publicId;
-    if (LocateSeries(output, publicId, request))
+    std::string seriesOrthancId, studyInstanceUid, seriesInstanceUid;
+    if (LocateSeries(output, seriesOrthancId, studyInstanceUid, seriesInstanceUid, request))
     {
-      AnswerMetadata(output, request, Orthanc::ResourceType_Series, publicId, isXml);
+      OrthancPlugins::DicomWebFormatter::HttpWriter writer(output, isXml);
+      const std::string& wadoBase = OrthancPlugins::Configuration::GetBaseUrl(request);
+      
+      std::list<Identifier> instances;
+      GetChildrenIdentifiers(instances, Orthanc::ResourceType_Series, seriesOrthancId);
+
+      for (std::list<Identifier>::const_iterator a = instances.begin(); a != instances.end(); ++a)
+      {
+        WriteInstanceMetadata(writer, a->GetOrthancId(), studyInstanceUid, seriesOrthancId, a->GetDicomUid(),
+                              OrthancPlugins::Configuration::GetBaseUrl(request));
+
+      }
+
+      writer.Send();
     }
   }
 }
@@ -801,10 +723,13 @@ void RetrieveInstanceMetadata(OrthancPluginRestOutput* output,
   }
   else
   {
-    std::string publicId;
-    if (LocateInstance(output, publicId, request))
+    std::string orthancId, studyInstanceUid, seriesInstanceUid, sopInstanceUid;
+    if (LocateInstance(output, orthancId, studyInstanceUid, seriesInstanceUid, sopInstanceUid, request))
     {
-      AnswerMetadata(output, request, Orthanc::ResourceType_Instance, publicId, isXml);
+      OrthancPlugins::DicomWebFormatter::HttpWriter writer(output, isXml);
+      WriteInstanceMetadata(writer, orthancId, studyInstanceUid, seriesInstanceUid, sopInstanceUid,
+                            OrthancPlugins::Configuration::GetBaseUrl(request));
+      writer.Send();      
     }
   }
 }
@@ -822,10 +747,10 @@ void RetrieveBulkData(OrthancPluginRestOutput* output,
     return;
   }
 
-  std::string publicId;
+  std::string orthancId, studyInstanceUid, seriesInstanceUid, sopInstanceUid;
   OrthancPlugins::MemoryBuffer content;
-  if (LocateInstance(output, publicId, request) &&
-      content.RestApiGet("/instances/" + publicId + "/file", false))
+  if (LocateInstance(output, orthancId, studyInstanceUid, seriesInstanceUid, sopInstanceUid, request) &&
+      content.RestApiGet("/instances/" + orthancId + "/file", false))
   {
     std::string bulk(request->groups[3]);
 
@@ -833,7 +758,7 @@ void RetrieveBulkData(OrthancPluginRestOutput* output,
     Orthanc::Toolbox::TokenizeString(path, bulk, '/');
 
     // Map the bulk data URI to the Orthanc "/instances/.../content/..." built-in URI
-    std::string orthanc = "/instances/" + publicId + "/content";
+    std::string orthanc = "/instances/" + orthancId + "/content";
 
     Orthanc::DicomTag tmp(0, 0);
     

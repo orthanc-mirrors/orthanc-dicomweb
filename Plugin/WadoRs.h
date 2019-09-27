@@ -26,10 +26,15 @@
 
 bool LocateSeries(OrthancPluginRestOutput* output,
                   std::string& uri,
+                  std::string& studyInstanceUid,
+                  std::string& seriesInstanceUid,
                   const OrthancPluginHttpRequest* request);
 
 bool LocateInstance(OrthancPluginRestOutput* output,
                     std::string& uri,
+                    std::string& studyInstanceUid,
+                    std::string& seriesInstanceUid,
+                    std::string& sopInstanceUid,
                     const OrthancPluginHttpRequest* request);
 
 void RetrieveDicomStudy(OrthancPluginRestOutput* output,
