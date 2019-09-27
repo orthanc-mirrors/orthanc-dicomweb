@@ -442,34 +442,90 @@ static void WriteInstanceMetadata(OrthancPlugins::DicomWebFormatter::HttpWriter&
 
 
 
+
 static void AnswerMetadata(OrthancPluginRestOutput* output,
                            const OrthancPluginHttpRequest* request,
                            Orthanc::ResourceType level,
                            const std::string& resource,
-                           bool isInstance,
                            bool isXml)
 {
+  static const char* const ID = "ID";
+  static const char* const INSTANCES = "Instances";
+  
   OrthancPluginContext* context = OrthancPlugins::GetGlobalContext();
 
   std::list<std::string> instances;
-  if (isInstance)
+
+  switch (level)
   {
-    instances.push_back(resource);
-  }
-  else
-  {
-    Json::Value children;
-    if (!OrthancPlugins::RestApiGet(children, GetResourceUri(level, resource) + "/instances", false))
+    case Orthanc::ResourceType_Instance:
+      instances.push_back(resource);
+      break;
+
+    case Orthanc::ResourceType_Series:
     {
-      // Internal error
-      OrthancPluginSendHttpStatusCode(context, output, 400);
-      return;
+      Json::Value series;
+      if (!OrthancPlugins::RestApiGet(series, GetResourceUri(level, resource), false))
+      {
+        // Internal error
+        OrthancPluginSendHttpStatusCode(context, output, 400);
+        return;
+      }
+
+      if (series.type() != Json::objectValue ||
+          !series.isMember(INSTANCES) ||
+          series[INSTANCES].type() != Json::arrayValue)
+      {
+        throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);
+      }
+          
+      for (Json::Value::ArrayIndex i = 0; i < series[INSTANCES].size(); i++)
+      {
+        if (series[INSTANCES][i].type() != Json::stringValue)
+        {
+          throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);
+        }
+        else
+        {
+          instances.push_back(series[INSTANCES][i].asString());
+        }
+      }
+      break;
     }
 
-    for (Json::Value::ArrayIndex i = 0; i < children.size(); i++)
+    case Orthanc::ResourceType_Study:
     {
-      instances.push_back(children[i]["ID"].asString());
+      Json::Value children;
+      if (!OrthancPlugins::RestApiGet(children, GetResourceUri(level, resource) + "/instances", false))
+      {
+        // Internal error
+        OrthancPluginSendHttpStatusCode(context, output, 400);
+        return;
+      }
+
+      if (children.type() != Json::arrayValue)
+      {
+        throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);
+      }
+
+      for (Json::Value::ArrayIndex i = 0; i < children.size(); i++)
+      {
+        if (children[i].type() != Json::objectValue ||
+            !children[i].isMember(ID) ||
+            children[i][ID].type() != Json::stringValue)
+        {
+          throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);
+        }
+        else
+        {
+          instances.push_back(children[i][ID].asString());
+        }
+      }
+      break;
     }
+
+    default:
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
   }
 
   const std::string wadoBase = OrthancPlugins::Configuration::GetBaseUrl(request);
@@ -708,7 +764,7 @@ void RetrieveStudyMetadata(OrthancPluginRestOutput* output,
     std::string publicId;
     if (LocateStudy(output, publicId, request))
     {
-      AnswerMetadata(output, request, Orthanc::ResourceType_Study, publicId, false, isXml);
+      AnswerMetadata(output, request, Orthanc::ResourceType_Study, publicId, isXml);
     }
   }
 }
@@ -728,7 +784,7 @@ void RetrieveSeriesMetadata(OrthancPluginRestOutput* output,
     std::string publicId;
     if (LocateSeries(output, publicId, request))
     {
-      AnswerMetadata(output, request, Orthanc::ResourceType_Series, publicId, false, isXml);
+      AnswerMetadata(output, request, Orthanc::ResourceType_Series, publicId, isXml);
     }
   }
 }
@@ -748,7 +804,7 @@ void RetrieveInstanceMetadata(OrthancPluginRestOutput* output,
     std::string publicId;
     if (LocateInstance(output, publicId, request))
     {
-      AnswerMetadata(output, request, Orthanc::ResourceType_Instance, publicId, true, isXml);
+      AnswerMetadata(output, request, Orthanc::ResourceType_Instance, publicId, isXml);
     }
   }
 }
