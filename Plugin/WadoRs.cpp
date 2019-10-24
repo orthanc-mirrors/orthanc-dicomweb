@@ -653,7 +653,6 @@ void RetrieveStudyMetadata(OrthancPluginRestOutput* output,
     if (LocateStudy(output, studyOrthancId, studyInstanceUid, request))
     {
       OrthancPlugins::DicomWebFormatter::HttpWriter writer(output, isXml);
-      const std::string& wadoBase = OrthancPlugins::Configuration::GetBaseUrl(request);
 
       std::list<Identifier> series;
       GetChildrenIdentifiers(series, Orthanc::ResourceType_Study, studyOrthancId);
@@ -693,7 +692,6 @@ void RetrieveSeriesMetadata(OrthancPluginRestOutput* output,
     if (LocateSeries(output, seriesOrthancId, studyInstanceUid, seriesInstanceUid, request))
     {
       OrthancPlugins::DicomWebFormatter::HttpWriter writer(output, isXml);
-      const std::string& wadoBase = OrthancPlugins::Configuration::GetBaseUrl(request);
       
       std::list<Identifier> instances;
       GetChildrenIdentifiers(instances, Orthanc::ResourceType_Series, seriesOrthancId);
