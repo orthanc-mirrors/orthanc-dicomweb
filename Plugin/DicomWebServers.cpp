@@ -136,13 +136,13 @@ namespace OrthancPlugins
 
     if (!parameters.GetCertificateFile().empty())
     {
-      client.SetClientCertificate(
+      client.SetCertificate(
         parameters.GetCertificateFile(),
         parameters.GetCertificateKeyFile(),
         parameters.GetCertificateKeyPassword());
     }
 
-    client.SetPkcs11Enabled(parameters.IsPkcs11Enabled());
+    client.SetPkcs11(parameters.IsPkcs11Enabled());
 
     // By default, enable chunked transfers
     client.SetChunkedTransfersAllowed(
