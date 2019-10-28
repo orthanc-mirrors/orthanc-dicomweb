@@ -134,10 +134,20 @@ namespace OrthancPlugins
       client.SetCredentials(parameters.GetUsername(), parameters.GetPassword());
     }
 
+    if (!parameters.GetCertificateFile().empty())
+    {
+      client.SetClientCertificate(
+        parameters.GetCertificateFile(),
+        parameters.GetCertificateKeyFile(),
+        parameters.GetCertificateKeyPassword());
+    }
+
+    client.SetPkcs11Enabled(parameters.IsPkcs11Enabled());
+
     // By default, enable chunked transfers
     client.SetChunkedTransfersAllowed(
       parameters.GetBooleanUserProperty(HAS_CHUNKED_TRANSFERS, true));
-  }    
+  }
 
 
   void DicomWebServers::DeleteServer(const std::string& name)

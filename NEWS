@@ -13,6 +13,7 @@ Maintenance
 
 * Optimization of QIDO-RS for large studies/series
 * Fix handling of the "Forwarded" HTTP header
+* Fix support for client certificate authentication
 * Accept multiple MIME types in Accept header for WADO-RS "Retrieve Metadata"
 * Added explicit "Accept" header to avoid uncompressing DICOM files by Google cloud
   https://groups.google.com/d/msg/orthanc-users/w1Ekrsc6-U8/T2a_DoQ5CwAJ
