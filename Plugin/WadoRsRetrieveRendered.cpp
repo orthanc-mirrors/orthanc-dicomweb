@@ -661,6 +661,10 @@ static void ApplyRendering(Orthanc::ImageAccessor& target,
     Orthanc::ImageProcessing::FlipY(scaled);
   }
 
+
+  // TODO => Replace what follows with a call to "Orthanc::ImageProcessing::FitSize()"
+
+  
   // Preserve the aspect ratio
   float cw = static_cast<float>(scaled.GetWidth());
   float ch = static_cast<float>(scaled.GetHeight());

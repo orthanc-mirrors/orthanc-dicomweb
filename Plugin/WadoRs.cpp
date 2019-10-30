@@ -266,7 +266,7 @@ static void WriteInstanceMetadata(OrthancPlugins::DicomWebFormatter::HttpWriter&
          !seriesInstanceUid.empty() &&
          !sopInstanceUid.empty() &&
          !wadoBase.empty());
-  
+
   const std::string bulkRoot = (wadoBase +
                                 "studies/" + studyInstanceUid +
                                 "/series/" + seriesInstanceUid + 
@@ -698,7 +698,7 @@ void RetrieveSeriesMetadata(OrthancPluginRestOutput* output,
 
       for (std::list<Identifier>::const_iterator a = instances.begin(); a != instances.end(); ++a)
       {
-        WriteInstanceMetadata(writer, a->GetOrthancId(), studyInstanceUid, seriesOrthancId, a->GetDicomUid(),
+        WriteInstanceMetadata(writer, a->GetOrthancId(), studyInstanceUid, seriesInstanceUid, a->GetDicomUid(),
                               OrthancPlugins::Configuration::GetBaseUrl(request));
       }
 
