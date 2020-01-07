@@ -51,60 +51,60 @@ namespace
     Filters                       filters_;
 
 
-    static void AddResultAttributesForLevel(std::list<Orthanc::DicomTag>& result,
+    static void AddResultAttributesForLevel(std::set<Orthanc::DicomTag>& result,
                                             Orthanc::ResourceType level)
     {
       switch (level)
       {
         case Orthanc::ResourceType_Study:
           // http://medical.nema.org/medical/dicom/current/output/html/part18.html#table_6.7.1-2
-          //result.push_back(Orthanc::DicomTag(0x0008, 0x0005));  // Specific Character Set  => SPECIAL CASE
-          result.push_back(Orthanc::DicomTag(0x0008, 0x0020));  // Study Date
-          result.push_back(Orthanc::DicomTag(0x0008, 0x0030));  // Study Time
-          result.push_back(Orthanc::DicomTag(0x0008, 0x0050));  // Accession Number
-          result.push_back(Orthanc::DicomTag(0x0008, 0x0056));  // Instance Availability
-          //result.push_back(Orthanc::DicomTag(0x0008, 0x0061));  // Modalities in Study  => SPECIAL CASE
-          result.push_back(Orthanc::DicomTag(0x0008, 0x0090));  // Referring Physician's Name
-          result.push_back(Orthanc::DicomTag(0x0008, 0x0201));  // Timezone Offset From UTC
-          //result.push_back(Orthanc::DicomTag(0x0008, 0x1190));  // Retrieve URL  => SPECIAL CASE
-          result.push_back(Orthanc::DicomTag(0x0010, 0x0010));  // Patient's Name
-          result.push_back(Orthanc::DicomTag(0x0010, 0x0020));  // Patient ID
-          result.push_back(Orthanc::DicomTag(0x0010, 0x0030));  // Patient's Birth Date
-          result.push_back(Orthanc::DicomTag(0x0010, 0x0040));  // Patient's Sex
-          result.push_back(Orthanc::DicomTag(0x0020, 0x000D));  // Study Instance UID
-          result.push_back(Orthanc::DicomTag(0x0020, 0x0010));  // Study ID
-          //result.push_back(Orthanc::DicomTag(0x0020, 0x1206));  // Number of Study Related Series  => SPECIAL CASE
-          //result.push_back(Orthanc::DicomTag(0x0020, 0x1208));  // Number of Study Related Instances  => SPECIAL CASE
+          //result.insert(Orthanc::DicomTag(0x0008, 0x0005));  // Specific Character Set  => SPECIAL CASE
+          result.insert(Orthanc::DicomTag(0x0008, 0x0020));  // Study Date
+          result.insert(Orthanc::DicomTag(0x0008, 0x0030));  // Study Time
+          result.insert(Orthanc::DicomTag(0x0008, 0x0050));  // Accession Number
+          result.insert(Orthanc::DicomTag(0x0008, 0x0056));  // Instance Availability
+          //result.insert(Orthanc::DicomTag(0x0008, 0x0061));  // Modalities in Study  => SPECIAL CASE
+          result.insert(Orthanc::DicomTag(0x0008, 0x0090));  // Referring Physician's Name
+          result.insert(Orthanc::DicomTag(0x0008, 0x0201));  // Timezone Offset From UTC
+          //result.insert(Orthanc::DicomTag(0x0008, 0x1190));  // Retrieve URL  => SPECIAL CASE
+          result.insert(Orthanc::DicomTag(0x0010, 0x0010));  // Patient's Name
+          result.insert(Orthanc::DicomTag(0x0010, 0x0020));  // Patient ID
+          result.insert(Orthanc::DicomTag(0x0010, 0x0030));  // Patient's Birth Date
+          result.insert(Orthanc::DicomTag(0x0010, 0x0040));  // Patient's Sex
+          result.insert(Orthanc::DicomTag(0x0020, 0x000D));  // Study Instance UID
+          result.insert(Orthanc::DicomTag(0x0020, 0x0010));  // Study ID
+          //result.insert(Orthanc::DicomTag(0x0020, 0x1206));  // Number of Study Related Series  => SPECIAL CASE
+          //result.insert(Orthanc::DicomTag(0x0020, 0x1208));  // Number of Study Related Instances  => SPECIAL CASE
           break;
 
         case Orthanc::ResourceType_Series:
           // http://medical.nema.org/medical/dicom/current/output/html/part18.html#table_6.7.1-2a
-          //result.push_back(Orthanc::DicomTag(0x0008, 0x0005));  // Specific Character Set  => SPECIAL CASE
-          result.push_back(Orthanc::DicomTag(0x0008, 0x0060));  // Modality
-          result.push_back(Orthanc::DicomTag(0x0008, 0x0201));  // Timezone Offset From UTC
-          result.push_back(Orthanc::DicomTag(0x0008, 0x103E));  // Series Description
-          //result.push_back(Orthanc::DicomTag(0x0008, 0x1190));  // Retrieve URL  => SPECIAL CASE
-          result.push_back(Orthanc::DicomTag(0x0020, 0x000E));  // Series Instance UID
-          result.push_back(Orthanc::DicomTag(0x0020, 0x0011));  // Series Number
-          //result.push_back(Orthanc::DicomTag(0x0020, 0x1209));  // Number of Series Related Instances  => SPECIAL CASE
-          result.push_back(Orthanc::DicomTag(0x0040, 0x0244));  // Performed Procedure Step Start Date
-          result.push_back(Orthanc::DicomTag(0x0040, 0x0245));  // Performed Procedure Step Start Time
-          result.push_back(Orthanc::DicomTag(0x0040, 0x0275));  // Request Attribute Sequence
+          //result.insert(Orthanc::DicomTag(0x0008, 0x0005));  // Specific Character Set  => SPECIAL CASE
+          result.insert(Orthanc::DicomTag(0x0008, 0x0060));  // Modality
+          result.insert(Orthanc::DicomTag(0x0008, 0x0201));  // Timezone Offset From UTC
+          result.insert(Orthanc::DicomTag(0x0008, 0x103E));  // Series Description
+          //result.insert(Orthanc::DicomTag(0x0008, 0x1190));  // Retrieve URL  => SPECIAL CASE
+          result.insert(Orthanc::DicomTag(0x0020, 0x000E));  // Series Instance UID
+          result.insert(Orthanc::DicomTag(0x0020, 0x0011));  // Series Number
+          //result.insert(Orthanc::DicomTag(0x0020, 0x1209));  // Number of Series Related Instances  => SPECIAL CASE
+          result.insert(Orthanc::DicomTag(0x0040, 0x0244));  // Performed Procedure Step Start Date
+          result.insert(Orthanc::DicomTag(0x0040, 0x0245));  // Performed Procedure Step Start Time
+          result.insert(Orthanc::DicomTag(0x0040, 0x0275));  // Request Attribute Sequence
           break;
 
         case Orthanc::ResourceType_Instance:
           // http://medical.nema.org/medical/dicom/current/output/html/part18.html#table_6.7.1-2b
-          //result.push_back(Orthanc::DicomTag(0x0008, 0x0005));  // Specific Character Set  => SPECIAL CASE
-          result.push_back(Orthanc::DicomTag(0x0008, 0x0016));  // SOP Class UID
-          result.push_back(Orthanc::DicomTag(0x0008, 0x0018));  // SOP Instance UID
-          result.push_back(Orthanc::DicomTag(0x0008, 0x0056));  // Instance Availability
-          result.push_back(Orthanc::DicomTag(0x0008, 0x0201));  // Timezone Offset From UTC
-          result.push_back(Orthanc::DicomTag(0x0008, 0x1190));  // Retrieve URL
-          result.push_back(Orthanc::DicomTag(0x0020, 0x0013));  // Instance Number
-          result.push_back(Orthanc::DicomTag(0x0028, 0x0010));  // Rows
-          result.push_back(Orthanc::DicomTag(0x0028, 0x0011));  // Columns
-          result.push_back(Orthanc::DicomTag(0x0028, 0x0100));  // Bits Allocated
-          result.push_back(Orthanc::DicomTag(0x0028, 0x0008));  // Number of Frames
+          //result.insert(Orthanc::DicomTag(0x0008, 0x0005));  // Specific Character Set  => SPECIAL CASE
+          result.insert(Orthanc::DicomTag(0x0008, 0x0016));  // SOP Class UID
+          result.insert(Orthanc::DicomTag(0x0008, 0x0018));  // SOP Instance UID
+          result.insert(Orthanc::DicomTag(0x0008, 0x0056));  // Instance Availability
+          result.insert(Orthanc::DicomTag(0x0008, 0x0201));  // Timezone Offset From UTC
+          result.insert(Orthanc::DicomTag(0x0008, 0x1190));  // Retrieve URL
+          result.insert(Orthanc::DicomTag(0x0020, 0x0013));  // Instance Number
+          result.insert(Orthanc::DicomTag(0x0028, 0x0010));  // Rows
+          result.insert(Orthanc::DicomTag(0x0028, 0x0011));  // Columns
+          result.insert(Orthanc::DicomTag(0x0028, 0x0100));  // Bits Allocated
+          result.insert(Orthanc::DicomTag(0x0028, 0x0008));  // Number of Frames
           break;
 
         default:
@@ -387,7 +387,13 @@ namespace
                        const std::string& wadoBase,
                        Orthanc::ResourceType level) const
     {
-      std::list<Orthanc::DicomTag> fields = includeFields_;
+      std::set<Orthanc::DicomTag> fields;
+
+      for (std::list<Orthanc::DicomTag>::const_iterator
+             it = includeFields_.begin(); it != includeFields_.end(); ++it)
+      {
+        fields.insert(*it);
+      }
 
       // The list of attributes for this query level
       AddResultAttributesForLevel(fields, level);
@@ -396,7 +402,7 @@ namespace
       for (Filters::const_iterator it = filters_.begin();
            it != filters_.end(); ++it)
       {
-        fields.push_back(it->first);
+        fields.insert(it->first);
       }
 
       // For instances and series, add all Study-level attributes if
@@ -418,7 +424,7 @@ namespace
       }
 
       // Copy all the required fields to the target
-      for (std::list<Orthanc::DicomTag>::const_iterator
+      for (std::set<Orthanc::DicomTag>::const_iterator
              it = fields.begin(); it != fields.end(); ++it)
       {
         std::string value;
