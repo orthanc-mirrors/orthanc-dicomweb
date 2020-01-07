@@ -11,7 +11,8 @@ New features
 Maintenance
 -----------
 
-* Optimization of QIDO-RS for large studies/series
+* QIDO-RS: Optimization for large studies/series
+* QIDO-RS: Fix returned attributes if Study/Series Instance UIDs are not filtered
 * Fix handling of the "Forwarded" HTTP header
 * Fix support for client certificate authentication
 * Accept multiple MIME types in Accept header for WADO-RS "Retrieve Metadata"

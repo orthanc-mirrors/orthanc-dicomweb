@@ -49,6 +49,8 @@ namespace
     std::list<Orthanc::DicomTag>  includeFields_;
     bool                          includeAllFields_;
     Filters                       filters_;
+    bool                          filteredStudyInstanceUid_;
+    bool                          filteredSeriesInstanceUid_;
 
 
     static void AddResultAttributesForLevel(std::set<Orthanc::DicomTag>& result,
@@ -118,7 +120,9 @@ namespace
       fuzzy_(false),
       offset_(0),
       limit_(0),
-      includeAllFields_(false)
+      includeAllFields_(false),
+      filteredStudyInstanceUid_(false),
+      filteredSeriesInstanceUid_(false)
     {
       std::string args;
       
@@ -190,7 +194,7 @@ namespace
             boost::replace_all(value, "%2c", "\\");
             boost::replace_all(value, "%2C", "\\");
             
-            filters_[tag] = value;
+            AddFilter(tag, value, false);
           }
         }
       }
@@ -209,9 +213,22 @@ namespace
     }
 
     void AddFilter(const Orthanc::DicomTag& tag,
-                   const std::string& constraint)
+                   const std::string& constraint,
+                   bool isFromPath)
     {
       filters_[tag] = constraint;
+
+      if (!isFromPath)
+      {
+        if (tag == Orthanc::DICOM_TAG_STUDY_INSTANCE_UID)
+        {
+          filteredStudyInstanceUid_ = true;
+        }
+        else if (tag == Orthanc::DICOM_TAG_SERIES_INSTANCE_UID)
+        {
+          filteredSeriesInstanceUid_ = true;
+        }
+      }
     }
 
     void Print(std::ostream& out) const 
@@ -221,6 +238,8 @@ namespace
       {
         printf("Filter [%04x,%04x] = [%s]\n", it->first.GetGroup(), it->first.GetElement(), it->second.c_str());
       }
+      printf("QIDO on StudyInstanceUID: %d\n", filteredStudyInstanceUid_);
+      printf("QIDO on SeriesInstanceUID: %d\n\n", filteredSeriesInstanceUid_);
     }
 
     void ConvertToOrthanc(Json::Value& result,
@@ -407,18 +426,17 @@ namespace
 
       // For instances and series, add all Study-level attributes if
       // {StudyInstanceUID} is not specified.
-      if ((level == Orthanc::ResourceType_Instance  || level == Orthanc::ResourceType_Series) 
-          && filters_.find(Orthanc::DICOM_TAG_STUDY_INSTANCE_UID) == filters_.end()
-        )
+      if (!filteredStudyInstanceUid_ &&
+          (level == Orthanc::ResourceType_Instance ||
+           level == Orthanc::ResourceType_Series))
       {
         AddResultAttributesForLevel(fields, Orthanc::ResourceType_Study);
       }
 
       // For instances, add all Series-level attributes if
       // {SeriesInstanceUID} is not specified.
-      if (level == Orthanc::ResourceType_Instance
-          && filters_.find(Orthanc::DICOM_TAG_SERIES_INSTANCE_UID) == filters_.end()
-        )
+      if (!filteredSeriesInstanceUid_ &&
+          level == Orthanc::ResourceType_Instance)
       {
         AddResultAttributesForLevel(fields, Orthanc::ResourceType_Series);
       }
@@ -550,7 +568,7 @@ void SearchForSeries(OrthancPluginRestOutput* output,
     if (request->groupsCount == 1)
     {
       // The "StudyInstanceUID" is provided by the regular expression
-      matcher.AddFilter(Orthanc::DICOM_TAG_STUDY_INSTANCE_UID, request->groups[0]);
+      matcher.AddFilter(Orthanc::DICOM_TAG_STUDY_INSTANCE_UID, request->groups[0], true);
     }
 
     ApplyMatcher(output, request, matcher, Orthanc::ResourceType_Series);
@@ -574,13 +592,13 @@ void SearchForInstances(OrthancPluginRestOutput* output,
         request->groupsCount == 2)
     {
       // The "StudyInstanceUID" is provided by the regular expression
-      matcher.AddFilter(Orthanc::DICOM_TAG_STUDY_INSTANCE_UID, request->groups[0]);
+      matcher.AddFilter(Orthanc::DICOM_TAG_STUDY_INSTANCE_UID, request->groups[0], true);
     }
 
     if (request->groupsCount == 2)
     {
       // The "SeriesInstanceUID" is provided by the regular expression
-      matcher.AddFilter(Orthanc::DICOM_TAG_SERIES_INSTANCE_UID, request->groups[1]);
+      matcher.AddFilter(Orthanc::DICOM_TAG_SERIES_INSTANCE_UID, request->groups[1], true);
     }
 
     ApplyMatcher(output, request, matcher, Orthanc::ResourceType_Instance);
