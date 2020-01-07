@@ -57,7 +57,7 @@ namespace
       switch (level)
       {
         case Orthanc::ResourceType_Study:
-          // http://medical.nema.org/medical/dicom/current/output/html/part18.html#table_6.7.1-2
+          // http://dicom.nema.org/medical/dicom/2019a/output/html/part18.html#table_6.7.1-2
           //result.insert(Orthanc::DicomTag(0x0008, 0x0005));  // Specific Character Set  => SPECIAL CASE
           result.insert(Orthanc::DicomTag(0x0008, 0x0020));  // Study Date
           result.insert(Orthanc::DicomTag(0x0008, 0x0030));  // Study Time
@@ -78,7 +78,7 @@ namespace
           break;
 
         case Orthanc::ResourceType_Series:
-          // http://medical.nema.org/medical/dicom/current/output/html/part18.html#table_6.7.1-2a
+          // http://dicom.nema.org/medical/dicom/2019a/output/html/part18.html#table_6.7.1-2a
           //result.insert(Orthanc::DicomTag(0x0008, 0x0005));  // Specific Character Set  => SPECIAL CASE
           result.insert(Orthanc::DicomTag(0x0008, 0x0060));  // Modality
           result.insert(Orthanc::DicomTag(0x0008, 0x0201));  // Timezone Offset From UTC
@@ -93,7 +93,7 @@ namespace
           break;
 
         case Orthanc::ResourceType_Instance:
-          // http://medical.nema.org/medical/dicom/current/output/html/part18.html#table_6.7.1-2b
+          // http://dicom.nema.org/medical/dicom/2019a/output/html/part18.html#table_6.7.1-2b
           //result.insert(Orthanc::DicomTag(0x0008, 0x0005));  // Specific Character Set  => SPECIAL CASE
           result.insert(Orthanc::DicomTag(0x0008, 0x0016));  // SOP Class UID
           result.insert(Orthanc::DicomTag(0x0008, 0x0018));  // SOP Instance UID
