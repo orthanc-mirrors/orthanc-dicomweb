@@ -18,6 +18,7 @@ Maintenance
 * Accept multiple MIME types in Accept header for WADO-RS "Retrieve Metadata"
 * Added explicit "Accept" header to avoid uncompressing DICOM files by Google cloud
   https://groups.google.com/d/msg/orthanc-users/w1Ekrsc6-U8/T2a_DoQ5CwAJ
+* Upgrade to GDCM 3.0.4 in static builds
 
 
 Version 1.0 (2019-06-26)
