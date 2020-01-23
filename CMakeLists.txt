@@ -24,10 +24,10 @@ project(OrthancDicomWeb)
 set(ORTHANC_DICOM_WEB_VERSION "mainline")
 
 if (ORTHANC_DICOM_WEB_VERSION STREQUAL "mainline")
-  set(ORTHANC_FRAMEWORK_VERSION "mainline")
+  set(ORTHANC_FRAMEWORK_DEFAULT_VERSION "mainline")
   set(ORTHANC_FRAMEWORK_DEFAULT_SOURCE "hg")
 else()
-  set(ORTHANC_FRAMEWORK_VERSION "1.5.7")
+  set(ORTHANC_FRAMEWORK_DEFAULT_VERSION "1.5.8")
   set(ORTHANC_FRAMEWORK_DEFAULT_SOURCE "web")
 endif()
 
@@ -35,7 +35,8 @@ endif()
 # Parameters of the build
 set(STATIC_BUILD OFF CACHE BOOL "Static build of the third-party libraries (necessary for Windows)")
 set(ALLOW_DOWNLOADS OFF CACHE BOOL "Allow CMake to download packages")
-set(ORTHANC_FRAMEWORK_SOURCE "${ORTHANC_FRAMEWORK_DEFAULT_SOURCE}" CACHE STRING "Source of the Orthanc source code (can be \"hg\", \"archive\", \"web\" or \"path\")")
+set(ORTHANC_FRAMEWORK_SOURCE "${ORTHANC_FRAMEWORK_DEFAULT_SOURCE}" CACHE STRING "Source of the Orthanc framework (can be \"hg\", \"archive\", \"web\" or \"path\")")
+set(ORTHANC_FRAMEWORK_VERSION "${ORTHANC_FRAMEWORK_DEFAULT_VERSION}" CACHE STRING "Version of the Orthanc framework")
 set(ORTHANC_FRAMEWORK_ARCHIVE "" CACHE STRING "Path to the Orthanc archive, if ORTHANC_FRAMEWORK_SOURCE is \"archive\"")
 set(ORTHANC_FRAMEWORK_ROOT "" CACHE STRING "Path to the Orthanc source directory, if ORTHANC_FRAMEWORK_SOURCE is \"path\"")
 
