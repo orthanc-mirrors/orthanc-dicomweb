@@ -33,4 +33,4 @@ docker run -t ${DOCKER_FLAGS} --rm \
     phusion/holy-build-box-64:2.0.1 \
     bash /source/Resources/holy-build-box-internal.sh $1
 
-ls -l ${ROOT_DIR}/holy-build-box/
+ls -lR ${ROOT_DIR}/holy-build-box/
