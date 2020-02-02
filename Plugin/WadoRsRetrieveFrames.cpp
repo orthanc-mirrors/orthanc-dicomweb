@@ -83,7 +83,7 @@ static gdcm::TransferSyntax ParseTransferSyntax(const OrthancPluginHttpRequest* 
 
       if (tokens[0] != "multipart/related")
       {
-        throw Orthanc::OrthancException(Orthanc::ErrorCode_ParameterOutOfRange);
+        throw Orthanc::OrthancException(Orthanc::ErrorCode_ParameterOutOfRange, "expecting 'Accept: multipart/related' HTTP header");
       }
 
       std::string type("application/octet-stream");
