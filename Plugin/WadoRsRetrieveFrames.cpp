@@ -342,13 +342,85 @@ static const char* GetMimeType(const gdcm::TransferSyntax& syntax)
 
 
 
+static void ConvertYbrToRgb(uint8_t rgb[3],
+                            const uint8_t ybr[3])
+{
+  // http://dicom.nema.org/medical/dicom/current/output/chtml/part03/sect_C.7.6.3.html#sect_C.7.6.3.1.2
+  // https://en.wikipedia.org/wiki/YCbCr#JPEG_conversion
+    
+  const float Y  = ybr[0];
+  const float Cb = ybr[1];
+  const float Cr = ybr[2];
+
+  const float result[3] = {
+    Y                             + 1.402f    * (Cr - 128.0f),
+    Y - 0.344136f * (Cb - 128.0f) - 0.714136f * (Cr - 128.0f),
+    Y + 1.772f    * (Cb - 128.0f)
+  };
+
+  for (uint8_t i = 0; i < 3 ; i++)
+  {
+    if (result[i] < 0)
+    {
+      rgb[i] = 0;
+    }
+    else if (result[i] > 255)
+    {
+      rgb[i] = 255;
+    }
+    else
+    {
+      rgb[i] = static_cast<uint8_t>(result[i]);
+    }
+  }    
+}
+
+
 static void AnswerSingleFrame(OrthancPluginRestOutput* output,
                               const OrthancPluginHttpRequest* request,
                               const OrthancPlugins::GdcmParsedDicomFile& dicom,
                               const char* frame,
                               size_t size,
-                              unsigned int frameIndex)
+                              unsigned int frameIndex,
+                              bool convertYbr)
 {
+  /**
+   * Fix the photometric interpretation, typically needed for some
+   * multiframe US images (as the one in issue 164). Also check out
+   * the "Plugins/Samples/GdcmDecoder/GdcmImageDecoder.cpp" file in
+   * the source distribution of Orthanc, and Osimis issue WVB-319
+   * ("Some images are not loading in US_MF").
+   **/
+
+  std::vector<uint8_t> copied;  // Don't move this variable inside the
+                                // "if", as "frame" might point to it
+
+  if (convertYbr &&
+      size > 0)
+  {
+    copied.resize(size);
+    memcpy(&copied[0], frame, size);
+
+    uint8_t *p = &copied[0];
+    for (size_t i = 0; i < size / 3; i++)
+    {
+      uint8_t ybr[3], rgb[3];
+      ybr[0] = p[0];
+      ybr[1] = p[1];
+      ybr[2] = p[2];
+
+      ConvertYbrToRgb(rgb, ybr);
+      p[0] = rgb[0];
+      p[1] = rgb[1];
+      p[2] = rgb[2];
+
+      p += 3;
+    }
+
+    frame = reinterpret_cast<const char*>(&copied[0]);
+  }  
+
+
   OrthancPluginErrorCode error;
 
 #if HAS_SEND_MULTIPART_ITEM_2 == 1
@@ -367,7 +439,6 @@ static void AnswerSingleFrame(OrthancPluginRestOutput* output,
 }
 
 
-
 static bool AnswerFrames(OrthancPluginRestOutput* output,
                          const OrthancPluginHttpRequest* request,
                          const OrthancPlugins::GdcmParsedDicomFile& dicom,
@@ -379,6 +450,7 @@ static bool AnswerFrames(OrthancPluginRestOutput* output,
   static const gdcm::Tag DICOM_TAG_PIXEL_DATA(0x7fe0, 0x0010);
   static const gdcm::Tag DICOM_TAG_ROWS(0x0028, 0x0010);
   static const gdcm::Tag DICOM_TAG_SAMPLES_PER_PIXEL(0x0028, 0x0002);
+  static const gdcm::Tag DICOM_TAG_PHOTOMETRIC_INTERPRETATION(0x0028, 0x0004);
 
   if (!dicom.GetDataSet().FindDataElement(DICOM_TAG_PIXEL_DATA))
   {
@@ -394,6 +466,25 @@ static bool AnswerFrames(OrthancPluginRestOutput* output,
     return false;
   }
 
+  int samplesPerPixel;
+
+  if (!dicom.GetIntegerTag(samplesPerPixel, DICOM_TAG_SAMPLES_PER_PIXEL))
+  {
+    throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
+  }
+  
+  bool convertYbr = false;
+    
+  {
+    std::string photometric;
+    if (samplesPerPixel == 3 &&
+        dicom.GetStringTag(photometric, DICOM_TAG_PHOTOMETRIC_INTERPRETATION, true) &&
+        photometric == "YBR_FULL")
+    {
+      convertYbr = true;
+    }
+  }  
+  
   if (fragments == NULL)
   {
     // Single-fragment image
@@ -404,19 +495,33 @@ static bool AnswerFrames(OrthancPluginRestOutput* output,
                                       "Image was not properly decoded");
     }
 
-    int width, height, bits, samplesPerPixel;
+    int width, height, bits;
 
     if (!dicom.GetIntegerTag(height, DICOM_TAG_ROWS) ||
         !dicom.GetIntegerTag(width, DICOM_TAG_COLUMNS) ||
-        !dicom.GetIntegerTag(bits, DICOM_TAG_BITS_ALLOCATED) || 
-        !dicom.GetIntegerTag(samplesPerPixel, DICOM_TAG_SAMPLES_PER_PIXEL))
+        !dicom.GetIntegerTag(bits, DICOM_TAG_BITS_ALLOCATED))
     {
       throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
     }
 
     size_t frameSize = height * width * bits * samplesPerPixel / 8;
+
+    if (frameSize == 0)
+    {
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
+    }
+
+    /**
+     * The number of bytes in "pixelData" might not be divisible by
+     * "frameSize", because "pixelData" might contain one padding byte
+     * to have an even number of bytes.
+     * https://bitbucket.org/sjodogne/orthanc/issues/164/
+     **/
     
-    if (pixelData.GetByteValue()->GetLength() % frameSize != 0)
+    if (pixelData.GetByteValue()->GetLength() % frameSize != 0 &&
+        (/* allow one padding byte to be present */
+         pixelData.GetByteValue()->GetLength() % 2 == 0 &&
+         pixelData.GetByteValue()->GetLength() % frameSize != 1))
     {
       throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);      
     }
@@ -448,7 +553,7 @@ static bool AnswerFrames(OrthancPluginRestOutput* output,
       else
       {
         const char* p = buffer + (*frame) * frameSize;
-        AnswerSingleFrame(output, request, dicom, p, frameSize, *frame);
+        AnswerSingleFrame(output, request, dicom, p, frameSize, *frame, convertYbr);
       }
     }
   }
@@ -483,7 +588,8 @@ static bool AnswerFrames(OrthancPluginRestOutput* output,
       {
         AnswerSingleFrame(output, request, dicom,
                           fragments->GetFragment(*frame).GetByteValue()->GetPointer(),
-                          fragments->GetFragment(*frame).GetByteValue()->GetLength(), *frame);
+                          fragments->GetFragment(*frame).GetByteValue()->GetLength(),
+                          *frame, convertYbr);
       }
     }
   }

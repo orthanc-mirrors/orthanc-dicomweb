@@ -18,6 +18,7 @@ Maintenance
 * Accept multiple MIME types in Accept header for WADO-RS "Retrieve Metadata"
 * Added explicit "Accept" header to avoid uncompressing DICOM files by Google cloud
   https://groups.google.com/d/msg/orthanc-users/w1Ekrsc6-U8/T2a_DoQ5CwAJ
+* Fix issue #164 ("JPEG YBR_422 generates a 500 in the DicomWeb plugin")
 * Upgrade to GDCM 3.0.4 in static builds
 
 
