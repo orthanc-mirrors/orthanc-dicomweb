@@ -254,6 +254,78 @@ static void AnswerListOfDicomInstances(OrthancPluginRestOutput* output,
 
 
 
+namespace
+{
+  class MainDicomTagsCache : public boost::noncopyable
+  {
+  private:
+    struct Info : public boost::noncopyable
+    {
+      Orthanc::DicomMap  dicom_;
+      std::string        parent_;
+    };
+    
+    typedef std::pair<std::string, Orthanc::ResourceType>  Index;
+    typedef std::map<Index, Info*>                         Content;
+
+    Content  content_;
+
+  public:
+    ~MainDicomTagsCache()
+    {
+      for (Content::iterator it = content_.begin(); it != content_.end(); ++it)
+      {
+        assert(it->second != NULL);
+        delete it->second;
+      }
+    }
+
+    void Lookup(Orthanc::DicomMap& dicom,
+                std::string& parent,
+                const std::string& orthancId,
+                Orthanc::ResourceType level)
+    {
+      Content::const_iterator found = content_.find(std::make_pair(orthancId, level));
+      
+      if (found != content_.end())
+      {
+        assert(found->second != NULL);
+        dicom.Assign(found->second->dicom_);
+        parent = found->second->parent_;
+      }
+      else
+      {
+        std::string uri;
+
+        switch (level)
+        {
+          case Orthanc::ResourceType_Study:
+            uri = "/studies/" + orthancId;
+            break;
+            
+          case Orthanc::ResourceType_Series:
+            uri = "/series/" + orthancId;
+            break;
+            
+          case Orthanc::ResourceType_Instance:
+            uri = "/instances/" + orthancId;
+            break;
+
+          default:
+            throw Orthanc::OrthancException(Orthanc::ErrorCode_ParameterOutOfRange);
+        }
+
+        Json::Value value;
+        OrthancPlugins::RestApiGet(value, uri, false);
+
+        std::cout << value.toStyledString();
+      }
+    }
+  };
+}
+
+
+
 static void WriteInstanceMetadata(OrthancPlugins::DicomWebFormatter::HttpWriter& writer,
                                   const std::string& orthancId,
                                   const std::string& studyInstanceUid,
@@ -271,6 +343,18 @@ static void WriteInstanceMetadata(OrthancPlugins::DicomWebFormatter::HttpWriter&
                                 "studies/" + studyInstanceUid +
                                 "/series/" + seriesInstanceUid + 
                                 "/instances/" + sopInstanceUid + "/bulk");
+
+  if (0)
+  {
+    // TODO - TESTING 
+    Orthanc::DicomMap dicom;
+    std::string parent;
+  
+    MainDicomTagsCache cache;
+    cache.Lookup(dicom, parent, orthancId, Orthanc::ResourceType_Instance);
+  
+    printf("[%s]\n", sopInstanceUid.c_str());
+  }
   
 #if 1
   // On a SSD drive, this version is twice slower than if using
