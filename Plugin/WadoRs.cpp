@@ -26,7 +26,15 @@
 #include <Core/Toolbox.h>
 #include <Plugins/Samples/Common/OrthancPluginCppWrapper.h>
 
+
+#include <Core/DicomFormat/DicomArray.h>  // TODO - remove
+
+
 #include <memory>
+
+
+static const char* const MAIN_DICOM_TAGS = "MainDicomTags";
+
 
 
 static std::string GetResourceUri(Orthanc::ResourceType level,
@@ -270,6 +278,157 @@ namespace
 
     Content  content_;
 
+    
+    static bool ReadResource(Orthanc::DicomMap& dicom,
+                             std::string& parent,
+                             const std::string& orthancId,
+                             Orthanc::ResourceType level)
+    {
+      static const char* INSTANCES = "Instances";
+      static const char* PATIENT_MAIN_DICOM_TAGS = "PatientMainDicomTags";
+        
+      std::string uri;
+      std::string parentField;
+
+      switch (level)
+      {
+        case Orthanc::ResourceType_Study:
+          uri = "/studies/" + orthancId;
+          break;
+            
+        case Orthanc::ResourceType_Series:
+          uri = "/series/" + orthancId;
+          parentField = "ParentStudy";
+          break;
+            
+        case Orthanc::ResourceType_Instance:
+          uri = "/instances/" + orthancId;
+          parentField = "ParentSeries";
+          break;
+
+        default:
+          throw Orthanc::OrthancException(Orthanc::ErrorCode_ParameterOutOfRange);
+      }
+
+      Json::Value value;
+      if (!OrthancPlugins::RestApiGet(value, uri, false))
+      {
+        return false;
+      }
+         
+
+      if (value.type() != Json::objectValue ||
+          !value.isMember(MAIN_DICOM_TAGS))
+      {
+        throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
+      }
+
+      dicom.ParseMainDicomTags(value[MAIN_DICOM_TAGS], level);
+
+      if (level == Orthanc::ResourceType_Study)
+      {
+        if (value.isMember(PATIENT_MAIN_DICOM_TAGS))
+        {
+          dicom.ParseMainDicomTags(value[PATIENT_MAIN_DICOM_TAGS], Orthanc::ResourceType_Patient);
+        }
+        else
+        {
+          throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
+        }
+      }
+        
+      if (!parentField.empty())
+      {
+        if (value.isMember(parentField) &&
+            value[parentField].type() == Json::stringValue)
+        {
+          parent = value[parentField].asString();
+        }
+        else
+        {
+          throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
+        }
+      }
+
+
+      /**
+       * Complete the series-level tags, with instance-level tags that
+       * are not considered as "main DICOM tags" in Orthanc, but that
+       * are necessary for Web viewers, and that should be constant
+       * through all the instances of the series. To this end, we
+       * select 1 instance and extract the subset of tags of
+       * interest. Obviously, this is an approximation to improve
+       * performance.
+       **/
+      if (level == Orthanc::ResourceType_Series)
+      {
+        if (!value.isMember(INSTANCES) ||
+            value[INSTANCES].type() != Json::arrayValue ||
+            value[INSTANCES].size() == 0 ||
+            value[INSTANCES][0].type() != Json::stringValue)
+        {
+          throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
+        }
+        else
+        {
+          const std::string& someInstance = value[INSTANCES][0].asString();
+
+          Json::Value dicomAsJson;
+          if (OrthancPlugins::RestApiGet(dicomAsJson, "/instances/" + someInstance + "/tags", false))
+          {
+            Orthanc::DicomMap instance;
+            instance.FromDicomAsJson(dicomAsJson);
+
+            // Those tags are necessary for "DicomImageInformation" in
+            // the Orthanc core (for Stone)
+            dicom.CopyTagIfExists(instance, Orthanc::DICOM_TAG_BITS_ALLOCATED);
+            dicom.CopyTagIfExists(instance, Orthanc::DICOM_TAG_BITS_STORED);
+            dicom.CopyTagIfExists(instance, Orthanc::DICOM_TAG_COLUMNS);
+            dicom.CopyTagIfExists(instance, Orthanc::DICOM_TAG_HIGH_BIT);
+            dicom.CopyTagIfExists(instance, Orthanc::DICOM_TAG_NUMBER_OF_FRAMES);
+            dicom.CopyTagIfExists(instance, Orthanc::DICOM_TAG_PHOTOMETRIC_INTERPRETATION);
+            dicom.CopyTagIfExists(instance, Orthanc::DICOM_TAG_PIXEL_REPRESENTATION);
+            dicom.CopyTagIfExists(instance, Orthanc::DICOM_TAG_PLANAR_CONFIGURATION);
+            dicom.CopyTagIfExists(instance, Orthanc::DICOM_TAG_ROWS);
+            dicom.CopyTagIfExists(instance, Orthanc::DICOM_TAG_SAMPLES_PER_PIXEL);
+
+            // Those tags are necessary for "DicomInstanceParameters" in Stone
+            dicom.CopyTagIfExists(instance, Orthanc::DICOM_TAG_SOP_CLASS_UID);
+          }
+        }
+      }
+
+      return true;
+    }
+    
+
+    bool Lookup(Orthanc::DicomMap& dicom,
+                std::string& parent,
+                const std::string& orthancId,
+                Orthanc::ResourceType level)
+    {
+      Content::iterator found = content_.find(std::make_pair(orthancId, level));
+      
+      if (found == content_.end())
+      {
+        std::auto_ptr<Info> info(new Info);
+        if (!ReadResource(info->dicom_, info->parent_, orthancId, level))
+        {
+          return false;
+        }
+
+        found = content_.insert(std::make_pair(std::make_pair(orthancId, level), info.release())).first;
+      }
+
+      assert(found != content_.end() &&
+             found->second != NULL);
+      dicom.Merge(found->second->dicom_);
+      parent = found->second->parent_;
+
+      return true;
+    }
+
+
   public:
     ~MainDicomTagsCache()
     {
@@ -280,46 +439,15 @@ namespace
       }
     }
 
-    void Lookup(Orthanc::DicomMap& dicom,
-                std::string& parent,
-                const std::string& orthancId,
-                Orthanc::ResourceType level)
+
+    bool GetInstance(Orthanc::DicomMap& dicom,
+                     const std::string& orthancId)
     {
-      Content::const_iterator found = content_.find(std::make_pair(orthancId, level));
+      std::string seriesId, studyId, nope;
       
-      if (found != content_.end())
-      {
-        assert(found->second != NULL);
-        dicom.Assign(found->second->dicom_);
-        parent = found->second->parent_;
-      }
-      else
-      {
-        std::string uri;
-
-        switch (level)
-        {
-          case Orthanc::ResourceType_Study:
-            uri = "/studies/" + orthancId;
-            break;
-            
-          case Orthanc::ResourceType_Series:
-            uri = "/series/" + orthancId;
-            break;
-            
-          case Orthanc::ResourceType_Instance:
-            uri = "/instances/" + orthancId;
-            break;
-
-          default:
-            throw Orthanc::OrthancException(Orthanc::ErrorCode_ParameterOutOfRange);
-        }
-
-        Json::Value value;
-        OrthancPlugins::RestApiGet(value, uri, false);
-
-        std::cout << value.toStyledString();
-      }
+      return (ReadResource(dicom, seriesId, orthancId, Orthanc::ResourceType_Instance) &&
+              Lookup(dicom, studyId, seriesId, Orthanc::ResourceType_Series) &&
+              Lookup(dicom, nope, studyId, Orthanc::ResourceType_Study));
     }
   };
 }
@@ -327,6 +455,7 @@ namespace
 
 
 static void WriteInstanceMetadata(OrthancPlugins::DicomWebFormatter::HttpWriter& writer,
+                                  MainDicomTagsCache& cache,
                                   const std::string& orthancId,
                                   const std::string& studyInstanceUid,
                                   const std::string& seriesInstanceUid,
@@ -344,19 +473,14 @@ static void WriteInstanceMetadata(OrthancPlugins::DicomWebFormatter::HttpWriter&
                                 "/series/" + seriesInstanceUid + 
                                 "/instances/" + sopInstanceUid + "/bulk");
 
-  if (0)
+#if 0
+  Orthanc::DicomMap dicom;
+  if (cache.GetInstance(dicom, orthancId))
   {
-    // TODO - TESTING 
-    Orthanc::DicomMap dicom;
-    std::string parent;
+    writer.AddOrthancMap(dicom);
+  }  
   
-    MainDicomTagsCache cache;
-    cache.Lookup(dicom, parent, orthancId, Orthanc::ResourceType_Instance);
-  
-    printf("[%s]\n", sopInstanceUid.c_str());
-  }
-  
-#if 1
+#elif 1
   // On a SSD drive, this version is twice slower than if using
   // cache (see below)
     
@@ -492,7 +616,7 @@ bool LocateSeries(OrthancPluginRestOutput* output,
     OrthancPluginSendHttpStatusCode(context, output, 404);
     return false;
   }
-  else if (study["MainDicomTags"]["StudyInstanceUID"].asString() != studyInstanceUid)
+  else if (study[MAIN_DICOM_TAGS]["StudyInstanceUID"].asString() != studyInstanceUid)
   {
     throw Orthanc::OrthancException(Orthanc::ErrorCode_InexistentItem, 
                                     "No series " + seriesInstanceUid + " in study " + studyInstanceUid);
@@ -543,8 +667,8 @@ bool LocateInstance(OrthancPluginRestOutput* output,
     OrthancPluginSendHttpStatusCode(context, output, 404);
     return false;
   }
-  else if (study["MainDicomTags"]["StudyInstanceUID"].asString() != studyInstanceUid ||
-           series["MainDicomTags"]["SeriesInstanceUID"].asString() != seriesInstanceUid)
+  else if (study[MAIN_DICOM_TAGS]["StudyInstanceUID"].asString() != studyInstanceUid ||
+           series[MAIN_DICOM_TAGS]["SeriesInstanceUID"].asString() != seriesInstanceUid)
   {
     throw Orthanc::OrthancException(Orthanc::ErrorCode_InexistentItem,
                                     "Instance " + sopInstanceUid + 
@@ -663,7 +787,6 @@ static void GetChildrenIdentifiers(std::list<Identifier>& target,
                                    const std::string& orthancId)
 {
   static const char* const ID = "ID";
-  static const char* const MAIN_DICOM_TAGS = "MainDicomTags";
   static const char* const SERIES_INSTANCE_UID = "SeriesInstanceUID";
   static const char* const SOP_INSTANCE_UID = "SOPInstanceUID";
 
@@ -733,6 +856,8 @@ void RetrieveStudyMetadata(OrthancPluginRestOutput* output,
   }
   else
   {
+    MainDicomTagsCache cache;
+
     std::string studyOrthancId, studyInstanceUid;
     if (LocateStudy(output, studyOrthancId, studyInstanceUid, request))
     {
@@ -748,7 +873,7 @@ void RetrieveStudyMetadata(OrthancPluginRestOutput* output,
 
         for (std::list<Identifier>::const_iterator b = instances.begin(); b != instances.end(); ++b)
         {
-          WriteInstanceMetadata(writer, b->GetOrthancId(), studyInstanceUid, a->GetDicomUid(), b->GetDicomUid(),
+          WriteInstanceMetadata(writer, cache, b->GetOrthancId(), studyInstanceUid, a->GetDicomUid(), b->GetDicomUid(),
                                 OrthancPlugins::Configuration::GetBaseUrl(request));
         }
       }
@@ -772,6 +897,8 @@ void RetrieveSeriesMetadata(OrthancPluginRestOutput* output,
   }
   else
   {
+    MainDicomTagsCache cache;
+
     std::string seriesOrthancId, studyInstanceUid, seriesInstanceUid;
     if (LocateSeries(output, seriesOrthancId, studyInstanceUid, seriesInstanceUid, request))
     {
@@ -782,7 +909,7 @@ void RetrieveSeriesMetadata(OrthancPluginRestOutput* output,
 
       for (std::list<Identifier>::const_iterator a = instances.begin(); a != instances.end(); ++a)
       {
-        WriteInstanceMetadata(writer, a->GetOrthancId(), studyInstanceUid, seriesInstanceUid, a->GetDicomUid(),
+        WriteInstanceMetadata(writer, cache, a->GetOrthancId(), studyInstanceUid, seriesInstanceUid, a->GetDicomUid(),
                               OrthancPlugins::Configuration::GetBaseUrl(request));
       }
 
@@ -803,11 +930,13 @@ void RetrieveInstanceMetadata(OrthancPluginRestOutput* output,
   }
   else
   {
+    MainDicomTagsCache cache;
+
     std::string orthancId, studyInstanceUid, seriesInstanceUid, sopInstanceUid;
     if (LocateInstance(output, orthancId, studyInstanceUid, seriesInstanceUid, sopInstanceUid, request))
     {
       OrthancPlugins::DicomWebFormatter::HttpWriter writer(output, isXml);
-      WriteInstanceMetadata(writer, orthancId, studyInstanceUid, seriesInstanceUid, sopInstanceUid,
+      WriteInstanceMetadata(writer, cache, orthancId, studyInstanceUid, seriesInstanceUid, sopInstanceUid,
                             OrthancPlugins::Configuration::GetBaseUrl(request));
       writer.Send();      
     }
