@@ -355,10 +355,10 @@ namespace
        * Complete the series-level tags, with instance-level tags that
        * are not considered as "main DICOM tags" in Orthanc, but that
        * are necessary for Web viewers, and that should be constant
-       * through all the instances of the series. To this end, we
-       * select 1 instance and extract the subset of tags of
-       * interest. Obviously, this is an approximation to improve
-       * performance.
+       * throughout all the instances of the series. To this end, we
+       * read 1 DICOM instance of this series from disk, and extract
+       * the subset of tags of interest. Obviously, this is an
+       * approximation to improve performance.
        **/
       if (level == Orthanc::ResourceType_Series)
       {

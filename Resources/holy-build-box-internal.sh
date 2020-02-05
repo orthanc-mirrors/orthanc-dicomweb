@@ -30,8 +30,8 @@ cp -r /source/WebApplication /tmp/source-writeable/
 cmake /tmp/source-writeable \
       -DCMAKE_BUILD_TYPE=$1 -DSTATIC_BUILD=ON \
       -DORTHANC_SDK_VERSION=1.5.7 \
-      -DORTHANC_FRAMEWORK_SOURCE=web \
-      -DORTHANC_FRAMEWORK_VERSION=1.5.8 \
+      -DORTHANC_FRAMEWORK_SOURCE=hg \
+      -DORTHANC_FRAMEWORK_VERSION=mainline \
       -DCMAKE_INSTALL_PREFIX=/target 
 
 make -j`nproc`
