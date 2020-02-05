@@ -6,6 +6,15 @@ source /hbb_exe/activate
 
 set -x
 
+
+# Download Mercurial to use the mainline of Orthanc framework
+MERCURIAL_VERSION=5.3
+curl https://www.mercurial-scm.org/release/mercurial-${MERCURIAL_VERSION}.tar.gz > /tmp/mercurial.tar.gz
+cd /tmp
+tar xvf mercurial.tar.gz
+export PATH=$PATH:/tmp/mercurial-${MERCURIAL_VERSION}
+
+
 mkdir /tmp/build
 cd /tmp/build
 
