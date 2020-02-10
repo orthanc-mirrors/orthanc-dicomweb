@@ -262,6 +262,17 @@ static void AnswerListOfDicomInstances(OrthancPluginRestOutput* output,
 
 
 
+static void CopyTagIfMissing(Orthanc::DicomMap& target,
+                             const Orthanc::DicomMap& source,
+                             const Orthanc::DicomTag& tag)
+{
+  if (!target.HasTag(tag))
+  {
+    target.CopyTagIfExists(source, tag);
+  }
+}
+
+
 namespace
 {
   class MainDicomTagsCache : public boost::noncopyable
@@ -381,19 +392,48 @@ namespace
 
             // Those tags are necessary for "DicomImageInformation" in
             // the Orthanc core (for Stone)
-            dicom.CopyTagIfExists(instance, Orthanc::DICOM_TAG_BITS_ALLOCATED);
-            dicom.CopyTagIfExists(instance, Orthanc::DICOM_TAG_BITS_STORED);
-            dicom.CopyTagIfExists(instance, Orthanc::DICOM_TAG_COLUMNS);
-            dicom.CopyTagIfExists(instance, Orthanc::DICOM_TAG_HIGH_BIT);
-            dicom.CopyTagIfExists(instance, Orthanc::DICOM_TAG_NUMBER_OF_FRAMES);
-            dicom.CopyTagIfExists(instance, Orthanc::DICOM_TAG_PHOTOMETRIC_INTERPRETATION);
-            dicom.CopyTagIfExists(instance, Orthanc::DICOM_TAG_PIXEL_REPRESENTATION);
-            dicom.CopyTagIfExists(instance, Orthanc::DICOM_TAG_PLANAR_CONFIGURATION);
-            dicom.CopyTagIfExists(instance, Orthanc::DICOM_TAG_ROWS);
-            dicom.CopyTagIfExists(instance, Orthanc::DICOM_TAG_SAMPLES_PER_PIXEL);
+            CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_BITS_ALLOCATED);
+            CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_BITS_STORED);
+            CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_COLUMNS);
+            CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_HIGH_BIT);
+            //CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_NUMBER_OF_FRAMES);  // => Already in main DICOM tags
+            CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_PHOTOMETRIC_INTERPRETATION);
+            CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_PIXEL_REPRESENTATION);
+            CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_PLANAR_CONFIGURATION);
+            CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_ROWS);
+            CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_SAMPLES_PER_PIXEL);
 
             // Those tags are necessary for "DicomInstanceParameters" in Stone
-            dicom.CopyTagIfExists(instance, Orthanc::DICOM_TAG_SOP_CLASS_UID);
+            CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_SOP_CLASS_UID);
+            CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_WINDOW_CENTER);
+            CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_WINDOW_WIDTH);
+            CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_GRID_FRAME_OFFSET_VECTOR);
+            CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_FRAME_INCREMENT_POINTER);
+            CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_SLICE_THICKNESS);
+            //CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_IMAGE_POSITION_PATIENT);  // => Already in main DICOM tags
+            CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_IMAGE_ORIENTATION_PATIENT);
+            CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_RESCALE_INTERCEPT);
+            CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_RESCALE_SLOPE);
+            CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_DOSE_GRID_SCALING);
+
+            // SeriesMetadataLoader
+            //CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_SOP_INSTANCE_UID);  // => Already in main DICOM tags
+            //CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_STUDY_INSTANCE_UID);  // => Already in main DICOM tags
+            //CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_SERIES_INSTANCE_UID);  // => Already in main DICOM tags
+            //CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_REFERENCED_SOP_INSTANCE_UID_IN_FILE);  // => Meaningless at series level
+
+            // SeriesOrderedFrames
+            //CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_INSTANCE_NUMBER);  // => Already in main DICOM tags
+            //CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_IMAGE_INDEX);  // => Already in main DICOM tags
+
+            // SeriesFramesLoader
+            CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_SMALLEST_IMAGE_PIXEL_VALUE);
+            CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_LARGEST_IMAGE_PIXEL_VALUE);
+            CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_REFERENCED_FILE_ID);
+            CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_PATIENT_ID);
+
+            // GeometryToolbox
+            CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_PIXEL_SPACING);
           }
         }
       }
