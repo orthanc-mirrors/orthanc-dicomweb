@@ -307,6 +307,10 @@ namespace OrthancPlugins
       OrthancPlugins::OrthancConfiguration servers;
       configuration_->GetSection(servers, "Servers");
       OrthancPlugins::DicomWebServers::GetInstance().Load(servers.GetJson());
+
+      // Check configuration during initialization
+      GetMetadataMode(Orthanc::ResourceType_Study);
+      GetMetadataMode(Orthanc::ResourceType_Series);
     }
 
 
@@ -603,6 +607,46 @@ namespace OrthancPlugins
       else
       {
         return false;   // By default, return DICOM+JSON
+      }
+    }
+
+    
+    MetadataMode GetMetadataMode(Orthanc::ResourceType level)
+    {
+      static const std::string FULL = "Full";
+      static const std::string MAIN_DICOM_TAGS = "MainDicomTags";
+      
+      std::string key;
+      switch (level)
+      {
+        case Orthanc::ResourceType_Study:
+          key = "StudiesMetadata";
+          break;
+
+        case Orthanc::ResourceType_Series:
+          key = "SeriesMetadata";
+          break;
+
+        default:
+          throw Orthanc::OrthancException(Orthanc::ErrorCode_ParameterOutOfRange);
+      }
+
+      std::string value = GetStringValue(key, FULL);
+
+      if (value == FULL)
+      {
+        return MetadataMode_Full;
+      }
+      else if (value == MAIN_DICOM_TAGS)
+      {
+        return MetadataMode_MainDicomTags;
+      }
+      else
+      {
+        throw Orthanc::OrthancException(Orthanc::ErrorCode_ParameterOutOfRange,
+                                        "Bad value for option \"" + key +
+                                        "\": Should be either \"" + FULL + "\" or \"" +
+                                        MAIN_DICOM_TAGS + "\"");
       }
     }
   }

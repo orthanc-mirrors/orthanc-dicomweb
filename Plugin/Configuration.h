@@ -45,6 +45,14 @@ namespace OrthancPlugins
   static const Orthanc::DicomTag DICOM_TAG_REFERENCED_SOP_CLASS_UID(0x0008, 0x1150);
   static const Orthanc::DicomTag DICOM_TAG_REFERENCED_SOP_INSTANCE_UID(0x0008, 0x1155);
 
+  enum MetadataMode
+  {
+    MetadataMode_Full,           // Read all the DICOM instances from the storage area
+    MetadataMode_MainDicomTags,  // Only use the Orthanc database (main DICOM tags only)
+    MetadataMode_Interpolate     // Unused so far
+  };
+
+
   bool LookupHttpHeader(std::string& value,
                         const OrthancPluginHttpRequest* request,
                         const std::string& header);
@@ -115,5 +123,7 @@ namespace OrthancPlugins
 
     // TODO => REMOVE
     bool IsXmlExpected(const OrthancPluginHttpRequest* request);
+
+    MetadataMode GetMetadataMode(Orthanc::ResourceType level);
   }
 }

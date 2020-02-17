@@ -7,6 +7,9 @@ New features
 * Support of "window", "viewport" and "quality" parameters in "Retrieve Rendered Transaction"
 * Support of "/studies/.../series/.../rendered"
 * QIDO-RS: Allow to query against a list of multiple values separated by commas
+* WADO-RS "Retrieve Metadata": Configuration options "StudiesMetadata" and "SeriesMetadata",
+  whose value can be "Full" (read all DICOM instances from the storage area) or
+  "MainDicomTags" (only report the main DICOM tags from the Orthanc database)
 
 Maintenance
 -----------
@@ -18,6 +21,7 @@ Maintenance
 * Accept multiple MIME types in Accept header for WADO-RS "Retrieve Metadata"
 * Added explicit "Accept" header to avoid uncompressing DICOM files by Google cloud
   https://groups.google.com/d/msg/orthanc-users/w1Ekrsc6-U8/T2a_DoQ5CwAJ
+* Fix issue #162 ("DICOMweb metadata resource reads all instances")
 * Fix issue #164 ("JPEG YBR_422 generates a 500 in the DicomWeb plugin")
 * Upgrade to GDCM 3.0.4 in static builds
 

@@ -292,6 +292,7 @@ namespace
     
     static bool ReadResource(Orthanc::DicomMap& dicom,
                              std::string& parent,
+                             OrthancPlugins::MetadataMode mode,
                              const std::string& orthancId,
                              Orthanc::ResourceType level)
     {
@@ -362,17 +363,22 @@ namespace
       }
 
 
-      /**
-       * Complete the series-level tags, with instance-level tags that
-       * are not considered as "main DICOM tags" in Orthanc, but that
-       * are necessary for Web viewers, and that should be constant
-       * throughout all the instances of the series. To this end, we
-       * read 1 DICOM instance of this series from disk, and extract
-       * the subset of tags of interest. Obviously, this is an
-       * approximation to improve performance.
-       **/
-      if (level == Orthanc::ResourceType_Series)
+      if (mode == OrthancPlugins::MetadataMode_Interpolate &&
+          level == Orthanc::ResourceType_Series)
       {
+        /**
+         * Complete the series-level tags, with instance-level tags
+         * that are not considered as "main DICOM tags" in Orthanc,
+         * but that are necessary for Web viewers, and that should be
+         * constant throughout all the instances of the series. To
+         * this end, we read 1 DICOM instance of this series from
+         * disk, and extract the subset of tags of
+         * interest. Obviously, this is an approximation to improve
+         * performance.
+         *
+         * TODO - Decide which tags are safe (i.e. what is supposed to
+         * be constant?)
+         **/
         if (!value.isMember(INSTANCES) ||
             value[INSTANCES].type() != Json::arrayValue ||
             value[INSTANCES].size() == 0 ||
@@ -407,14 +413,14 @@ namespace
             CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_SOP_CLASS_UID);
             CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_WINDOW_CENTER);
             CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_WINDOW_WIDTH);
-            CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_GRID_FRAME_OFFSET_VECTOR);
-            CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_FRAME_INCREMENT_POINTER);
+            CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_GRID_FRAME_OFFSET_VECTOR);  // TODO => probably unsafe!
+            CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_FRAME_INCREMENT_POINTER);  // TODO => probably unsafe!
             CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_SLICE_THICKNESS);
             //CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_IMAGE_POSITION_PATIENT);  // => Already in main DICOM tags
             CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_IMAGE_ORIENTATION_PATIENT);
             CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_RESCALE_INTERCEPT);
             CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_RESCALE_SLOPE);
-            CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_DOSE_GRID_SCALING);
+            CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_DOSE_GRID_SCALING);  // TODO => probably unsafe!
 
             // SeriesMetadataLoader
             //CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_SOP_INSTANCE_UID);  // => Already in main DICOM tags
@@ -444,6 +450,7 @@ namespace
 
     bool Lookup(Orthanc::DicomMap& dicom,
                 std::string& parent,
+                OrthancPlugins::MetadataMode mode,
                 const std::string& orthancId,
                 Orthanc::ResourceType level)
     {
@@ -452,7 +459,7 @@ namespace
       if (found == content_.end())
       {
         std::auto_ptr<Info> info(new Info);
-        if (!ReadResource(info->dicom_, info->parent_, orthancId, level))
+        if (!ReadResource(info->dicom_, info->parent_, mode, orthancId, level))
         {
           return false;
         }
@@ -481,13 +488,14 @@ namespace
 
 
     bool GetInstance(Orthanc::DicomMap& dicom,
+                     OrthancPlugins::MetadataMode mode,
                      const std::string& orthancId)
     {
       std::string seriesId, studyId, nope;
       
-      return (ReadResource(dicom, seriesId, orthancId, Orthanc::ResourceType_Instance) &&
-              Lookup(dicom, studyId, seriesId, Orthanc::ResourceType_Series) &&
-              Lookup(dicom, nope, studyId, Orthanc::ResourceType_Study));
+      return (ReadResource(dicom, seriesId, mode, orthancId, Orthanc::ResourceType_Instance) &&
+              Lookup(dicom, studyId, mode, seriesId, Orthanc::ResourceType_Series) &&
+              Lookup(dicom, nope /* patient id is unused */, mode, studyId, Orthanc::ResourceType_Study));
     }
   };
 }
@@ -495,6 +503,7 @@ namespace
 
 
 static void WriteInstanceMetadata(OrthancPlugins::DicomWebFormatter::HttpWriter& writer,
+                                  OrthancPlugins::MetadataMode mode,
                                   MainDicomTagsCache& cache,
                                   const std::string& orthancId,
                                   const std::string& studyInstanceUid,
@@ -513,23 +522,42 @@ static void WriteInstanceMetadata(OrthancPlugins::DicomWebFormatter::HttpWriter&
                                 "/series/" + seriesInstanceUid + 
                                 "/instances/" + sopInstanceUid + "/bulk");
 
-#if 0
-  Orthanc::DicomMap dicom;
-  if (cache.GetInstance(dicom, orthancId))
+  switch (mode)
   {
-    writer.AddOrthancMap(dicom);
-  }  
-  
-#elif 1
-  // On a SSD drive, this version is twice slower than if using
-  // cache (see below)
+    case OrthancPlugins::MetadataMode_MainDicomTags:
+    case OrthancPlugins::MetadataMode_Interpolate:
+    {
+      Orthanc::DicomMap dicom;
+      if (cache.GetInstance(dicom, mode, orthancId))
+      {
+        writer.AddOrthancMap(dicom);
+      }
+
+      break;
+    }
+
+    case OrthancPlugins::MetadataMode_Full:
+    {
+      // On a SSD drive, this version is twice slower than if using
+      // cache (see below)
     
-  OrthancPlugins::MemoryBuffer dicom;
-  if (dicom.RestApiGet("/instances/" + orthancId + "/file", false))
-  {
-    writer.AddDicom(dicom.GetData(), dicom.GetSize(), bulkRoot);
+      OrthancPlugins::MemoryBuffer dicom;
+      if (dicom.RestApiGet("/instances/" + orthancId + "/file", false))
+      {
+        writer.AddDicom(dicom.GetData(), dicom.GetSize(), bulkRoot);
+      }
+
+      break;
+    }
+
+    default:
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
   }
-#else
+    
+  
+#if 0
+    /**
+     **/
 
   // TODO - Have a global setting to enable/disable caching of DICOMweb
 
@@ -896,6 +924,9 @@ void RetrieveStudyMetadata(OrthancPluginRestOutput* output,
   }
   else
   {
+    const OrthancPlugins::MetadataMode mode =
+      OrthancPlugins::Configuration::GetMetadataMode(Orthanc::ResourceType_Study);
+    
     MainDicomTagsCache cache;
 
     std::string studyOrthancId, studyInstanceUid;
@@ -913,8 +944,8 @@ void RetrieveStudyMetadata(OrthancPluginRestOutput* output,
 
         for (std::list<Identifier>::const_iterator b = instances.begin(); b != instances.end(); ++b)
         {
-          WriteInstanceMetadata(writer, cache, b->GetOrthancId(), studyInstanceUid, a->GetDicomUid(), b->GetDicomUid(),
-                                OrthancPlugins::Configuration::GetBaseUrl(request));
+          WriteInstanceMetadata(writer, mode, cache, b->GetOrthancId(), studyInstanceUid, a->GetDicomUid(),
+                                b->GetDicomUid(), OrthancPlugins::Configuration::GetBaseUrl(request));
         }
       }
 
@@ -937,6 +968,9 @@ void RetrieveSeriesMetadata(OrthancPluginRestOutput* output,
   }
   else
   {
+    const OrthancPlugins::MetadataMode mode =
+      OrthancPlugins::Configuration::GetMetadataMode(Orthanc::ResourceType_Series);
+    
     MainDicomTagsCache cache;
 
     std::string seriesOrthancId, studyInstanceUid, seriesInstanceUid;
@@ -949,8 +983,8 @@ void RetrieveSeriesMetadata(OrthancPluginRestOutput* output,
 
       for (std::list<Identifier>::const_iterator a = instances.begin(); a != instances.end(); ++a)
       {
-        WriteInstanceMetadata(writer, cache, a->GetOrthancId(), studyInstanceUid, seriesInstanceUid, a->GetDicomUid(),
-                              OrthancPlugins::Configuration::GetBaseUrl(request));
+        WriteInstanceMetadata(writer, mode, cache, a->GetOrthancId(), studyInstanceUid, seriesInstanceUid,
+                              a->GetDicomUid(), OrthancPlugins::Configuration::GetBaseUrl(request));
       }
 
       writer.Send();
@@ -976,8 +1010,8 @@ void RetrieveInstanceMetadata(OrthancPluginRestOutput* output,
     if (LocateInstance(output, orthancId, studyInstanceUid, seriesInstanceUid, sopInstanceUid, request))
     {
       OrthancPlugins::DicomWebFormatter::HttpWriter writer(output, isXml);
-      WriteInstanceMetadata(writer, cache, orthancId, studyInstanceUid, seriesInstanceUid, sopInstanceUid,
-                            OrthancPlugins::Configuration::GetBaseUrl(request));
+      WriteInstanceMetadata(writer, OrthancPlugins::MetadataMode_Full, cache, orthancId, studyInstanceUid,
+                            seriesInstanceUid, sopInstanceUid, OrthancPlugins::Configuration::GetBaseUrl(request));
       writer.Send();      
     }
   }
