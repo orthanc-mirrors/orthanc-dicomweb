@@ -49,7 +49,7 @@ namespace OrthancPlugins
   {
     MetadataMode_Full,           // Read all the DICOM instances from the storage area
     MetadataMode_MainDicomTags,  // Only use the Orthanc database (main DICOM tags only)
-    MetadataMode_Interpolate     // Unused so far
+    MetadataMode_Extrapolate     // Extrapolate user-specified tags from a few DICOM instances
   };
 
 
@@ -125,5 +125,11 @@ namespace OrthancPlugins
     bool IsXmlExpected(const OrthancPluginHttpRequest* request);
 
     MetadataMode GetMetadataMode(Orthanc::ResourceType level);
+
+    void GetSetOfTags(std::set<Orthanc::DicomTag>& tags,
+                      const std::string& key);
+
+    void GetExtrapolatedMetadataTags(std::set<Orthanc::DicomTag>& tags,
+                                     Orthanc::ResourceType level);
   }
 }

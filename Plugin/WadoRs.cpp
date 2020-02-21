@@ -262,19 +262,104 @@ static void AnswerListOfDicomInstances(OrthancPluginRestOutput* output,
 
 
 
-static void CopyTagIfMissing(Orthanc::DicomMap& target,
-                             const Orthanc::DicomMap& source,
-                             const Orthanc::DicomTag& tag)
-{
-  if (!target.HasTag(tag))
-  {
-    target.CopyTagIfExists(source, tag);
-  }
-}
-
-
 namespace
 {
+  class SetOfDicomInstances : public boost::noncopyable
+  {
+  private:
+    std::vector<Orthanc::DicomMap*>  instances_;
+
+  public:
+    ~SetOfDicomInstances()
+    {
+      for (size_t i = 0; i < instances_.size(); i++)
+      {
+        assert(instances_[i] != NULL);
+        delete instances_[i];
+      }
+    }
+
+    size_t GetSize() const
+    {
+      return instances_.size();
+    }
+
+    bool ReadInstance(const std::string& publicId)
+    {
+      Json::Value dicomAsJson;
+      
+      if (OrthancPlugins::RestApiGet(dicomAsJson, "/instances/" + publicId + "/tags", false))
+      {
+        std::auto_ptr<Orthanc::DicomMap> instance(new Orthanc::DicomMap);
+        instance->FromDicomAsJson(dicomAsJson);
+        instances_.push_back(instance.release());
+        
+        return true;
+      }
+      else
+      {
+        return false;
+      }
+    }
+
+    
+    void MinorityReport(Orthanc::DicomMap& target,
+                        const Orthanc::DicomTag& tag) const
+    {
+      typedef std::map<std::string, unsigned int>  Counters;
+
+      Counters counters;
+
+      for (size_t i = 0; i < instances_.size(); i++)
+      {
+        assert(instances_[i] != NULL);
+
+        std::string value;
+        if (instances_[i]->LookupStringValue(value, tag, false))
+        {
+          Counters::iterator found = counters.find(value);
+          if (found == counters.end())
+          {
+            counters[value] = 1;
+          }
+          else
+          {
+            found->second ++;
+          }
+        }
+      }
+
+      if (!counters.empty())
+      {
+        Counters::const_iterator current = counters.begin();
+          
+        std::string maxValue = current->first;
+        size_t maxCount = current->second;
+
+        current++;
+
+        while (current != counters.end())
+        {
+          if (maxCount < current->second)
+          {
+            maxValue = current->first;
+            maxCount = current->second;
+          }
+            
+          current++;
+        }
+
+        // Take the ceiling of the number of available instances
+        const size_t threshold = instances_.size() / 2 + 1;
+        if (maxCount >= threshold)
+        {
+          target.SetValue(tag, maxValue, false);
+        }
+      }
+    }
+  };
+
+  
   class MainDicomTagsCache : public boost::noncopyable
   {
   private:
@@ -289,7 +374,6 @@ namespace
 
     Content  content_;
 
-    
     static bool ReadResource(Orthanc::DicomMap& dicom,
                              std::string& parent,
                              OrthancPlugins::MetadataMode mode,
@@ -362,84 +446,105 @@ namespace
         }
       }
 
-
-      if (mode == OrthancPlugins::MetadataMode_Interpolate &&
-          level == Orthanc::ResourceType_Series)
+      
+      if (mode == OrthancPlugins::MetadataMode_Extrapolate &&
+          (level == Orthanc::ResourceType_Series ||
+           level == Orthanc::ResourceType_Study))
       {
-        /**
-         * Complete the series-level tags, with instance-level tags
-         * that are not considered as "main DICOM tags" in Orthanc,
-         * but that are necessary for Web viewers, and that should be
-         * constant throughout all the instances of the series. To
-         * this end, we read 1 DICOM instance of this series from
-         * disk, and extract the subset of tags of
-         * interest. Obviously, this is an approximation to improve
-         * performance.
-         *
-         * TODO - Decide which tags are safe (i.e. what is supposed to
-         * be constant?)
-         **/
-        if (!value.isMember(INSTANCES) ||
-            value[INSTANCES].type() != Json::arrayValue ||
-            value[INSTANCES].size() == 0 ||
-            value[INSTANCES][0].type() != Json::stringValue)
-        {
-          throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
-        }
-        else
-        {
-          const std::string& someInstance = value[INSTANCES][0].asString();
+        std::set<Orthanc::DicomTag> tags;
+        OrthancPlugins::Configuration::GetExtrapolatedMetadataTags(tags, level);
 
-          Json::Value dicomAsJson;
-          if (OrthancPlugins::RestApiGet(dicomAsJson, "/instances/" + someInstance + "/tags", false))
+        if (!tags.empty())
+        {
+          /**
+           * Complete the series/study-level tags, with instance-level
+           * tags that are not considered as "main DICOM tags" in
+           * Orthanc, but that are necessary for Web viewers, and that
+           * are expected to be constant throughout all the instances of
+           * the study/series. To this end, we read up to "N" DICOM
+           * instances of this study/series from disk, and for the tags
+           * of interest, we look at whether there is a consensus in the
+           * value among these instances. Obviously, this is an
+           * approximation to improve performance.
+           **/
+
+          std::set<std::string> allInstances;
+
+          switch (level)
           {
-            Orthanc::DicomMap instance;
-            instance.FromDicomAsJson(dicomAsJson);
+            case Orthanc::ResourceType_Series:
+              if (!value.isMember(INSTANCES) ||
+                  value[INSTANCES].type() != Json::arrayValue)
+              {
+                throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
+              }
+              else
+              {
+                for (Json::Value::ArrayIndex i = 0; i < value[INSTANCES].size(); i++)
+                {
+                  if (value[INSTANCES][i].type() != Json::stringValue)
+                  {
+                    throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
+                  }
+                  else
+                  {
+                    allInstances.insert(value[INSTANCES][i].asString());
+                  }            
+                }
+              }
+              
+              break;
 
-            // Those tags are necessary for "DicomImageInformation" in
-            // the Orthanc core (for Stone)
-            CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_BITS_ALLOCATED);
-            CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_BITS_STORED);
-            CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_COLUMNS);
-            CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_HIGH_BIT);
-            //CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_NUMBER_OF_FRAMES);  // => Already in main DICOM tags
-            CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_PHOTOMETRIC_INTERPRETATION);
-            CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_PIXEL_REPRESENTATION);
-            CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_PLANAR_CONFIGURATION);
-            CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_ROWS);
-            CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_SAMPLES_PER_PIXEL);
+            case Orthanc::ResourceType_Study:
+            {
+              Json::Value tmp;
+              if (OrthancPlugins::RestApiGet(tmp, "/studies/" + orthancId + "/instances", false))
+              {
+                if (tmp.type() != Json::arrayValue)
+                {
+                  throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
+                }
 
-            // Those tags are necessary for "DicomInstanceParameters" in Stone
-            CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_SOP_CLASS_UID);
-            CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_WINDOW_CENTER);
-            CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_WINDOW_WIDTH);
-            CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_GRID_FRAME_OFFSET_VECTOR);  // TODO => probably unsafe!
-            CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_FRAME_INCREMENT_POINTER);  // TODO => probably unsafe!
-            CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_SLICE_THICKNESS);
-            //CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_IMAGE_POSITION_PATIENT);  // => Already in main DICOM tags
-            CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_IMAGE_ORIENTATION_PATIENT);
-            CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_RESCALE_INTERCEPT);
-            CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_RESCALE_SLOPE);
-            CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_DOSE_GRID_SCALING);  // TODO => probably unsafe!
+                for (Json::Value::ArrayIndex i = 0; i < tmp.size(); i++)
+                {
+                  if (tmp[i].type() != Json::objectValue ||
+                      !tmp[i].isMember("ID") ||
+                      tmp[i]["ID"].type() != Json::stringValue)
+                  {
+                    throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
+                  }
+                  else
+                  {
+                    allInstances.insert(tmp[i]["ID"].asString());
+                  }
+                }
+              }
+              
+              break;
+            }
 
-            // SeriesMetadataLoader
-            //CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_SOP_INSTANCE_UID);  // => Already in main DICOM tags
-            //CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_STUDY_INSTANCE_UID);  // => Already in main DICOM tags
-            //CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_SERIES_INSTANCE_UID);  // => Already in main DICOM tags
-            //CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_REFERENCED_SOP_INSTANCE_UID_IN_FILE);  // => Meaningless at series level
+            default:
+              throw Orthanc::OrthancException(Orthanc::ErrorCode_NotImplemented);
+          }
 
-            // SeriesOrderedFrames
-            //CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_INSTANCE_NUMBER);  // => Already in main DICOM tags
-            //CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_IMAGE_INDEX);  // => Already in main DICOM tags
+          
+          // Select up to N random instances. The instances are
+          // implicitly selected randomly, as the public ID of an
+          // instance is a SHA-1 hash (whose domain is uniformly distributed)
 
-            // SeriesFramesLoader
-            CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_SMALLEST_IMAGE_PIXEL_VALUE);
-            CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_LARGEST_IMAGE_PIXEL_VALUE);
-            CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_REFERENCED_FILE_ID);
-            CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_PATIENT_ID);
+          static const size_t N = 3;
+          SetOfDicomInstances selectedInstances;
 
-            // GeometryToolbox
-            CopyTagIfMissing(dicom, instance, Orthanc::DICOM_TAG_PIXEL_SPACING);
+          for (std::set<std::string>::const_iterator it = allInstances.begin();
+               selectedInstances.GetSize() < N && it != allInstances.end(); ++it)
+          {
+            selectedInstances.ReadInstance(*it);
+          }
+
+          for (std::set<Orthanc::DicomTag>::const_iterator
+                 it = tags.begin(); it != tags.end(); ++it)
+          {
+            selectedInstances.MinorityReport(dicom, *it);
           }
         }
       }
@@ -525,7 +630,7 @@ static void WriteInstanceMetadata(OrthancPlugins::DicomWebFormatter::HttpWriter&
   switch (mode)
   {
     case OrthancPlugins::MetadataMode_MainDicomTags:
-    case OrthancPlugins::MetadataMode_Interpolate:
+    case OrthancPlugins::MetadataMode_Extrapolate:
     {
       Orthanc::DicomMap dicom;
       if (cache.GetInstance(dicom, mode, orthancId))
@@ -556,8 +661,8 @@ static void WriteInstanceMetadata(OrthancPlugins::DicomWebFormatter::HttpWriter&
     
   
 #if 0
-    /**
-     **/
+  /**
+   **/
 
   // TODO - Have a global setting to enable/disable caching of DICOMweb
 

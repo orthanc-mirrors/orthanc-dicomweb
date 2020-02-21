@@ -311,6 +311,10 @@ namespace OrthancPlugins
       // Check configuration during initialization
       GetMetadataMode(Orthanc::ResourceType_Study);
       GetMetadataMode(Orthanc::ResourceType_Series);
+
+      std::set<Orthanc::DicomTag> tags;
+      GetExtrapolatedMetadataTags(tags, Orthanc::ResourceType_Study);
+      GetExtrapolatedMetadataTags(tags, Orthanc::ResourceType_Series);
     }
 
 
@@ -615,6 +619,7 @@ namespace OrthancPlugins
     {
       static const std::string FULL = "Full";
       static const std::string MAIN_DICOM_TAGS = "MainDicomTags";
+      static const std::string EXTRAPOLATE = "Extrapolate";
       
       std::string key;
       switch (level)
@@ -641,12 +646,61 @@ namespace OrthancPlugins
       {
         return MetadataMode_MainDicomTags;
       }
+      else if (value == EXTRAPOLATE)
+      {
+        return MetadataMode_Extrapolate;
+      }
       else
       {
         throw Orthanc::OrthancException(Orthanc::ErrorCode_ParameterOutOfRange,
                                         "Bad value for option \"" + key +
                                         "\": Should be either \"" + FULL + "\" or \"" +
-                                        MAIN_DICOM_TAGS + "\"");
+                                        MAIN_DICOM_TAGS + "\" or \"" + EXTRAPOLATE + "\"");
+      }
+    }
+
+
+    void GetSetOfTags(std::set<Orthanc::DicomTag>& tags,
+                      const std::string& key)
+    {
+      tags.clear();
+
+      std::list<std::string> s;
+      
+      if (configuration_->LookupListOfStrings(s, key, false))
+      {
+        for (std::list<std::string>::const_iterator it = s.begin(); it != s.end(); ++it)
+        {
+          OrthancPluginDictionaryEntry entry;
+          if (OrthancPluginLookupDictionary(GetGlobalContext(), &entry, it->c_str()) == OrthancPluginErrorCode_Success)
+          {
+            tags.insert(Orthanc::DicomTag(entry.group, entry.element));
+          }
+          else
+          {
+            throw Orthanc::OrthancException(Orthanc::ErrorCode_ParameterOutOfRange,
+                                            "Unknown DICOM tag in option \"" + key + "\" of DICOMweb: " + *it);
+          }
+        }
+      }
+    }
+
+
+    void GetExtrapolatedMetadataTags(std::set<Orthanc::DicomTag>& tags,
+                                     Orthanc::ResourceType level)
+    {
+      switch (level)
+      {
+        case Orthanc::ResourceType_Study:
+          GetSetOfTags(tags, "StudiesMetadataExtrapolatedTags");
+          break;
+
+        case Orthanc::ResourceType_Series:
+          GetSetOfTags(tags, "SeriesMetadataExtrapolatedTags");
+          break;
+
+        default:
+          throw Orthanc::OrthancException(Orthanc::ErrorCode_ParameterOutOfRange);
       }
     }
   }
