@@ -60,6 +60,7 @@ include(${ORTHANC_ROOT}/Resources/CMake/OrthancFrameworkParameters.cmake)
 set(ENABLE_LOCALE ON)         # Enable support for locales (notably in Boost)
 set(ENABLE_GOOGLE_TEST ON)
 set(ENABLE_PUGIXML ON)
+set(ENABLE_MODULE_JOBS OFF)
 set(USE_BOOST_ICONV ON)
 
 include(${ORTHANC_ROOT}/Resources/CMake/OrthancFrameworkConfiguration.cmake)
