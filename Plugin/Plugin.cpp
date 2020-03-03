@@ -530,6 +530,7 @@ extern "C"
 
         OrthancPlugins::RegisterRestCallback<GetClientInformation>(root + "info", true);
 
+        OrthancPlugins::RegisterRestCallback<RetrieveStudyRendered>(root + "studies/([^/]*)/rendered", true);
         OrthancPlugins::RegisterRestCallback<RetrieveSeriesRendered>(root + "studies/([^/]*)/series/([^/]*)/rendered", true);
         OrthancPlugins::RegisterRestCallback<RetrieveInstanceRendered>(root + "studies/([^/]*)/series/([^/]*)/instances/([^/]*)/rendered", true);
         OrthancPlugins::RegisterRestCallback<RetrieveFrameRendered>(root + "studies/([^/]*)/series/([^/]*)/instances/([^/]*)/frames/([^/]*)/rendered", true);

@@ -5,7 +5,7 @@ New features
 ------------
 
 * Support of "window", "viewport" and "quality" parameters in "Retrieve Rendered Transaction"
-* Support of "/studies/.../series/.../rendered"
+* Support of "/studies/.../rendered" and "/studies/.../series/.../rendered"
 * QIDO-RS: Allow to query against a list of multiple values separated by commas
 * WADO-RS "Retrieve Metadata": Configuration options "StudiesMetadata"
   and "SeriesMetadata", whose value can be "Full" (read all DICOM
@@ -35,7 +35,8 @@ Version 1.0 (2019-06-26)
 => Minimum SDK version: 1.5.4 <=
 
 * Web user interface to QIDO-RS, WADO-RS and STOW-RS client
-* First implementation of WADO-RS "Retrieve Rendered Transaction"
+* First implementation of WADO-RS "Retrieve Rendered Transaction", for
+  ".../instances/.../rendered" and ".../instances/.../frames/.../rendered"
 * WADO-RS and STOW-RS client now create Orthanc jobs
 * Support "Transfer-Encoding: chunked" to reduce memory consumption in STOW-RS
   (provided the SDK version is above 1.5.7)

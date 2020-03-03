@@ -708,10 +708,10 @@ static void WriteInstanceMetadata(OrthancPlugins::DicomWebFormatter::HttpWriter&
 
 
 
-static bool LocateStudy(OrthancPluginRestOutput* output,
-                        std::string& orthancId,
-                        std::string& studyInstanceUid,
-                        const OrthancPluginHttpRequest* request)
+bool LocateStudy(OrthancPluginRestOutput* output,
+                 std::string& orthancId,
+                 std::string& studyInstanceUid,
+                 const OrthancPluginHttpRequest* request)
 {
   OrthancPluginContext* context = OrthancPlugins::GetGlobalContext();
 

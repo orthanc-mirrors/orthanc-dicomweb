@@ -24,6 +24,11 @@
 #include "Configuration.h"
 
 
+bool LocateStudy(OrthancPluginRestOutput* output,
+                 std::string& uri,
+                 std::string& studyInstanceUid,
+                 const OrthancPluginHttpRequest* request);
+
 bool LocateSeries(OrthancPluginRestOutput* output,
                   std::string& uri,
                   std::string& studyInstanceUid,
@@ -80,3 +85,7 @@ void RetrieveFrameRendered(OrthancPluginRestOutput* output,
 void RetrieveSeriesRendered(OrthancPluginRestOutput* output,
                             const char* url,
                             const OrthancPluginHttpRequest* request);
+
+void RetrieveStudyRendered(OrthancPluginRestOutput* output,
+                           const char* url,
+                           const OrthancPluginHttpRequest* request);

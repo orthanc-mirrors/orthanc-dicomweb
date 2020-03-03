@@ -911,16 +911,77 @@ void RetrieveSeriesRendered(OrthancPluginRestOutput* output,
           series[INSTANCES].type() == Json::arrayValue &&
           series[INSTANCES].size() > 0)
       {
-        Json::Value::ArrayIndex i = series[INSTANCES].size() / 2;
-        if (series[INSTANCES][i].type() == Json::stringValue)
+        std::set<std::string> ids;
+        for (Json::Value::ArrayIndex i = 0; i < series[INSTANCES].size(); i++)
         {
-          std::string instanceId = series[INSTANCES][i].asString();
-          AnswerFrameRendered(output, instanceId, 1 /* first frame */, request);
-          return;  // Success
+          if (series[INSTANCES][i].type() != Json::stringValue)
+          {
+            throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
+          }
+          else
+          {
+            ids.insert(series[INSTANCES][i].asString());
+          }
         }
+
+        // Retrieve the first instance in alphanumeric order, in order
+        // to always return the same instance
+        std::string instanceId = *ids.begin();
+        AnswerFrameRendered(output, instanceId, 1 /* first frame */, request);
+        return;  // Success
       }
     }
 
     throw Orthanc::OrthancException(Orthanc::ErrorCode_InexistentItem, "Inexistent series");
+  }
+}
+
+
+void RetrieveStudyRendered(OrthancPluginRestOutput* output,
+                           const char* url,
+                           const OrthancPluginHttpRequest* request)
+{
+  static const char* const ID = "ID";
+  
+  assert(request->groupsCount == 1);
+
+  if (request->method != OrthancPluginHttpMethod_Get)
+  {
+    OrthancPluginSendMethodNotAllowed(OrthancPlugins::GetGlobalContext(), output, "GET");
+  }
+  else
+  {
+    std::string orthancId, studyInstanceUid;
+    if (LocateStudy(output, orthancId, studyInstanceUid, request))
+    {
+      Json::Value instances;
+      if (OrthancPlugins::RestApiGet(instances, "/studies/" + orthancId + "/instances", false) &&
+          instances.type() == Json::arrayValue &&
+          instances.size() > 0)
+      {
+        std::set<std::string> ids;
+        for (Json::Value::ArrayIndex i = 0; i < instances.size(); i++)
+        {
+          if (instances[i].type() != Json::objectValue ||
+              !instances[i].isMember(ID) ||
+              instances[i][ID].type() != Json::stringValue)
+          {
+            throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
+          }
+          else
+          {
+            ids.insert(instances[i][ID].asString());
+          }
+        }
+
+        // Retrieve the first instance in alphanumeric order, in order
+        // to always return the same instance
+        std::string instanceId = *ids.begin();
+        AnswerFrameRendered(output, instanceId, 1 /* first frame */, request);
+        return;  // Success
+      }
+    }
+
+    throw Orthanc::OrthancException(Orthanc::ErrorCode_InexistentItem, "Inexistent study");
   }
 }
