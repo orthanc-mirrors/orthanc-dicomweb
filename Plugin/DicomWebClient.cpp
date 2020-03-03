@@ -38,7 +38,8 @@
 #include <boost/algorithm/string/predicate.hpp>
 
 
-
+static const std::string HAS_WADO_RS_UNIVERSAL_TRANSFER_SYNTAX = "HasWadoRsUniversalTransferSyntax";
+        
 
 class SingleFunctionJob : public OrthancPlugins::OrthancJob
 {
@@ -693,7 +694,8 @@ private:
         body.reset(new RequestBody(that_, context));
 
         client.reset(new OrthancPlugins::HttpClient);
-        OrthancPlugins::DicomWebServers::GetInstance().ConfigureHttpClient(*client, serverName, "/studies");
+        std::map<std::string, std::string> userProperties;
+        OrthancPlugins::DicomWebServers::GetInstance().ConfigureHttpClient(*client, userProperties, serverName, "/studies");
         client->SetMethod(OrthancPluginHttpMethod_Post);
         client->AddHeaders(that_.headers_);
       }
@@ -893,7 +895,8 @@ static void ConfigureGetFromServer(OrthancPlugins::HttpClient& client,
   std::map<std::string, std::string> additionalHeaders;
   ParseGetFromServer(uri, additionalHeaders, body);
 
-  OrthancPlugins::DicomWebServers::GetInstance().ConfigureHttpClient(client, request->groups[0], uri);
+  std::map<std::string, std::string> userProperties;
+  OrthancPlugins::DicomWebServers::GetInstance().ConfigureHttpClient(client, userProperties, request->groups[0], uri);
   client.AddHeaders(additionalHeaders);
 }
 
@@ -1116,7 +1119,9 @@ public:
     else if (reader_.get() == NULL)
     {
       throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol,
-                                      "No Content-Type provided by the remote WADO-RS server");
+                                      "No Content-Type provided by the remote WADO-RS server, "
+                                      "your remote server might need option \"" +
+                                      HAS_WADO_RS_UNIVERSAL_TRANSFER_SYNTAX + "\" set to \"true\"");
     }
     else
     {
@@ -1252,31 +1257,73 @@ private:
 
       const std::map<std::string, std::string>& headers = resource->GetAdditionalHeaders();
 
+      std::map<std::string, std::string> userProperties;
       OrthancPlugins::DicomWebServers::GetInstance().ConfigureHttpClient
-        (client, serverName_, resource->GetUri());
+        (client, userProperties, serverName_, resource->GetUri());
       client.AddHeaders(headers);
+
+      printf("** PROPERTIES\n");
+      
+      for (std::map<std::string, std::string>::const_iterator
+             it = userProperties.begin(); it != userProperties.end(); ++it)
+      {
+        printf("** [%s] = [%s]\n", it->first.c_str(), it->second.c_str());
+      }
+
+      /**
+       * From documentation of Google Healthcare API: "The response's
+       * default transfer syntax is Little Endian Explicit. As a
+       * result, if the file was uploaded using a compressed transfer
+       * syntax, the returned object will be decompressed. This can
+       * negatively impact performance and lead to errors for transfer
+       * syntaxes that the Cloud Healthcare API doesn't support. To
+       * avoid these issues, and if the returned object's transfer
+       * syntax does not matter to your application, use the [...]
+       * Accept Header."
+       * https://cloud.google.com/healthcare/docs/dicom
+       * https://groups.google.com/d/msg/orthanc-users/w1Ekrsc6-U8/T2a_DoQ5CwAJ
+       *
+       * WARNING - This breaks compatibility with Orthanc servers
+       * equiped with DICOMweb <= 1.0, as can be seen in integration
+       * test "Orthanc.test_server_retrieve". The configuration option
+       * "HasWadoRsUniversalTransferSyntax" enables compatibility with
+       * DICOMweb <= 1.0.
+       **/
 
       if (headers.find("Accept") == headers.end())
       {
-        /**
-         * From documentation of Google Healthcare API: "The
-         * response's default transfer syntax is Little Endian
-         * Explicit. As a result, if the file was uploaded using a
-         * compressed transfer syntax, the returned object will be
-         * decompressed. This can negatively impact performance and
-         * lead to errors for transfer syntaxes that the Cloud
-         * Healthcare API doesn't support. To avoid these issues, and
-         * if the returned object's transfer syntax does not matter to
-         * your application, use the [...] Accept Header."
-         * https://cloud.google.com/healthcare/docs/dicom
-         * https://groups.google.com/d/msg/orthanc-users/w1Ekrsc6-U8/T2a_DoQ5CwAJ
-         *
-         * TODO - This breaks compatibility with Orthanc servers
-         * equiped with DICOMweb <= 1.0, as can be seen in integration
-         * test "Orthanc.test_server_retrieve". Decide what can be
-         * done!
-         **/
-        client.AddHeader("Accept", "multipart/related; type=\"application/dicom\"; transfer-syntax=*");
+        // The "Accept" field was not provided in the "HttpHeaders"
+        // field of the POST body of: "/dicom-web/servers/.../retrieve"
+        std::map<std::string, std::string>::const_iterator found = 
+          userProperties.find(HAS_WADO_RS_UNIVERSAL_TRANSFER_SYNTAX);
+
+        if (found != userProperties.end())
+        {
+          bool hasUniversal;
+          
+          if (found->second == "true" ||
+              found->second == "1")
+          {
+            hasUniversal = true;
+          }
+          else if (found->second == "false" ||
+                   found->second == "0")
+          {
+            hasUniversal = false;
+          }
+          else
+          {
+            throw Orthanc::OrthancException(Orthanc::ErrorCode_ParameterOutOfRange,
+                                            "Configuration option \"" + HAS_WADO_RS_UNIVERSAL_TRANSFER_SYNTAX +
+                                            "\" of remote DICOMweb server \"" + serverName_ +
+                                            "\" must be a Boolean, found: " + found->second);
+          }
+
+          if (hasUniversal)
+          {
+            client.AddHeader("Accept", "multipart/related; type=\"application/dicom\"; transfer-syntax=*");
+          }
+        }
       }
 
       return true;
@@ -1361,10 +1408,10 @@ public:
     debug_ = debug;
   }
 
-  void AddResource(const std::string& uri)
+  /*void AddResource(const std::string& uri)
   {
     resources_.push_back(new Resource(uri));
-  }
+    }*/
 
   void AddResource(const std::string& uri,
                    const std::map<std::string, std::string>& additionalHeaders)

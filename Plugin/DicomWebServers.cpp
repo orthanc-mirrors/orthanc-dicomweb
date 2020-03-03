@@ -119,6 +119,7 @@ namespace OrthancPlugins
 
 
   void DicomWebServers::ConfigureHttpClient(HttpClient& client,
+                                            std::map<std::string, std::string>& userProperties,
                                             const std::string& name,
                                             const std::string& uri)
   {
@@ -147,6 +148,8 @@ namespace OrthancPlugins
     // By default, enable chunked transfers
     client.SetChunkedTransfersAllowed(
       parameters.GetBooleanUserProperty(HAS_CHUNKED_TRANSFERS, true));
+
+    userProperties = parameters.GetUserProperties();
   }
 
 

@@ -376,7 +376,8 @@ void DeleteClient(OrthancPluginRestOutput* output,
     }
 
     OrthancPlugins::HttpClient client;
-    OrthancPlugins::DicomWebServers::GetInstance().ConfigureHttpClient(client, serverName, uri);
+    std::map<std::string, std::string> userProperties;
+    OrthancPlugins::DicomWebServers::GetInstance().ConfigureHttpClient(client, userProperties, serverName, uri);
     client.SetMethod(OrthancPluginHttpMethod_Delete);
     client.Execute();
 

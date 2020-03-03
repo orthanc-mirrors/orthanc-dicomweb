@@ -63,6 +63,7 @@ namespace OrthancPlugins
     void ListServers(std::list<std::string>& servers);
 
     void ConfigureHttpClient(HttpClient& client,
+                             std::map<std::string, std::string>& userProperties,
                              const std::string& name,
                              const std::string& uri);
 
