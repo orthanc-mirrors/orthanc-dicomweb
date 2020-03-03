@@ -1120,8 +1120,8 @@ public:
     {
       throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol,
                                       "No Content-Type provided by the remote WADO-RS server, "
-                                      "your remote server might need option \"" +
-                                      HAS_WADO_RS_UNIVERSAL_TRANSFER_SYNTAX + "\" set to \"true\"");
+                                      "your remote DICOMweb server might need client option \"" +
+                                      HAS_WADO_RS_UNIVERSAL_TRANSFER_SYNTAX + "\" set to \"false\"");
     }
     else
     {
@@ -1292,37 +1292,38 @@ private:
 
       if (headers.find("Accept") == headers.end())
       {
+        bool hasUniversal;
+          
         // The "Accept" field was not provided in the "HttpHeaders"
         // field of the POST body of: "/dicom-web/servers/.../retrieve"
         std::map<std::string, std::string>::const_iterator found = 
           userProperties.find(HAS_WADO_RS_UNIVERSAL_TRANSFER_SYNTAX);
 
-        if (found != userProperties.end())
+        if (found == userProperties.end())
         {
-          bool hasUniversal;
-          
-          if (found->second == "true" ||
-              found->second == "1")
-          {
-            hasUniversal = true;
-          }
-          else if (found->second == "false" ||
-                   found->second == "0")
-          {
-            hasUniversal = false;
-          }
-          else
-          {
-            throw Orthanc::OrthancException(Orthanc::ErrorCode_ParameterOutOfRange,
-                                            "Configuration option \"" + HAS_WADO_RS_UNIVERSAL_TRANSFER_SYNTAX +
-                                            "\" of remote DICOMweb server \"" + serverName_ +
-                                            "\" must be a Boolean, found: " + found->second);
-          }
-
-          if (hasUniversal)
-          {
-            client.AddHeader("Accept", "multipart/related; type=\"application/dicom\"; transfer-syntax=*");
-          }
+          hasUniversal = true;  // By default, assume "true"
+        }
+        else if (found->second == "true" ||
+                 found->second == "1")
+        {
+          hasUniversal = true;
+        }
+        else if (found->second == "false" ||
+                 found->second == "0")
+        {
+          hasUniversal = false;
+        }
+        else
+        {
+          throw Orthanc::OrthancException(Orthanc::ErrorCode_ParameterOutOfRange,
+                                          "Configuration option \"" + HAS_WADO_RS_UNIVERSAL_TRANSFER_SYNTAX +
+                                          "\" of remote DICOMweb server \"" + serverName_ +
+                                          "\" must be a Boolean, found: " + found->second);
+        }
+        
+        if (hasUniversal)
+        {
+          client.AddHeader("Accept", "multipart/related; type=\"application/dicom\"; transfer-syntax=*");
         }
       }
 
