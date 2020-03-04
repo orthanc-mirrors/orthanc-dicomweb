@@ -1262,14 +1262,6 @@ private:
         (client, userProperties, serverName_, resource->GetUri());
       client.AddHeaders(headers);
 
-      printf("** PROPERTIES\n");
-      
-      for (std::map<std::string, std::string>::const_iterator
-             it = userProperties.begin(); it != userProperties.end(); ++it)
-      {
-        printf("** [%s] = [%s]\n", it->first.c_str(), it->second.c_str());
-      }
-
       /**
        * From documentation of Google Healthcare API: "The response's
        * default transfer syntax is Little Endian Explicit. As a
