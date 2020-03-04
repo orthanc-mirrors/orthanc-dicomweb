@@ -106,7 +106,7 @@ namespace
     }
     
   public:
-    RenderingParameters(const OrthancPluginHttpRequest* request) :
+    explicit RenderingParameters(const OrthancPluginHttpRequest* request) :
       hasViewport_(false),
       hasQuality_(false),
       hasWindowing_(false),

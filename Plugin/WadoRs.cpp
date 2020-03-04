@@ -34,7 +34,8 @@
 
 
 static const char* const MAIN_DICOM_TAGS = "MainDicomTags";
-
+static const char* const INSTANCES = "Instances";
+static const char* const PATIENT_MAIN_DICOM_TAGS = "PatientMainDicomTags";
 
 
 static std::string GetResourceUri(Orthanc::ResourceType level,
@@ -336,7 +337,7 @@ namespace
         std::string maxValue = current->first;
         size_t maxCount = current->second;
 
-        current++;
+        ++current;
 
         while (current != counters.end())
         {
@@ -346,7 +347,7 @@ namespace
             maxCount = current->second;
           }
             
-          current++;
+          ++current;
         }
 
         // Take the ceiling of the number of available instances
@@ -380,9 +381,6 @@ namespace
                              const std::string& orthancId,
                              Orthanc::ResourceType level)
     {
-      static const char* INSTANCES = "Instances";
-      static const char* PATIENT_MAIN_DICOM_TAGS = "PatientMainDicomTags";
-        
       std::string uri;
       std::string parentField;
 
