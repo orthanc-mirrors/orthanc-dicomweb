@@ -49,15 +49,34 @@ with open(os.path.join(ORTHANC_ROOT, 'Resources', 'DicomTransferSyntaxes.json'),
 ## Generate the "GetGdcmTransferSyntax()" function
 ##
 
-path = os.path.join(BASE, 'Plugin', 'WadoRsRetrieveFrames.cpp')
+path = os.path.join(BASE, 'Plugin', 'GdcmParsedDicomFile.cpp')
 with open(path, 'r') as f:
     a = f.read()
 
 def Format(x):
-    return '    case Orthanc::DicomTransferSyntax_%s:\n      return %s;' % (x['Value'], x['GDCM'])
+    return '      case Orthanc::DicomTransferSyntax_%s:\n        return %s;' % (x['Value'], x['GDCM'])
 
 s = '\n\n'.join(map(Format, filter(lambda x: 'GDCM' in x, SYNTAXES)))
 a = re.sub('(GetGdcmTransferSyntax\(Orthanc::DicomTransferSyntax.*?\)\s*{\s*switch \([^)]*?\)\s*{)[^}]*?(\s*default:)',
+           r'\1\n%s\2' % s, a, re.DOTALL)
+
+with open(path, 'w') as f:
+    f.write(a)
+
+
+##
+## Generate the "GetOrthancTransferSyntax()" function
+##
+
+path = os.path.join(BASE, 'Plugin', 'GdcmParsedDicomFile.cpp')
+with open(path, 'r') as f:
+    a = f.read()
+
+def Format(x):
+    return '      case %s:\n        return Orthanc::DicomTransferSyntax_%s;' % (x['GDCM'], x['Value'])
+
+s = '\n\n'.join(map(Format, filter(lambda x: 'GDCM' in x, SYNTAXES)))
+a = re.sub('(GetOrthancTransferSyntax\(gdcm::TransferSyntax.*?\)\s*{\s*switch \([^)]*?\)\s*{)[^}]*?(\s*default:)',
            r'\1\n%s\2' % s, a, re.DOTALL)
 
 with open(path, 'w') as f:

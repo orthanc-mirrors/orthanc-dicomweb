@@ -85,5 +85,14 @@ namespace OrthancPlugins
                        const gdcm::Tag& tag) const;
 
     std::string GetWadoUrl(const OrthancPluginHttpRequest* request) const;
+
+    Orthanc::DicomTransferSyntax GetTransferSyntax() const
+    {
+      return GetOrthancTransferSyntax(GetFile().GetHeader().GetDataSetTransferSyntax());
+    }
+    
+    static gdcm::TransferSyntax GetGdcmTransferSyntax(Orthanc::DicomTransferSyntax syntax);
+    
+    static Orthanc::DicomTransferSyntax GetOrthancTransferSyntax(gdcm::TransferSyntax syntax);
   };
 }
