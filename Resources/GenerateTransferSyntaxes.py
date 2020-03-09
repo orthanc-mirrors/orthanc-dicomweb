@@ -33,8 +33,7 @@
 
 import json
 import os
-import re
-import sys
+import pystache
 
 ORTHANC_ROOT = '/home/jodogne/Subversion/orthanc/'
 BASE = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -44,40 +43,8 @@ with open(os.path.join(ORTHANC_ROOT, 'Resources', 'DicomTransferSyntaxes.json'),
     SYNTAXES = json.loads(f.read())
 
 
-
-##
-## Generate the "GetGdcmTransferSyntax()" function
-##
-
-path = os.path.join(BASE, 'Plugin', 'GdcmParsedDicomFile.cpp')
-with open(path, 'r') as f:
-    a = f.read()
-
-def Format(x):
-    return '      case Orthanc::DicomTransferSyntax_%s:\n        return %s;' % (x['Value'], x['GDCM'])
-
-s = '\n\n'.join(map(Format, filter(lambda x: 'GDCM' in x, SYNTAXES)))
-a = re.sub('(GetGdcmTransferSyntax\(Orthanc::DicomTransferSyntax.*?\)\s*{\s*switch \([^)]*?\)\s*{)[^}]*?(\s*default:)',
-           r'\1\n%s\2' % s, a, re.DOTALL)
-
-with open(path, 'w') as f:
-    f.write(a)
-
-
-##
-## Generate the "GetOrthancTransferSyntax()" function
-##
-
-path = os.path.join(BASE, 'Plugin', 'GdcmParsedDicomFile.cpp')
-with open(path, 'r') as f:
-    a = f.read()
-
-def Format(x):
-    return '      case %s:\n        return Orthanc::DicomTransferSyntax_%s;' % (x['GDCM'], x['Value'])
-
-s = '\n\n'.join(map(Format, filter(lambda x: 'GDCM' in x, SYNTAXES)))
-a = re.sub('(GetOrthancTransferSyntax\(gdcm::TransferSyntax.*?\)\s*{\s*switch \([^)]*?\)\s*{)[^}]*?(\s*default:)',
-           r'\1\n%s\2' % s, a, re.DOTALL)
-
-with open(path, 'w') as f:
-    f.write(a)
+with open(os.path.join(BASE, 'Plugin', 'GdcmParsedDicomFile_TransferSyntaxes.impl.h'), 'w') as b:
+    with open(os.path.join(BASE, 'Resources', 'GenerateTransferSyntaxes.mustache'), 'r') as a:
+        b.write(pystache.render(a.read(), {
+            'Syntaxes' : SYNTAXES
+        }))
