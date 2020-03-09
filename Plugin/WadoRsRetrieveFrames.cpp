@@ -478,7 +478,11 @@ static bool AnswerFrames(OrthancPluginRestOutput* output,
     std::string photometric;
     if (samplesPerPixel == 3 &&
         dicom.GetStringTag(photometric, DICOM_TAG_PHOTOMETRIC_INTERPRETATION, true) &&
-        photometric == "YBR_FULL")
+        photometric == "YBR_FULL" &&
+        // Only applicable to uncompressed transfer syntaxes
+        (syntax == Orthanc::DicomTransferSyntax_LittleEndianImplicit ||
+         syntax == Orthanc::DicomTransferSyntax_LittleEndianExplicit ||
+         syntax == Orthanc::DicomTransferSyntax_BigEndianExplicit))
     {
       convertYbr = true;
     }
@@ -658,13 +662,10 @@ void RetrieveFrames(OrthancPluginRestOutput* output,
     }
     else
     {
-      // Need to convert the transfer syntax
-
-      {
-        OrthancPlugins::LogInfo("DICOMweb RetrieveFrames: Transcoding instance " + orthancId + 
-                                " from transfer syntax " + Orthanc::GetTransferSyntaxUid(sourceSyntax) +
-                                " to " + Orthanc::GetTransferSyntaxUid(targetSyntax));
-      }
+      // Need to convert the transfer syntax (transcoding)
+      OrthancPlugins::LogInfo("DICOMweb RetrieveFrames: Transcoding instance " + orthancId + 
+                              " from transfer syntax " + Orthanc::GetTransferSyntaxUid(sourceSyntax) +
+                              " to " + Orthanc::GetTransferSyntaxUid(targetSyntax));
 
       gdcm::ImageChangeTransferSyntax change;
       change.SetTransferSyntax(OrthancPlugins::GdcmParsedDicomFile::GetGdcmTransferSyntax(targetSyntax));
