@@ -630,9 +630,12 @@ void RetrieveFrames(OrthancPluginRestOutput* output,
     if (header.type() == Json::objectValue &&
         header.isMember("TransferSyntaxUID"))
     {
-      // TODO - Replace this by Orthanc
-      gdcm::TransferSyntax syntax = gdcm::TransferSyntax::GetTSType(header["TransferSyntaxUID"].asCString());
-      sourceSyntax = OrthancPlugins::GdcmParsedDicomFile::GetOrthancTransferSyntax(syntax);
+      std::string uid = header["TransferSyntaxUID"].asString();
+      if (!Orthanc::LookupTransferSyntax(sourceSyntax, uid))
+      {
+        throw Orthanc::OrthancException(Orthanc::ErrorCode_ParameterOutOfRange,
+                                        "Unknown transfer syntax: " + uid);
+      }
     }
     else
     {
