@@ -2,6 +2,12 @@ Pending changes in the mainline
 ===============================
 
 
+Maintenance
+-----------
+
+* "QidoCaseSensitive" defaults to "CaseSensitivePN" of Orthanc configuration (instead of "true")
+
+
 Version 1.1 (2020-03-04)
 ========================
 

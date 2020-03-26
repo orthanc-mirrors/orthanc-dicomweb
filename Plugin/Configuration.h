@@ -92,11 +92,13 @@ namespace OrthancPlugins
   {
     void Initialize();
 
-    std::string GetStringValue(const std::string& key,
-                               const std::string& defaultValue);
-
+    bool HasKey(const std::string& key);
+    
     bool GetBooleanValue(const std::string& key,
                          bool defaultValue);
+
+    bool LookupBooleanValue(bool& target,
+                            const std::string& key);
 
     unsigned int GetUnsignedIntegerValue(const std::string& key,
                                          unsigned int defaultValue);

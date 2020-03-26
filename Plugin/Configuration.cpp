@@ -334,6 +334,14 @@ namespace OrthancPlugins
     }
 
 
+    bool LookupBooleanValue(bool& target,
+                            const std::string& key)
+    {
+      assert(configuration_.get() != NULL);
+      return configuration_->LookupBooleanValue(target, key);
+    }
+
+
     unsigned int GetUnsignedIntegerValue(const std::string& key,
                                          unsigned int defaultValue)
     {

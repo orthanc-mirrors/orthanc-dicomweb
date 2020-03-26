@@ -265,8 +265,13 @@ namespace
           throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
       }
 
+      bool caseSensitive;
+      if (OrthancPlugins::Configuration::LookupBooleanValue(caseSensitive, "QidoCaseSensitive"))
+      {
+        result["CaseSensitive"] = caseSensitive;
+      }
+
       result["Expand"] = false;
-      result["CaseSensitive"] = OrthancPlugins::Configuration::GetBooleanValue("QidoCaseSensitive", true);
       result["Query"] = Json::objectValue;
       result["Limit"] = limit_;
       result["Since"] = offset_;
@@ -483,6 +488,8 @@ static void ApplyMatcher(OrthancPluginRestOutput* output,
   Json::Value find;
   matcher.ConvertToOrthanc(find, level);
 
+  LOG(INFO) << "Body of the call from QIDO-RS to /tools/find: " << find.toStyledString();
+  
   std::string body;
 
   {
