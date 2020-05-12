@@ -21,16 +21,11 @@
 
 #include "WadoRs.h"
 
-#include "GdcmParsedDicomFile.h"
-
 #include <Core/Toolbox.h>
 #include <Plugins/Samples/Common/OrthancPluginCppWrapper.h>
 
 #include <memory>
 #include <list>
-#include <gdcmImageReader.h>
-#include <gdcmImageWriter.h>
-#include <gdcmImageChangeTransferSyntax.h>
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/lexical_cast.hpp>
 
@@ -61,8 +56,8 @@ static void RemoveSurroundingQuotes(std::string& value)
 
 
 
-static Orthanc::DicomTransferSyntax ParseTransferSyntax(const OrthancPluginHttpRequest* request,
-                                                        Orthanc::DicomTransferSyntax sourceTransferSyntax)
+static bool ParseTransferSyntax(Orthanc::DicomTransferSyntax& syntax,
+                                const OrthancPluginHttpRequest* request)
 {
   for (uint32_t i = 0; i < request->headersCount; i++)
   {
@@ -77,7 +72,8 @@ static Orthanc::DicomTransferSyntax ParseTransferSyntax(const OrthancPluginHttpR
       if (tokens.size() == 0 ||
           tokens[0] == "*/*")
       {
-        return Orthanc::DicomTransferSyntax_LittleEndianExplicit;
+        syntax = Orthanc::DicomTransferSyntax_LittleEndianExplicit;
+        return true;
       }
 
       if (tokens[0] != "multipart/related")
@@ -113,14 +109,21 @@ static Orthanc::DicomTransferSyntax ParseTransferSyntax(const OrthancPluginHttpR
 
       if (type == "application/octet-stream")
       {
-        if (transferSyntax.empty())
+        if (transferSyntax.empty() ||
+            transferSyntax == "1.2.840.10008.1.2.1")
         {
-          return Orthanc::DicomTransferSyntax(Orthanc::DicomTransferSyntax_LittleEndianExplicit);
+          syntax = Orthanc::DicomTransferSyntax_LittleEndianExplicit;
+          return true;
+        }
+        else if (transferSyntax == "1.2.840.10008.1.2")
+        {
+          syntax = Orthanc::DicomTransferSyntax_LittleEndianImplicit;
+          return true;
         }
         else if (transferSyntax == "*")
         {
           // New in DICOMweb plugin 1.1.0
-          return sourceTransferSyntax;
+          return false;
         }
         else
         {
@@ -139,51 +142,62 @@ static Orthanc::DicomTransferSyntax ParseTransferSyntax(const OrthancPluginHttpR
         if (type == "image/jpeg" && (transferSyntax.empty() ||  // Default
                                      transferSyntax == "1.2.840.10008.1.2.4.70"))
         {
-          return Orthanc::DicomTransferSyntax_JPEGProcess14SV1;
+          syntax = Orthanc::DicomTransferSyntax_JPEGProcess14SV1;
+          return true;
         }
         else if (type == "image/jpeg" && transferSyntax == "1.2.840.10008.1.2.4.50")
         {
-          return Orthanc::DicomTransferSyntax_JPEGProcess1;
+          syntax = Orthanc::DicomTransferSyntax_JPEGProcess1;
+          return true;
         }
         else if (type == "image/jpeg" && transferSyntax == "1.2.840.10008.1.2.4.51")
         {
-          return Orthanc::DicomTransferSyntax_JPEGProcess2_4;
+          syntax = Orthanc::DicomTransferSyntax_JPEGProcess2_4;
+          return true;
         }
         else if (type == "image/jpeg" && transferSyntax == "1.2.840.10008.1.2.4.57")
         {
-          return Orthanc::DicomTransferSyntax_JPEGProcess14;
+          syntax = Orthanc::DicomTransferSyntax_JPEGProcess14;
+          return true;
         }
         else if (type == "image/x-dicom-rle" && (transferSyntax.empty() ||  // Default
                                                  transferSyntax == "1.2.840.10008.1.2.5"))
         {
-          return Orthanc::DicomTransferSyntax_RLELossless;
+          syntax = Orthanc::DicomTransferSyntax_RLELossless;
+          return true;
         }
         else if (type == "image/x-jls" && (transferSyntax.empty() ||  // Default
                                            transferSyntax == "1.2.840.10008.1.2.4.80"))
         {
-          return Orthanc::DicomTransferSyntax_JPEGLSLossless;
+          syntax = Orthanc::DicomTransferSyntax_JPEGLSLossless;
+          return true;
         }
         else if (type == "image/x-jls" && transferSyntax == "1.2.840.10008.1.2.4.81")
         {
-          return Orthanc::DicomTransferSyntax_JPEGLSLossy;
+          syntax = Orthanc::DicomTransferSyntax_JPEGLSLossy;
+          return true;
         }
         else if (type == "image/jp2" && (transferSyntax.empty() ||  // Default
                                          transferSyntax == "1.2.840.10008.1.2.4.90"))
         {
-          return Orthanc::DicomTransferSyntax_JPEG2000LosslessOnly;
+          syntax = Orthanc::DicomTransferSyntax_JPEG2000LosslessOnly;
+          return true;
         }
         else if (type == "image/jp2" && transferSyntax == "1.2.840.10008.1.2.4.91")
         {
-          return Orthanc::DicomTransferSyntax_JPEG2000;
+          syntax = Orthanc::DicomTransferSyntax_JPEG2000;
+          return true;
         }
         else if (type == "image/jpx" && (transferSyntax.empty() ||  // Default
                                          transferSyntax == "1.2.840.10008.1.2.4.92"))
         {
-          return Orthanc::DicomTransferSyntax_JPEG2000MulticomponentLosslessOnly;
+          syntax = Orthanc::DicomTransferSyntax_JPEG2000MulticomponentLosslessOnly;
+          return true;
         }
         else if (type == "image/jpx" && transferSyntax == "1.2.840.10008.1.2.4.93")
         {
-          return Orthanc::DicomTransferSyntax_JPEG2000Multicomponent;
+          syntax = Orthanc::DicomTransferSyntax_JPEG2000Multicomponent;
+          return true;
         }
 
 
@@ -193,52 +207,63 @@ static Orthanc::DicomTransferSyntax ParseTransferSyntax(const OrthancPluginHttpR
          **/
         if (type == "image/dicom+jpeg" && transferSyntax == "1.2.840.10008.1.2.4.50")
         {
-          return Orthanc::DicomTransferSyntax_JPEGProcess1;
+          syntax = Orthanc::DicomTransferSyntax_JPEGProcess1;
+          return true;
         }
         else if (type == "image/dicom+jpeg" && transferSyntax == "1.2.840.10008.1.2.4.51")
         {
-          return Orthanc::DicomTransferSyntax_JPEGProcess2_4;
+          syntax = Orthanc::DicomTransferSyntax_JPEGProcess2_4;
+          return true;
         }
         else if (type == "image/dicom+jpeg" && transferSyntax == "1.2.840.10008.1.2.4.57")
         {
-          return Orthanc::DicomTransferSyntax_JPEGProcess14;
+          syntax = Orthanc::DicomTransferSyntax_JPEGProcess14;
+          return true;
         }
         else if (type == "image/dicom+jpeg" && (transferSyntax.empty() ||
                                                 transferSyntax == "1.2.840.10008.1.2.4.70"))
         {
-          return Orthanc::DicomTransferSyntax_JPEGProcess14SV1;
+          syntax = Orthanc::DicomTransferSyntax_JPEGProcess14SV1;
+          return true;
         }
         else if (type == "image/dicom+rle" && (transferSyntax.empty() ||
                                                transferSyntax == "1.2.840.10008.1.2.5"))
         {
-          return Orthanc::DicomTransferSyntax_RLELossless;
+          syntax = Orthanc::DicomTransferSyntax_RLELossless;
+          return true;
         }
         else if (type == "image/dicom+jpeg-ls" && (transferSyntax.empty() ||
                                                    transferSyntax == "1.2.840.10008.1.2.4.80"))
         {
-          return Orthanc::DicomTransferSyntax_JPEGLSLossless;
+          syntax = Orthanc::DicomTransferSyntax_JPEGLSLossless;
+          return true;
         }
         else if (type == "image/dicom+jpeg-ls" && transferSyntax == "1.2.840.10008.1.2.4.81")
         {
-          return Orthanc::DicomTransferSyntax_JPEGLSLossy;
+          syntax = Orthanc::DicomTransferSyntax_JPEGLSLossy;
+          return true;
         }
         else if (type == "image/dicom+jp2" && (transferSyntax.empty() ||
                                                transferSyntax == "1.2.840.10008.1.2.4.90"))
         {
-          return Orthanc::DicomTransferSyntax_JPEG2000LosslessOnly;
+          syntax = Orthanc::DicomTransferSyntax_JPEG2000LosslessOnly;
+          return true;
         }
         else if (type == "image/dicom+jp2" && transferSyntax == "1.2.840.10008.1.2.4.91")
         {
-          return Orthanc::DicomTransferSyntax_JPEG2000;
+          syntax = Orthanc::DicomTransferSyntax_JPEG2000;
+          return true;
         }
         else if (type == "image/dicom+jpx" && (transferSyntax.empty() ||
                                                transferSyntax == "1.2.840.10008.1.2.4.92"))
         {
-          return Orthanc::DicomTransferSyntax_JPEG2000MulticomponentLosslessOnly;
+          syntax = Orthanc::DicomTransferSyntax_JPEG2000MulticomponentLosslessOnly;
+          return true;
         }
         else if (type == "image/dicom+jpx" && transferSyntax == "1.2.840.10008.1.2.4.93")
         {
-          return Orthanc::DicomTransferSyntax_JPEG2000Multicomponent;
+          syntax = Orthanc::DicomTransferSyntax_JPEG2000Multicomponent;
+          return true;
         }
 
         throw Orthanc::OrthancException(
@@ -250,7 +275,8 @@ static Orthanc::DicomTransferSyntax ParseTransferSyntax(const OrthancPluginHttpR
   }
 
   // By default, DICOMweb expectes Little Endian uncompressed pixel data
-  return Orthanc::DicomTransferSyntax_LittleEndianExplicit;
+  syntax = Orthanc::DicomTransferSyntax_LittleEndianExplicit;
+  return true;
 }
 
 
@@ -286,7 +312,6 @@ static void ParseFrameList(std::list<unsigned int>& frames,
 }                           
 
 
-
 static const char* GetMimeType(const Orthanc::DicomTransferSyntax& syntax)
 {
   // http://dicom.nema.org/medical/dicom/current/output/html/part18.html#table_6.1.1.8-3b
@@ -311,25 +336,25 @@ static const char* GetMimeType(const Orthanc::DicomTransferSyntax& syntax)
       return "image/jpeg; transfer-syntax=1.2.840.10008.1.2.4.57";
 
     case Orthanc::DicomTransferSyntax_JPEGProcess14SV1:
-      return "image/jpeg; transferSyntax=1.2.840.10008.1.2.4.70";
+      return "image/jpeg; transfer-syntax=1.2.840.10008.1.2.4.70";
     
     case Orthanc::DicomTransferSyntax_RLELossless:
-      return "image/x-dicom-rle; transferSyntax=1.2.840.10008.1.2.5";
+      return "image/x-dicom-rle; transfer-syntax=1.2.840.10008.1.2.5";
 
     case Orthanc::DicomTransferSyntax_JPEGLSLossless:
-      return "image/x-jls; transferSyntax=1.2.840.10008.1.2.4.80";
+      return "image/x-jls; transfer-syntax=1.2.840.10008.1.2.4.80";
 
     case Orthanc::DicomTransferSyntax_JPEGLSLossy:
       return "image/x-jls; transfer-syntax=1.2.840.10008.1.2.4.81";
 
     case Orthanc::DicomTransferSyntax_JPEG2000LosslessOnly:
-      return "image/jp2; transferSyntax=1.2.840.10008.1.2.4.90";
+      return "image/jp2; transfer-syntax=1.2.840.10008.1.2.4.90";
 
     case Orthanc::DicomTransferSyntax_JPEG2000:
       return "image/jp2; transfer-syntax=1.2.840.10008.1.2.4.91";
 
     case Orthanc::DicomTransferSyntax_JPEG2000MulticomponentLosslessOnly:
-      return "image/jpx; transferSyntax=1.2.840.10008.1.2.4.92";
+      return "image/jpx; transfer-syntax=1.2.840.10008.1.2.4.92";
 
     case Orthanc::DicomTransferSyntax_JPEG2000Multicomponent:
       return "image/jpx; transfer-syntax=1.2.840.10008.1.2.4.93";
@@ -340,266 +365,53 @@ static const char* GetMimeType(const Orthanc::DicomTransferSyntax& syntax)
 }
 
 
-
-static void ConvertYbrToRgb(uint8_t rgb[3],
-                            const uint8_t ybr[3])
+static void AnswerFrames(OrthancPluginRestOutput* output,
+                         const OrthancPluginHttpRequest* request,
+                         const OrthancPlugins::DicomInstance& instance,
+                         const std::string& studyInstanceUid,
+                         const std::string& seriesInstanceUid,
+                         const std::string& sopInstanceUid,
+                         const std::list<unsigned int>& frames,
+                         Orthanc::DicomTransferSyntax outputSyntax)
 {
-  // http://dicom.nema.org/medical/dicom/current/output/chtml/part03/sect_C.7.6.3.html#sect_C.7.6.3.1.2
-  // https://en.wikipedia.org/wiki/YCbCr#JPEG_conversion
+  if (OrthancPluginStartMultipartAnswer(
+        OrthancPlugins::GetGlobalContext(), 
+        output, "related", GetMimeType(outputSyntax)) != OrthancPluginErrorCode_Success)
+  {
+    throw Orthanc::OrthancException(Orthanc::ErrorCode_Plugin,
+                                    "Cannot start a multipart answer");
+  }
+
+  const std::string base = OrthancPlugins::Configuration::GetBaseUrl(request);
     
-  const float Y  = ybr[0];
-  const float Cb = ybr[1];
-  const float Cr = ybr[2];
-
-  const float result[3] = {
-    Y                             + 1.402f    * (Cr - 128.0f),
-    Y - 0.344136f * (Cb - 128.0f) - 0.714136f * (Cr - 128.0f),
-    Y + 1.772f    * (Cb - 128.0f)
-  };
-
-  for (uint8_t i = 0; i < 3 ; i++)
+  for (std::list<unsigned int>::const_iterator
+         frame = frames.begin(); frame != frames.end(); ++frame)
   {
-    if (result[i] < 0)
-    {
-      rgb[i] = 0;
-    }
-    else if (result[i] > 255)
-    {
-      rgb[i] = 255;
-    }
-    else
-    {
-      rgb[i] = static_cast<uint8_t>(result[i]);
-    }
-  }    
-}
+    std::string content;
+    instance.GetRawFrame(content, *frame);
 
-
-static void AnswerSingleFrame(OrthancPluginRestOutput* output,
-                              const OrthancPluginHttpRequest* request,
-                              const OrthancPlugins::GdcmParsedDicomFile& dicom,
-                              const char* frame,
-                              size_t size,
-                              unsigned int frameIndex,
-                              bool convertYbr)
-{
-  /**
-   * Fix the photometric interpretation, typically needed for some
-   * multiframe US images (as the one in issue 164). Also check out
-   * the "Plugins/Samples/GdcmDecoder/GdcmImageDecoder.cpp" file in
-   * the source distribution of Orthanc, and Osimis issue WVB-319
-   * ("Some images are not loading in US_MF").
-   **/
-
-  std::vector<uint8_t> copied;  // Don't move this variable inside the
-                                // "if", as "frame" might point to it
-
-  if (convertYbr &&
-      size > 0)
-  {
-    copied.resize(size);
-    memcpy(&copied[0], frame, size);
-
-    uint8_t *p = &copied[0];
-    for (size_t i = 0; i < size / 3; i++)
-    {
-      uint8_t ybr[3], rgb[3];
-      ybr[0] = p[0];
-      ybr[1] = p[1];
-      ybr[2] = p[2];
-
-      ConvertYbrToRgb(rgb, ybr);
-      p[0] = rgb[0];
-      p[1] = rgb[1];
-      p[2] = rgb[2];
-
-      p += 3;
-    }
-
-    frame = reinterpret_cast<const char*>(&copied[0]);
-  }  
-
-
-  OrthancPluginErrorCode error;
+    const char* data = content.empty() ? NULL : content.c_str();
+    size_t size = content.size();
+        
+    OrthancPluginErrorCode error;
 
 #if HAS_SEND_MULTIPART_ITEM_2 == 1
-  std::string location = dicom.GetWadoUrl(request) + "frames/" + boost::lexical_cast<std::string>(frameIndex + 1);
-  const char *keys[] = { "Content-Location" };
-  const char *values[] = { location.c_str() };
-  error = OrthancPluginSendMultipartItem2(OrthancPlugins::GetGlobalContext(), output, frame, size, 1, keys, values);
+    std::string location = (
+      OrthancPlugins::Configuration::GetWadoUrl(base, studyInstanceUid, seriesInstanceUid, sopInstanceUid) +
+      "frames/" + boost::lexical_cast<std::string>(*frame + 1));
+    const char *keys[] = { "Content-Location" };
+    const char *values[] = { location.c_str() };
+    error = OrthancPluginSendMultipartItem2(OrthancPlugins::GetGlobalContext(), output, data, size, 1, keys, values);
 #else
-  error = OrthancPluginSendMultipartItem(OrthancPlugins::GetGlobalContext(), output, frame, size);
+    error = OrthancPluginSendMultipartItem(OrthancPlugins::GetGlobalContext(), output, data, size);
 #endif
 
-  if (error != OrthancPluginErrorCode_Success)
-  {
-    throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);      
+    if (error != OrthancPluginErrorCode_Success)
+    {
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);      
+    }
   }
 }
-
-
-static bool AnswerFrames(OrthancPluginRestOutput* output,
-                         const OrthancPluginHttpRequest* request,
-                         const OrthancPlugins::GdcmParsedDicomFile& dicom,
-                         const Orthanc::DicomTransferSyntax& syntax,
-                         std::list<unsigned int>& frames)
-{
-  static const gdcm::Tag DICOM_TAG_BITS_ALLOCATED(0x0028, 0x0100);
-  static const gdcm::Tag DICOM_TAG_COLUMNS(0x0028, 0x0011);
-  static const gdcm::Tag DICOM_TAG_PIXEL_DATA(0x7fe0, 0x0010);
-  static const gdcm::Tag DICOM_TAG_ROWS(0x0028, 0x0010);
-  static const gdcm::Tag DICOM_TAG_SAMPLES_PER_PIXEL(0x0028, 0x0002);
-  static const gdcm::Tag DICOM_TAG_PHOTOMETRIC_INTERPRETATION(0x0028, 0x0004);
-
-  if (!dicom.GetDataSet().FindDataElement(DICOM_TAG_PIXEL_DATA))
-  {
-    throw Orthanc::OrthancException(Orthanc::ErrorCode_IncompatibleImageFormat);
-  }
-
-  const gdcm::DataElement& pixelData = dicom.GetDataSet().GetDataElement(DICOM_TAG_PIXEL_DATA);
-  const gdcm::SequenceOfFragments* fragments = pixelData.GetSequenceOfFragments();
-
-  if (OrthancPluginStartMultipartAnswer(OrthancPlugins::GetGlobalContext(), 
-                                        output, "related", GetMimeType(syntax)) != OrthancPluginErrorCode_Success)
-  {
-    return false;
-  }
-
-  int samplesPerPixel;
-
-  if (!dicom.GetIntegerTag(samplesPerPixel, DICOM_TAG_SAMPLES_PER_PIXEL))
-  {
-    throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
-  }
-  
-  bool convertYbr = false;
-    
-  {
-    std::string photometric;
-    if (samplesPerPixel == 3 &&
-        dicom.GetStringTag(photometric, DICOM_TAG_PHOTOMETRIC_INTERPRETATION, true) &&
-        photometric == "YBR_FULL" &&
-        // Only applicable to uncompressed transfer syntaxes
-        (syntax == Orthanc::DicomTransferSyntax_LittleEndianImplicit ||
-         syntax == Orthanc::DicomTransferSyntax_LittleEndianExplicit ||
-         syntax == Orthanc::DicomTransferSyntax_BigEndianExplicit))
-    {
-      convertYbr = true;
-    }
-  }  
-  
-  if (fragments == NULL)
-  {
-    // Single-fragment image
-
-    if (pixelData.GetByteValue() == NULL)
-    {
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError,
-                                      "Image was not properly decoded");
-    }
-
-    int width, height, bits;
-
-    if (!dicom.GetIntegerTag(height, DICOM_TAG_ROWS) ||
-        !dicom.GetIntegerTag(width, DICOM_TAG_COLUMNS) ||
-        !dicom.GetIntegerTag(bits, DICOM_TAG_BITS_ALLOCATED))
-    {
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
-    }
-
-    size_t frameSize = height * width * bits * samplesPerPixel / 8;
-
-    if (frameSize == 0)
-    {
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
-    }
-
-    /**
-     * The number of bytes in "pixelData" might not be divisible by
-     * "frameSize", because "pixelData" might contain one padding byte
-     * to have an even number of bytes.
-     * https://bitbucket.org/sjodogne/orthanc/issues/164/
-     **/
-    
-    if (pixelData.GetByteValue()->GetLength() % frameSize != 0 &&
-        (/* allow one padding byte to be present */
-          pixelData.GetByteValue()->GetLength() % 2 == 0 &&
-          pixelData.GetByteValue()->GetLength() % frameSize != 1))
-    {
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);      
-    }
-
-    size_t framesCount = pixelData.GetByteValue()->GetLength() / frameSize;
-
-    if (frames.empty())
-    {
-      // If no frame is provided, return all the frames (this is an extension)
-      for (size_t i = 0; i < framesCount; i++)
-      {
-        frames.push_back(i);
-      }
-    }
-
-    const char* buffer = pixelData.GetByteValue()->GetPointer();
-    assert(sizeof(char) == 1);
-
-    for (std::list<unsigned int>::const_iterator 
-           frame = frames.begin(); frame != frames.end(); ++frame)
-    {
-      if (*frame >= framesCount)
-      {
-        throw Orthanc::OrthancException(
-          Orthanc::ErrorCode_ParameterOutOfRange,
-          "Trying to access frame number " + boost::lexical_cast<std::string>(*frame + 1) + 
-          " of an image with " + boost::lexical_cast<std::string>(framesCount) + " frames");
-      }
-      else
-      {
-        const char* p = buffer + (*frame) * frameSize;
-        AnswerSingleFrame(output, request, dicom, p, frameSize, *frame, convertYbr);
-      }
-    }
-  }
-  else
-  {
-    // Multi-fragment image, we assume that each fragment corresponds to one frame
-
-    if (frames.empty())
-    {
-      // If no frame is provided, return all the frames (this is an extension)
-      for (size_t i = 0; i < fragments->GetNumberOfFragments(); i++)
-      {
-        frames.push_back(i);
-      }
-    }
-
-    for (std::list<unsigned int>::const_iterator 
-           frame = frames.begin(); frame != frames.end(); ++frame)
-    {
-      if (*frame >= fragments->GetNumberOfFragments())
-      {
-        // TODO A frame is not a fragment, looks like a bug
-        throw Orthanc::OrthancException(
-          Orthanc::ErrorCode_ParameterOutOfRange,
-          "Trying to access frame number " + 
-          boost::lexical_cast<std::string>(*frame + 1) + 
-          " of an image with " + 
-          boost::lexical_cast<std::string>(fragments->GetNumberOfFragments()) + 
-          " frames");
-      }
-      else
-      {
-        AnswerSingleFrame(output, request, dicom,
-                          fragments->GetFragment(*frame).GetByteValue()->GetPointer(),
-                          fragments->GetFragment(*frame).GetByteValue()->GetLength(),
-                          *frame, convertYbr);
-      }
-    }
-  }
-
-  return true;
-}
-
 
 
 void RetrieveFrames(OrthancPluginRestOutput* output,
@@ -609,12 +421,10 @@ void RetrieveFrames(OrthancPluginRestOutput* output,
   std::list<unsigned int> frames;
   ParseFrameList(frames, request);
 
-  Json::Value header;
   std::string orthancId, studyInstanceUid, seriesInstanceUid, sopInstanceUid;
   OrthancPlugins::MemoryBuffer content;
   if (LocateInstance(output, orthancId, studyInstanceUid, seriesInstanceUid, sopInstanceUid, request) &&
-      content.RestApiGet("/instances/" + orthancId + "/file", false) &&
-      OrthancPlugins::RestApiGet(header, "/instances/" + orthancId + "/header?simplify", false))
+      content.RestApiGet("/instances/" + orthancId + "/file", false))
   {
     {
       std::string s = "DICOMweb RetrieveFrames on " + orthancId + ", frames: ";
@@ -627,88 +437,23 @@ void RetrieveFrames(OrthancPluginRestOutput* output,
       OrthancPlugins::LogInfo(s);
     }
 
-    if (0)
-    {
-      OrthancPlugins::DicomInstance instance(content.GetData(), content.GetSize());
-      printf("[%s]\n", instance.GetTransferSyntaxUid().c_str());
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError, "Bye bye");
-    }
-    
-    std::auto_ptr<OrthancPlugins::GdcmParsedDicomFile> source;
-    
-    Orthanc::DicomTransferSyntax sourceSyntax;
+    Orthanc::DicomTransferSyntax targetSyntax;
 
-    if (header.type() == Json::objectValue &&
-        header.isMember("TransferSyntaxUID"))
+    std::unique_ptr<OrthancPlugins::DicomInstance> instance;
+    if (ParseTransferSyntax(targetSyntax, request))
     {
-      std::string uid = header["TransferSyntaxUID"].asString();
-      if (!Orthanc::LookupTransferSyntax(sourceSyntax, uid))
-      {
-        throw Orthanc::OrthancException(Orthanc::ErrorCode_ParameterOutOfRange,
-                                        "Unknown transfer syntax: " + uid);
-      }
-    }
-    else
-    {
-      source.reset(new OrthancPlugins::GdcmParsedDicomFile(content));
-      sourceSyntax = source->GetTransferSyntax();
-    }
-
-    Orthanc::DicomTransferSyntax targetSyntax = ParseTransferSyntax(request, sourceSyntax);
-
-    if (sourceSyntax == targetSyntax)
-    {
-      // No need to change the transfer syntax
-
-      if (source.get() == NULL)
-      {
-        source.reset(new OrthancPlugins::GdcmParsedDicomFile(content));
-      }
-
-      AnswerFrames(output, request, *source, targetSyntax, frames);
-    }
-    else
-    {
-      // Need to convert the transfer syntax (transcoding)
       OrthancPlugins::LogInfo("DICOMweb RetrieveFrames: Transcoding instance " + orthancId + 
-                              " from transfer syntax " + Orthanc::GetTransferSyntaxUid(sourceSyntax) +
-                              " to " + Orthanc::GetTransferSyntaxUid(targetSyntax));
+                              " to transfer syntax " + Orthanc::GetTransferSyntaxUid(targetSyntax));
 
-      gdcm::ImageChangeTransferSyntax change;
-      change.SetTransferSyntax(OrthancPlugins::GdcmParsedDicomFile::GetGdcmTransferSyntax(targetSyntax));
-
-      // TODO Avoid this unnecessary memcpy by defining a stream over the MemoryBuffer
-      std::string dicom(content.GetData(), content.GetData() + content.GetSize());
-      std::stringstream stream(dicom);
-
-      gdcm::ImageReader reader;
-      reader.SetStream(stream);
-      if (!reader.Read())
-      {
-        throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat,
-                                        "Cannot decode the image");
-      }
-
-      change.SetInput(reader.GetImage());
-      if (!change.Change())
-      {
-        throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError,
-                                        "Cannot change the transfer syntax of the image");
-      }
-
-      gdcm::ImageWriter writer;
-      writer.SetImage(change.GetOutput());
-      writer.SetFile(reader.GetFile());
-      
-      std::stringstream ss;
-      writer.SetStream(ss);
-      if (!writer.Write())
-      {
-        throw Orthanc::OrthancException(Orthanc::ErrorCode_NotEnoughMemory);
-      }
-
-      OrthancPlugins::GdcmParsedDicomFile transcoded(ss.str());
-      AnswerFrames(output, request, transcoded, targetSyntax, frames);
+      instance.reset(OrthancPlugins::DicomInstance::Transcode(
+                       content.GetData(), content.GetSize(), GetTransferSyntaxUid(targetSyntax)));
     }
+    else
+    {
+      instance.reset(new OrthancPlugins::DicomInstance(content.GetData(), content.GetSize()));
+    }
+
+    AnswerFrames(output, request, *instance, studyInstanceUid, seriesInstanceUid,
+                 sopInstanceUid, frames, targetSyntax);
   }    
 }
