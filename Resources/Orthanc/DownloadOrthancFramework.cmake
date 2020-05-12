@@ -70,6 +70,12 @@ if (ORTHANC_FRAMEWORK_SOURCE STREQUAL "hg" OR
       set(ORTHANC_FRAMEWORK_MINOR 999)
       set(ORTHANC_FRAMEWORK_REVISION 999)
 
+    elseif (ORTHANC_FRAMEWORK_VERSION STREQUAL "transcoding")  # TODO - REMOVE
+      set(ORTHANC_FRAMEWORK_BRANCH "transcoding")
+      set(ORTHANC_FRAMEWORK_MAJOR 999)
+      set(ORTHANC_FRAMEWORK_MINOR 999)
+      set(ORTHANC_FRAMEWORK_REVISION 999)
+
     else()
       set(ORTHANC_FRAMEWORK_BRANCH "Orthanc-${ORTHANC_FRAMEWORK_VERSION}")
 
@@ -216,7 +222,7 @@ if (ORTHANC_FRAMEWORK_SOURCE STREQUAL "hg")
   else()
     message("Forking the Orthanc source repository using Mercurial")
     execute_process(
-      COMMAND ${ORTHANC_FRAMEWORK_HG} clone "https://bitbucket.org/sjodogne/orthanc"
+      COMMAND ${ORTHANC_FRAMEWORK_HG} clone "https://hg.orthanc-server.com/orthanc/"
       WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
       RESULT_VARIABLE Failure
       )    

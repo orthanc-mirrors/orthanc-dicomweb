@@ -627,6 +627,13 @@ void RetrieveFrames(OrthancPluginRestOutput* output,
       OrthancPlugins::LogInfo(s);
     }
 
+    if (0)
+    {
+      OrthancPlugins::DicomInstance instance(content.GetData(), content.GetSize());
+      printf("[%s]\n", instance.GetTransferSyntaxUid().c_str());
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError, "Bye bye");
+    }
+    
     std::auto_ptr<OrthancPlugins::GdcmParsedDicomFile> source;
     
     Orthanc::DicomTransferSyntax sourceSyntax;
