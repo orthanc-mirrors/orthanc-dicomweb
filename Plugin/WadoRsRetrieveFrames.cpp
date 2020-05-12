@@ -311,25 +311,25 @@ static const char* GetMimeType(const Orthanc::DicomTransferSyntax& syntax)
       return "image/jpeg; transfer-syntax=1.2.840.10008.1.2.4.57";
 
     case Orthanc::DicomTransferSyntax_JPEGProcess14SV1:
-      return "image/jpeg; transferSyntax=1.2.840.10008.1.2.4.70";
+      return "image/jpeg; transfer-syntax=1.2.840.10008.1.2.4.70";
     
     case Orthanc::DicomTransferSyntax_RLELossless:
-      return "image/x-dicom-rle; transferSyntax=1.2.840.10008.1.2.5";
+      return "image/x-dicom-rle; transfer-syntax=1.2.840.10008.1.2.5";
 
     case Orthanc::DicomTransferSyntax_JPEGLSLossless:
-      return "image/x-jls; transferSyntax=1.2.840.10008.1.2.4.80";
+      return "image/x-jls; transfer-syntax=1.2.840.10008.1.2.4.80";
 
     case Orthanc::DicomTransferSyntax_JPEGLSLossy:
       return "image/x-jls; transfer-syntax=1.2.840.10008.1.2.4.81";
 
     case Orthanc::DicomTransferSyntax_JPEG2000LosslessOnly:
-      return "image/jp2; transferSyntax=1.2.840.10008.1.2.4.90";
+      return "image/jp2; transfer-syntax=1.2.840.10008.1.2.4.90";
 
     case Orthanc::DicomTransferSyntax_JPEG2000:
       return "image/jp2; transfer-syntax=1.2.840.10008.1.2.4.91";
 
     case Orthanc::DicomTransferSyntax_JPEG2000MulticomponentLosslessOnly:
-      return "image/jpx; transferSyntax=1.2.840.10008.1.2.4.92";
+      return "image/jpx; transfer-syntax=1.2.840.10008.1.2.4.92";
 
     case Orthanc::DicomTransferSyntax_JPEG2000Multicomponent:
       return "image/jpx; transfer-syntax=1.2.840.10008.1.2.4.93";
