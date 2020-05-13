@@ -29,7 +29,6 @@
 #include <json/value.h>
 
 #include <boost/noncopyable.hpp>
-#include <boost/thread/mutex.hpp>
 
 
 namespace OrthancPlugins
@@ -37,15 +36,8 @@ namespace OrthancPlugins
   class DicomWebFormatter : public boost::noncopyable
   {
   private:
-    boost::mutex                     mutex_;
     OrthancPluginDicomWebBinaryMode  mode_;
     std::string                      bulkRoot_;
-
-    static DicomWebFormatter& GetSingleton()
-    {
-      static DicomWebFormatter formatter;
-      return formatter;
-    }
 
     static void Callback(OrthancPluginDicomWebNode *node,
                          OrthancPluginDicomWebSetBinaryNode setter,
@@ -55,30 +47,31 @@ namespace OrthancPlugins
                          const uint32_t *levelIndex,
                          uint16_t tagGroup,
                          uint16_t tagElement,
-                         OrthancPluginValueRepresentation vr);
+                         OrthancPluginValueRepresentation vr,
+                         void* payload);
 
-  public:
-    class Locker : public boost::noncopyable
+    DicomWebFormatter(OrthancPluginDicomWebBinaryMode mode,
+                      const std::string& bulkRoot) :
+      mode_(mode),
+      bulkRoot_(bulkRoot)
     {
-    private:
-      DicomWebFormatter&         that_;
-      boost::mutex::scoped_lock  lock_;
+    }
+    
+  public:
+    static void Apply(std::string& target,
+                      OrthancPluginContext* context,
+                      const void* data,
+                      size_t size,
+                      bool xml,
+                      OrthancPluginDicomWebBinaryMode mode,
+                      const std::string& bulkRoot);
 
-    public:
-      Locker(OrthancPluginDicomWebBinaryMode mode,
-             const std::string& bulkRoot);
-
-      void Apply(std::string& target,
-                 OrthancPluginContext* context,
-                 const void* data,
-                 size_t size,
-                 bool xml);
-
-      void Apply(std::string& target,
-                 OrthancPluginContext* context,
-                 const Json::Value& value,
-                 bool xml);
-    };
+    static void Apply(std::string& target,
+                      OrthancPluginContext* context,
+                      const Json::Value& value,
+                      bool xml,
+                      OrthancPluginDicomWebBinaryMode mode,
+                      const std::string& bulkRoot);
 
     class HttpWriter : public boost::noncopyable
     {

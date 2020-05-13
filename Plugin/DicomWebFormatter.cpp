@@ -47,9 +47,10 @@ namespace OrthancPlugins
                                    const uint32_t *levelIndex,
                                    uint16_t tagGroup,
                                    uint16_t tagElement,
-                                   OrthancPluginValueRepresentation vr)
+                                   OrthancPluginValueRepresentation vr,
+                                   void* payload)
   {
-    const DicomWebFormatter& that = GetSingleton();
+    const DicomWebFormatter& that = *reinterpret_cast<const DicomWebFormatter*>(payload);
 
     switch (that.mode_)
     {
@@ -60,7 +61,7 @@ namespace OrthancPlugins
 
       case OrthancPluginDicomWebBinaryMode_BulkDataUri:
       {
-        std::string uri = GetSingleton().bulkRoot_;
+        std::string uri = that.bulkRoot_;
 
         for (size_t i = 0; i < levelDepth; i++)
         {
@@ -77,31 +78,25 @@ namespace OrthancPlugins
   }
 
 
-  DicomWebFormatter::Locker::Locker(OrthancPluginDicomWebBinaryMode mode,
-                                    const std::string& bulkRoot) :
-    that_(GetSingleton()),
-    lock_(that_.mutex_)
+  void DicomWebFormatter::Apply(std::string& target,
+                                OrthancPluginContext* context,
+                                const void* data,
+                                size_t size,
+                                bool xml,
+                                OrthancPluginDicomWebBinaryMode mode,
+                                const std::string& bulkRoot)
   {
-    that_.mode_ = mode;
-    that_.bulkRoot_ = bulkRoot;
-  }
-
-
-  void DicomWebFormatter::Locker::Apply(std::string& target,
-                                        OrthancPluginContext* context,
-                                        const void* data,
-                                        size_t size,
-                                        bool xml)
-  {
+    DicomWebFormatter payload(mode, bulkRoot);
+    
     OrthancString s;
 
     if (xml)
     {
-      s.Assign(OrthancPluginEncodeDicomWebXml(context, data, size, Callback));
+      s.Assign(OrthancPluginEncodeDicomWebXml2(context, data, size, Callback, &payload));
     }
     else
     {
-      s.Assign(OrthancPluginEncodeDicomWebJson(context, data, size, Callback));
+      s.Assign(OrthancPluginEncodeDicomWebJson2(context, data, size, Callback, &payload));
     }
 
     if (s.GetContent() == NULL)
@@ -116,14 +111,16 @@ namespace OrthancPlugins
   }
 
 
-  void DicomWebFormatter::Locker::Apply(std::string& target,
-                                        OrthancPluginContext* context,
-                                        const Json::Value& value,
-                                        bool xml)
+  void DicomWebFormatter::Apply(std::string& target,
+                                OrthancPluginContext* context,
+                                const Json::Value& value,
+                                bool xml,
+                                OrthancPluginDicomWebBinaryMode mode,
+                                const std::string& bulkRoot)
   {
     MemoryBuffer dicom;
     dicom.CreateDicom(value, OrthancPluginCreateDicomFlags_None);
-    Apply(target, context, dicom.GetData(), dicom.GetSize(), xml);
+    Apply(target, context, dicom.GetData(), dicom.GetSize(), xml, mode, bulkRoot);
   }
 
 
@@ -166,11 +163,8 @@ namespace OrthancPlugins
 
     std::string item;
 
-    {
-      // TODO - Avoid a global mutex => Need to change Orthanc SDK
-      OrthancPlugins::DicomWebFormatter::Locker locker(mode, bulkRoot);
-      locker.Apply(item, context_, dicom, size, isXml_);
-    }
+    OrthancPlugins::DicomWebFormatter::Apply(
+      item, context_, dicom, size, isXml_, mode, bulkRoot);
    
     if (isXml_)
     {
