@@ -1,5 +1,9 @@
 Reference: http://dicom.nema.org/MEDICAL/dicom/2019a/output/html/part18.html
 
+If you need some missing feature as an industrial player, please
+consider hiring the development team from Osimis by filling the
+dedicated form on the Orthanc Web site:
+https://www.orthanc-server.com/orthanc-pro.php
 
 
 =======================================
@@ -103,7 +107,6 @@ Not supported
 * GIF output
 * The following "Retrieve Rendered Query Parameters" (table 6.5.8-2):
   annotation, charset, iccprofile
-* URI "/studies/.../rendered" (only available for series, instances and frames)
 
 
 
@@ -145,6 +148,22 @@ Ignored
 
 * Flag "fuzzymatching"
 * Header "Cache-control"
+
+
+
+===================
+6.8 RS Capabilities
+===================
+
+Not supported.
+
+
+
+===================
+6.9 UPS-RS Worklist
+===================
+
+Not supported.
 
 
 
