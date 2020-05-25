@@ -24,11 +24,10 @@ project(OrthancDicomWeb)
 set(ORTHANC_DICOM_WEB_VERSION "1.1")
 
 if (ORTHANC_DICOM_WEB_VERSION STREQUAL "mainline")
-  # TODO - Switch to "mainline" after "transcoding" is made the new "default"
-  set(ORTHANC_FRAMEWORK_DEFAULT_VERSION "1.6.1")
+  set(ORTHANC_FRAMEWORK_DEFAULT_VERSION "mainline")
   set(ORTHANC_FRAMEWORK_DEFAULT_SOURCE "hg")
 else()
-  set(ORTHANC_FRAMEWORK_DEFAULT_VERSION "1.7.0")
+  set(ORTHANC_FRAMEWORK_DEFAULT_VERSION "1.6.1")
   set(ORTHANC_FRAMEWORK_DEFAULT_SOURCE "web")
 endif()
 
