@@ -12,7 +12,7 @@ import urllib2
 
 TARGET = os.path.join(os.path.dirname(__file__), 'Orthanc')
 PLUGIN_SDK_VERSION = '1.5.7'
-REPOSITORY = 'https://bitbucket.org/sjodogne/orthanc/raw'
+REPOSITORY = 'https://hg.orthanc-server.com/orthanc/raw-file'
 
 FILES = [
     'DownloadOrthancFramework.cmake',
