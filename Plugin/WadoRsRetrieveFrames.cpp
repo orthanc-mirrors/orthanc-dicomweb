@@ -414,18 +414,21 @@ static void AnswerFrames(OrthancPluginRestOutput* output,
 }
 
 
-void RetrieveFrames(OrthancPluginRestOutput* output,
-                    const char* url,
-                    const OrthancPluginHttpRequest* request)
+static void RetrieveFrames(OrthancPluginRestOutput* output,
+                           const OrthancPluginHttpRequest* request,
+                           bool allFrames,
+                           std::list<unsigned int>& frames)
 {
-  std::list<unsigned int> frames;
-  ParseFrameList(frames, request);
-
   std::string orthancId, studyInstanceUid, seriesInstanceUid, sopInstanceUid;
   OrthancPlugins::MemoryBuffer content;
   if (LocateInstance(output, orthancId, studyInstanceUid, seriesInstanceUid, sopInstanceUid, request) &&
       content.RestApiGet("/instances/" + orthancId + "/file", false))
   {
+    if (allFrames)
+    {
+      OrthancPlugins::LogInfo("DICOMweb RetrieveFrames on " + orthancId + ", all frames");
+    }
+    else
     {
       std::string s = "DICOMweb RetrieveFrames on " + orthancId + ", frames: ";
       for (std::list<unsigned int>::const_iterator 
@@ -453,7 +456,40 @@ void RetrieveFrames(OrthancPluginRestOutput* output,
       instance.reset(new OrthancPlugins::DicomInstance(content.GetData(), content.GetSize()));
     }
 
+    if (instance.get() == NULL)
+    {
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_NullPointer);
+    }
+
+    if (allFrames)
+    {
+      frames.clear();
+      for (unsigned int i = 0; i < instance->GetFramesCount(); i++)
+      {
+        frames.push_back(i + 1);  // Frames are numbered starting from 1
+      }
+    }
+
     AnswerFrames(output, request, *instance, studyInstanceUid, seriesInstanceUid,
                  sopInstanceUid, frames, targetSyntax);
   }    
+}
+
+
+void RetrieveAllFrames(OrthancPluginRestOutput* output,
+                       const char* url,
+                       const OrthancPluginHttpRequest* request)
+{
+  std::list<unsigned int> frames;
+  RetrieveFrames(output, request, true, frames);
+}
+
+
+void RetrieveSelectedFrames(OrthancPluginRestOutput* output,
+                            const char* url,
+                            const OrthancPluginHttpRequest* request)
+{
+  std::list<unsigned int> frames;
+  ParseFrameList(frames, request);
+  RetrieveFrames(output, request, false, frames);
 }

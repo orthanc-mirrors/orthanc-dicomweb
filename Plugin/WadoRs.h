@@ -70,9 +70,13 @@ void RetrieveBulkData(OrthancPluginRestOutput* output,
                       const char* url,
                       const OrthancPluginHttpRequest* request);
 
-void RetrieveFrames(OrthancPluginRestOutput* output,
-                    const char* url,
-                    const OrthancPluginHttpRequest* request);
+void RetrieveAllFrames(OrthancPluginRestOutput* output,
+                       const char* url,
+                       const OrthancPluginHttpRequest* request);
+
+void RetrieveSelectedFrames(OrthancPluginRestOutput* output,
+                            const char* url,
+                            const OrthancPluginHttpRequest* request);
 
 void RetrieveInstanceRendered(OrthancPluginRestOutput* output,
                               const char* url,

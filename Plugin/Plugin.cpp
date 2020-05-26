@@ -509,8 +509,8 @@ extern "C"
         OrthancPlugins::RegisterRestCallback<RetrieveBulkData>(root + "studies/([^/]*)/series/([^/]*)/instances/([^/]*)/bulk/(.*)", true);
         OrthancPlugins::RegisterRestCallback<RetrieveInstanceMetadata>(root + "studies/([^/]*)/series/([^/]*)/instances/([^/]*)/metadata", true);
         OrthancPlugins::RegisterRestCallback<RetrieveSeriesMetadata>(root + "studies/([^/]*)/series/([^/]*)/metadata", true);
-        OrthancPlugins::RegisterRestCallback<RetrieveFrames>(root + "studies/([^/]*)/series/([^/]*)/instances/([^/]*)/frames", true);
-        OrthancPlugins::RegisterRestCallback<RetrieveFrames>(root + "studies/([^/]*)/series/([^/]*)/instances/([^/]*)/frames/([^/]*)", true);
+        OrthancPlugins::RegisterRestCallback<RetrieveAllFrames>(root + "studies/([^/]*)/series/([^/]*)/instances/([^/]*)/frames", true);
+        OrthancPlugins::RegisterRestCallback<RetrieveSelectedFrames>(root + "studies/([^/]*)/series/([^/]*)/instances/([^/]*)/frames/([^/]*)", true);
 
         OrthancPlugins::RegisterRestCallback<ListServers>(root + "servers", true);
         OrthancPlugins::RegisterRestCallback<ListServerOperations>(root + "servers/([^/]*)", true);
