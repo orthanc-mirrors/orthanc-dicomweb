@@ -11,7 +11,7 @@ import stat
 import urllib2
 
 TARGET = os.path.join(os.path.dirname(__file__), 'Orthanc')
-PLUGIN_SDK_VERSION = '1.5.7'
+PLUGIN_SDK_VERSION = '1.7.0'
 REPOSITORY = 'https://hg.orthanc-server.com/orthanc/raw-file'
 
 FILES = [

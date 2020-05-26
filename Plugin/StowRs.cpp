@@ -191,10 +191,8 @@ namespace OrthancPlugins
     
     std::string answer;
     
-    {
-      DicomWebFormatter::Locker locker(OrthancPluginDicomWebBinaryMode_Ignore, "");
-      locker.Apply(answer, context_, result_, xml_);
-    }
+    DicomWebFormatter::Apply(answer, context_, result_, xml_,
+                             OrthancPluginDicomWebBinaryMode_Ignore, "");
       
     OrthancPluginAnswerBuffer(context_, output, answer.c_str(), answer.size(),
                               xml_ ? "application/dicom+xml" : "application/dicom+json");

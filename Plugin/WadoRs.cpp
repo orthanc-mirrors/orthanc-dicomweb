@@ -692,9 +692,9 @@ static void WriteInstanceMetadata(OrthancPlugins::DicomWebFormatter::HttpWriter&
       std::string dicomweb;
       {
         // TODO - Avoid a global mutex => Need to change Orthanc SDK
-        OrthancPlugins::DicomWebFormatter::Locker locker(OrthancPluginDicomWebBinaryMode_Ignore, "");
-        locker.Apply(dicomweb, OrthancPlugins::GetGlobalContext(),
-                     buffer.GetData(), buffer.GetSize(), false /* JSON */);
+        OrthancPlugins::DicomWebFormatter::Apply(
+          dicomweb, OrthancPlugins::GetGlobalContext(), buffer.GetData(), buffer.GetSize(),
+          false /* JSON */, OrthancPluginDicomWebBinaryMode_Ignore, "");
       }
 
       buffer.RestApiPut("/instances/" + orthancId + "/attachments/4444", dicomweb, false);

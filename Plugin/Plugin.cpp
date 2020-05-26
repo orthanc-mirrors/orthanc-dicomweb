@@ -20,7 +20,6 @@
 
 #include "DicomWebClient.h"
 #include "DicomWebServers.h"
-#include "GdcmParsedDicomFile.h"
 #include "QidoRs.h"
 #include "StowRs.h"
 #include "WadoRs.h"
@@ -482,9 +481,6 @@ extern "C"
     {
       // Read the configuration
       OrthancPlugins::Configuration::Initialize();
-
-      // Initialize GDCM
-      OrthancPlugins::GdcmParsedDicomFile::Initialize();
 
       // Configure the DICOMweb callbacks
       if (OrthancPlugins::Configuration::GetBooleanValue("Enable", true))
