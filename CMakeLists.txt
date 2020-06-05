@@ -52,8 +52,6 @@ set(BUILD_BABEL_POLYFILL OFF CACHE BOOL "Retrieve babel-polyfill from npm")
 
 # Download and setup the Orthanc framework
 include(${CMAKE_SOURCE_DIR}/Resources/Orthanc/DownloadOrthancFramework.cmake)
-
-set(ORTHANC_FRAMEWORK_PLUGIN ON)
 include(${ORTHANC_ROOT}/Resources/CMake/OrthancFrameworkParameters.cmake)
 
 set(ENABLE_LOCALE ON)         # Enable support for locales (notably in Boost)
@@ -138,6 +136,7 @@ include_directories(${ORTHANC_ROOT}/Core)  # To access "OrthancException.h"
 add_definitions(
   -DHAS_ORTHANC_EXCEPTION=1
   -DORTHANC_ENABLE_LOGGING_PLUGIN=1
+  -DORTHANC_FRAMEWORK_BUILDING_PLUGIN=1
   -DDICOMWEB_CLIENT_PATH="${CMAKE_SOURCE_DIR}/WebApplication/"
   )
 
