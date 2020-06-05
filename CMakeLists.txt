@@ -136,7 +136,6 @@ include_directories(${ORTHANC_ROOT}/Core)  # To access "OrthancException.h"
 add_definitions(
   -DHAS_ORTHANC_EXCEPTION=1
   -DORTHANC_ENABLE_LOGGING_PLUGIN=1
-  -DORTHANC_FRAMEWORK_BUILDING_PLUGIN=1
   -DDICOMWEB_CLIENT_PATH="${CMAKE_SOURCE_DIR}/WebApplication/"
   )
 
