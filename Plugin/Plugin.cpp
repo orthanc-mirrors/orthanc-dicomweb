@@ -455,7 +455,7 @@ extern "C"
     assert(DisplayPerformanceWarning(context));
 
     OrthancPlugins::SetGlobalContext(context);
-    Orthanc::Logging::Initialize(context);
+    Orthanc::Logging::InitializePluginContext(context);
 
     /* Check the version of the Orthanc core */
     if (OrthancPluginCheckVersion(context) == 0)
