@@ -21,8 +21,8 @@
 
 #pragma once
 
-#include <Core/ChunkedBuffer.h>
-#include <Core/DicomFormat/DicomMap.h>
+#include <ChunkedBuffer.h>
+#include <DicomFormat/DicomMap.h>
 
 #include <orthanc/OrthancCPlugin.h>
 

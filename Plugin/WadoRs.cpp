@@ -22,13 +22,10 @@
 #include "Configuration.h"
 #include "DicomWebFormatter.h"
 
-#include <Core/ChunkedBuffer.h>
-#include <Core/Toolbox.h>
-#include <Plugins/Samples/Common/OrthancPluginCppWrapper.h>
-
-
-#include <Core/DicomFormat/DicomArray.h>  // TODO - remove
-
+#include <Compatibility.h>
+#include <ChunkedBuffer.h>
+#include <Toolbox.h>
+#include <OrthancPluginCppWrapper.h>
 
 #include <memory>
 
@@ -291,7 +288,7 @@ namespace
       
       if (OrthancPlugins::RestApiGet(dicomAsJson, "/instances/" + publicId + "/tags", false))
       {
-        std::auto_ptr<Orthanc::DicomMap> instance(new Orthanc::DicomMap);
+        std::unique_ptr<Orthanc::DicomMap> instance(new Orthanc::DicomMap);
         instance->FromDicomAsJson(dicomAsJson);
         instances_.push_back(instance.release());
         
@@ -561,7 +558,7 @@ namespace
       
       if (found == content_.end())
       {
-        std::auto_ptr<Info> info(new Info);
+        std::unique_ptr<Info> info(new Info);
         if (!ReadResource(info->dicom_, info->parent_, mode, orthancId, level))
         {
           return false;

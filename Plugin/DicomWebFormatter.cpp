@@ -21,7 +21,7 @@
 
 #include "DicomWebFormatter.h"
 
-#include <Plugins/Samples/Common/OrthancPluginCppWrapper.h>
+#include <OrthancPluginCppWrapper.h>
 
 #if !defined(NDEBUG)
 #  include <json/reader.h>

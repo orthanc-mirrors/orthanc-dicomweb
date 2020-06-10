@@ -23,8 +23,9 @@
 
 #include "DicomWebServers.h"
 
-#include <Plugins/Samples/Common/OrthancPluginCppWrapper.h>
-#include <Core/Toolbox.h>
+#include <Compatibility.h>
+#include <OrthancPluginCppWrapper.h>
+#include <Toolbox.h>
 
 #include <fstream>
 #include <json/reader.h>
@@ -288,7 +289,7 @@ namespace OrthancPlugins
   {
     // Assume Latin-1 encoding by default (as in the Orthanc core)
     static Orthanc::Encoding defaultEncoding_ = Orthanc::Encoding_Latin1;
-    static std::auto_ptr<OrthancConfiguration> configuration_;
+    static std::unique_ptr<OrthancConfiguration> configuration_;
 
 
     void Initialize()

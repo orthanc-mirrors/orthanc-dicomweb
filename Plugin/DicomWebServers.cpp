@@ -23,7 +23,8 @@
 
 #include "Configuration.h"
 
-#include <Core/Toolbox.h>
+#include <Compatibility.h>
+#include <Toolbox.h>
 
 #include <boost/algorithm/string/predicate.hpp>
 
@@ -58,7 +59,7 @@ namespace OrthancPlugins
 
         for (size_t i = 0; i < members.size(); i++)
         {
-          std::auto_ptr<Orthanc::WebServiceParameters> parameters
+          std::unique_ptr<Orthanc::WebServiceParameters> parameters
             (new Orthanc::WebServiceParameters(servers[members[i]]));
 
           servers_[members[i]] = parameters.release();

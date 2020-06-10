@@ -35,7 +35,7 @@ endif()
 # Parameters of the build
 set(STATIC_BUILD OFF CACHE BOOL "Static build of the third-party libraries (necessary for Windows)")
 set(ALLOW_DOWNLOADS OFF CACHE BOOL "Allow CMake to download packages")
-set(ORTHANC_FRAMEWORK_SOURCE "${ORTHANC_FRAMEWORK_DEFAULT_SOURCE}" CACHE STRING "Source of the Orthanc framework (can be \"hg\", \"archive\", \"web\" or \"path\")")
+set(ORTHANC_FRAMEWORK_SOURCE "${ORTHANC_FRAMEWORK_DEFAULT_SOURCE}" CACHE STRING "Source of the Orthanc framework (can be \"system\", \"hg\", \"archive\", \"web\" or \"path\")")
 set(ORTHANC_FRAMEWORK_VERSION "${ORTHANC_FRAMEWORK_DEFAULT_VERSION}" CACHE STRING "Version of the Orthanc framework")
 set(ORTHANC_FRAMEWORK_ARCHIVE "" CACHE STRING "Path to the Orthanc archive, if ORTHANC_FRAMEWORK_SOURCE is \"archive\"")
 set(ORTHANC_FRAMEWORK_ROOT "" CACHE STRING "Path to the Orthanc source directory, if ORTHANC_FRAMEWORK_SOURCE is \"path\"")
@@ -50,19 +50,47 @@ set(BUILD_BABEL_POLYFILL OFF CACHE BOOL "Retrieve babel-polyfill from npm")
 
 
 
+set(ENABLE_PLUGINS_VERSION_SCRIPT OFF)
+if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux" OR
+    ${CMAKE_SYSTEM_NAME} STREQUAL "kFreeBSD" OR
+    ${CMAKE_SYSTEM_NAME} STREQUAL "FreeBSD" OR
+    ${CMAKE_SYSTEM_NAME} STREQUAL "OpenBSD")
+  set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--version-script=${CMAKE_SOURCE_DIR}/Resources/Orthanc/Plugins/VersionScript.map")
+endif()
+
+
 # Download and setup the Orthanc framework
-include(${CMAKE_SOURCE_DIR}/Resources/Orthanc/DownloadOrthancFramework.cmake)
-include(${ORTHANC_ROOT}/Resources/CMake/OrthancFrameworkParameters.cmake)
+include(${CMAKE_SOURCE_DIR}/Resources/Orthanc/CMake/DownloadOrthancFramework.cmake)
 
-set(ENABLE_LOCALE ON)         # Enable support for locales (notably in Boost)
-set(ENABLE_GOOGLE_TEST ON)
-set(ENABLE_PUGIXML ON)
-set(ENABLE_MODULE_JOBS OFF)
-set(HAS_EMBEDDED_RESOURCES ON)
-set(USE_BOOST_ICONV ON)
 
-include(${ORTHANC_ROOT}/Resources/CMake/OrthancFrameworkConfiguration.cmake)
-include_directories(${ORTHANC_ROOT})
+if (ORTHANC_FRAMEWORK_SOURCE STREQUAL "system")
+  set(USE_SYSTEM_GOOGLE_TEST ON CACHE BOOL "Use the system version of Google Test")
+  set(USE_GOOGLE_TEST_DEBIAN_PACKAGE OFF CACHE BOOL "Use the sources of Google Test shipped with libgtest-dev (Debian only)")
+  mark_as_advanced(USE_GOOGLE_TEST_DEBIAN_PACKAGE)
+  include(${CMAKE_SOURCE_DIR}/Resources/Orthanc/CMake/GoogleTestConfiguration.cmake)
+
+  include_directories(
+    ${CMAKE_SOURCE_DIR}/Resources/Orthanc/
+    )
+  link_libraries(OrthancFramework)
+else()
+  include(${ORTHANC_ROOT}/Resources/CMake/OrthancFrameworkParameters.cmake)
+
+  set(ENABLE_LOCALE ON)         # Enable support for locales (notably in Boost)
+  set(ENABLE_GOOGLE_TEST ON)
+  set(ENABLE_PUGIXML ON)
+  set(ENABLE_MODULE_JOBS OFF)
+  set(HAS_EMBEDDED_RESOURCES ON)
+  set(USE_BOOST_ICONV ON)
+  
+  include(${ORTHANC_ROOT}/Resources/CMake/OrthancFrameworkConfiguration.cmake)
+  include_directories(${ORTHANC_ROOT}/Core)
+endif()
+
+
+include_directories(
+  ${CMAKE_SOURCE_DIR}/Resources/Orthanc/Plugins/
+  )
 
 include(${CMAKE_SOURCE_DIR}/Resources/CMake/JavaScriptLibraries.cmake)
 
@@ -141,8 +169,6 @@ add_custom_target(
   )
 
 
-include_directories(${ORTHANC_ROOT}/Core)  # To access "OrthancException.h"
-
 add_definitions(
   -DHAS_ORTHANC_EXCEPTION=1
   -DORTHANC_ENABLE_LOGGING_PLUGIN=1
@@ -152,7 +178,7 @@ add_definitions(
 set(CORE_SOURCES
   Plugin/Configuration.cpp
 
-  ${ORTHANC_ROOT}/Plugins/Samples/Common/OrthancPluginCppWrapper.cpp
+  ${CMAKE_SOURCE_DIR}/Resources/Orthanc/Plugins/OrthancPluginCppWrapper.cpp
   ${ORTHANC_CORE_SOURCES}
   )
 

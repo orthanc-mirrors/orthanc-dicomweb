@@ -1,6 +1,7 @@
 Pending changes in the mainline
 ===============================
 
+* Support of dynamic linking against the Orthanc framework library
 
 
 Version 1.2 (2020-05-26)

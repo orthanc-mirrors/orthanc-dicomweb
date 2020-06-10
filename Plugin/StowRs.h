@@ -21,8 +21,9 @@
 
 #pragma once
 
-#include <Core/HttpServer/MultipartStreamReader.h>
-#include <Plugins/Samples/Common/OrthancPluginCppWrapper.h>
+#include <Compatibility.h>
+#include <HttpServer/MultipartStreamReader.h>
+#include <OrthancPluginCppWrapper.h>
 
 namespace OrthancPlugins
 {
@@ -40,7 +41,7 @@ namespace OrthancPlugins
     Json::Value            success_;
     Json::Value            failed_;
 
-    std::auto_ptr<Orthanc::MultipartStreamReader>  parser_;
+    std::unique_ptr<Orthanc::MultipartStreamReader>  parser_;
 
     virtual void HandlePart(const Orthanc::MultipartStreamReader::HttpHeaders& headers,
                             const void* part,

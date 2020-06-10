@@ -23,15 +23,16 @@
 
 #include "DicomWebServers.h"
 
+#include <Compatibility.h>
+#include <HttpServer/MultipartStreamReader.h>
+#include <ChunkedBuffer.h>
+#include <Toolbox.h>
+#include <OrthancPluginCppWrapper.h>
+
 #include <json/reader.h>
 #include <list>
 #include <set>
 #include <boost/lexical_cast.hpp>
-
-#include <Core/HttpServer/MultipartStreamReader.h>
-#include <Core/ChunkedBuffer.h>
-#include <Core/Toolbox.h>
-#include <Plugins/Samples/Common/OrthancPluginCppWrapper.h>
 
 
 #include <boost/thread.hpp>
@@ -134,7 +135,7 @@ private:
 
   boost::mutex                  mutex_;
   FunctionResult                functionResult_;  // Can only be modified by the "Worker()" function
-  std::auto_ptr<boost::thread>  worker_;
+  std::unique_ptr<boost::thread>  worker_;
   Json::Value                   content_;
   IFunctionFactory*             factory_;
   bool                          stopping_;
@@ -182,7 +183,7 @@ private:
 
     try
     {
-      std::auto_ptr<IFunction> function(factory->CreateFunction());
+      std::unique_ptr<IFunction> function(factory->CreateFunction());
       function->Execute(context);
 
       {
@@ -329,7 +330,7 @@ static void SubmitJob(OrthancPluginRestOutput* output,
                       const Json::Value& body,
                       bool defaultSynchronous)
 {
-  std::auto_ptr<OrthancPlugins::OrthancJob> protection(job);
+  std::unique_ptr<OrthancPlugins::OrthancJob> protection(job);
 
   bool synchronous;
 
@@ -682,8 +683,8 @@ private:
       size_t startPosition;
 
       // The lifetime of "body" should be larger than "client"
-      std::auto_ptr<RequestBody> body;
-      std::auto_ptr<OrthancPlugins::HttpClient> client;
+      std::unique_ptr<RequestBody> body;
+      std::unique_ptr<OrthancPlugins::HttpClient> client;
 
       {
         boost::mutex::scoped_lock lock(that_.mutex_);
@@ -839,7 +840,7 @@ void StowClient(OrthancPluginRestOutput* output,
   OrthancPlugins::LogInfo("Sending " + boost::lexical_cast<std::string>(instances.size()) +
                           " instances using STOW-RS to DICOMweb server: " + serverName);
 
-  std::auto_ptr<StowClientJob> job(new StowClientJob(serverName, instances, httpHeaders));
+  std::unique_ptr<StowClientJob> job(new StowClientJob(serverName, instances, httpHeaders));
 
   bool debug;
   if (OrthancPlugins::LookupBooleanValue(debug, body, "Debug"))
@@ -980,7 +981,7 @@ private:
   boost::mutex                                   mutex_;
   State                                          state_;
   std::list<std::string>                         instances_;
-  std::auto_ptr<Orthanc::MultipartStreamReader>  reader_;
+  std::unique_ptr<Orthanc::MultipartStreamReader>  reader_;
   uint64_t                                       networkSize_;
 
   virtual void HandlePart(const Orthanc::MultipartStreamReader::HttpHeaders& headers,
@@ -1228,7 +1229,7 @@ private:
   std::vector<Resource*>  resources_;
   bool                    stopped_;
   std::list<std::string>  retrievedInstances_;
-  std::auto_ptr<WadoRetrieveAnswer>  answer_;
+  std::unique_ptr<WadoRetrieveAnswer>  answer_;
   uint64_t                networkSize_;
   bool                    debug_;
 
@@ -1442,7 +1443,7 @@ void WadoRetrieveClient(OrthancPluginRestOutput* output,
   Json::Value body;
   OrthancPlugins::ParseJsonBody(body, request);
 
-  std::auto_ptr<WadoRetrieveJob>  job(new WadoRetrieveJob(serverName));
+  std::unique_ptr<WadoRetrieveJob>  job(new WadoRetrieveJob(serverName));
   job->AddResourceFromRequest(body);
 
   bool debug;
@@ -1488,7 +1489,7 @@ void RetrieveFromServer(OrthancPluginRestOutput* output,
   std::map<std::string, std::string> additionalHeaders;
   OrthancPlugins::ParseAssociativeArray(additionalHeaders, body, HTTP_HEADERS);
 
-  std::auto_ptr<WadoRetrieveJob> job(new WadoRetrieveJob(serverName));
+  std::unique_ptr<WadoRetrieveJob> job(new WadoRetrieveJob(serverName));
 
   if (body.type() != Json::objectValue ||
       !body.isMember(RESOURCES) ||

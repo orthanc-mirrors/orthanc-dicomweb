@@ -171,7 +171,7 @@ file(COPY
   )
 
 file(COPY
-  ${ORTHANC_ROOT}/Resources/OrthancLogo.png
+  ${CMAKE_CURRENT_LIST_DIR}/../Orthanc/OrthancLogo.png
   DESTINATION
   ${JAVASCRIPT_LIBS_DIR}/img
   )

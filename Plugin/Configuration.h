@@ -21,8 +21,8 @@
 
 #pragma once
 
-#include <Core/DicomFormat/DicomTag.h>
-#include <Core/Enumerations.h>
+#include <DicomFormat/DicomTag.h>
+#include <Enumerations.h>
 
 #include <orthanc/OrthancCPlugin.h>
 #include <json/value.h>

@@ -25,9 +25,9 @@
 #include "WadoRs.h"
 #include "WadoUri.h"
 
-#include <Plugins/Samples/Common/OrthancPluginCppWrapper.h>
-#include <Core/SystemToolbox.h>
-#include <Core/Toolbox.h>
+#include <OrthancPluginCppWrapper.h>
+#include <SystemToolbox.h>
+#include <Toolbox.h>
 
 #include <EmbeddedResources.h>
 

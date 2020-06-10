@@ -20,8 +20,8 @@
 
 #pragma once
 
-#include <Core/WebServiceParameters.h>
-#include <Plugins/Samples/Common/OrthancPluginCppWrapper.h>
+#include <WebServiceParameters.h>
+#include <OrthancPluginCppWrapper.h>
 
 #include <list>
 #include <string>

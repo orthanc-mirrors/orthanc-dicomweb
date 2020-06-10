@@ -24,10 +24,10 @@
 #include "Configuration.h"
 #include "DicomWebFormatter.h"
 
-#include <Core/DicomFormat/DicomMap.h>
-#include <Core/DicomFormat/DicomTag.h>
-#include <Core/Toolbox.h>
-#include <Plugins/Samples/Common/OrthancPluginCppWrapper.h>
+#include <DicomFormat/DicomMap.h>
+#include <DicomFormat/DicomTag.h>
+#include <Toolbox.h>
+#include <OrthancPluginCppWrapper.h>
 
 #include <list>
 #include <boost/lexical_cast.hpp>
