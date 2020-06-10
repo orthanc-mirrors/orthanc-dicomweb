@@ -60,20 +60,16 @@ endif()
 
 
 # Download and setup the Orthanc framework
-include(${CMAKE_SOURCE_DIR}/Resources/Orthanc/CMake/DownloadOrthancFramework.cmake)
-
-
 if (ORTHANC_FRAMEWORK_SOURCE STREQUAL "system")
-  set(USE_SYSTEM_GOOGLE_TEST ON CACHE BOOL "Use the system version of Google Test")
-  set(USE_GOOGLE_TEST_DEBIAN_PACKAGE OFF CACHE BOOL "Use the sources of Google Test shipped with libgtest-dev (Debian only)")
-  mark_as_advanced(USE_GOOGLE_TEST_DEBIAN_PACKAGE)
-  include(${CMAKE_SOURCE_DIR}/Resources/Orthanc/CMake/GoogleTestConfiguration.cmake)
+  set(ENABLE_GOOGLE_TEST ON)
+  include(${CMAKE_SOURCE_DIR}/Resources/Orthanc/CMake/DownloadOrthancFramework.cmake)
 
   include_directories(
     ${CMAKE_SOURCE_DIR}/Resources/Orthanc/
     )
   link_libraries(OrthancFramework)
 else()
+  include(${CMAKE_SOURCE_DIR}/Resources/Orthanc/CMake/DownloadOrthancFramework.cmake)
   include(${ORTHANC_ROOT}/Resources/CMake/OrthancFrameworkParameters.cmake)
 
   set(ENABLE_LOCALE ON)         # Enable support for locales (notably in Boost)
