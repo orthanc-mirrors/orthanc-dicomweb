@@ -225,7 +225,8 @@ static void AnswerListOfDicomInstances(OrthancPluginRestOutput* output,
                                        const std::string& publicId)
 {
   if (level != Orthanc::ResourceType_Study &&
-      level != Orthanc::ResourceType_Series)
+      level != Orthanc::ResourceType_Series &&
+      level != Orthanc::ResourceType_Instance)
   {
     throw Orthanc::OrthancException(Orthanc::ErrorCode_ParameterOutOfRange);
   }
@@ -233,11 +234,23 @@ static void AnswerListOfDicomInstances(OrthancPluginRestOutput* output,
   OrthancPluginContext* context = OrthancPlugins::GetGlobalContext();
 
   Json::Value instances;
-  if (!OrthancPlugins::RestApiGet(instances, GetResourceUri(level, publicId) + "/instances", false))
+
+  if (level == Orthanc::ResourceType_Instance)
   {
-    // Internal error
-    OrthancPluginSendHttpStatusCode(context, output, 400);
-    return;
+    Json::Value tmp = Json::objectValue;
+    tmp["ID"] = publicId;
+    
+    instances = Json::arrayValue;
+    instances.append(tmp);
+  }
+  else
+  {
+    if (!OrthancPlugins::RestApiGet(instances, GetResourceUri(level, publicId) + "/instances", false))
+    {
+      // Internal error
+      OrthancPluginSendHttpStatusCode(context, output, 400);
+      return;
+    }
   }
 
   if (OrthancPluginStartMultipartAnswer(context, output, "related", "application/dicom"))
@@ -904,17 +917,7 @@ void RetrieveDicomInstance(OrthancPluginRestOutput* output,
     std::string orthancId, studyInstanceUid, seriesInstanceUid, sopInstanceUid;
     if (LocateInstance(output, orthancId, studyInstanceUid, seriesInstanceUid, sopInstanceUid, request))
     {
-      if (OrthancPluginStartMultipartAnswer(context, output, "related", "application/dicom"))
-      {
-        throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);
-      }
-
-      OrthancPlugins::MemoryBuffer dicom;
-      if (dicom.RestApiGet("/instances/" + orthancId + "/file", false) &&
-          OrthancPluginSendMultipartItem(context, output, dicom.GetData(), dicom.GetSize()) != 0)
-      {
-        throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);
-      }
+      AnswerListOfDicomInstances(output, Orthanc::ResourceType_Instance, orthancId);
     }
   }
 }

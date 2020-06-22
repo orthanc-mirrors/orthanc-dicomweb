@@ -120,9 +120,14 @@ static bool ParseTransferSyntax(Orthanc::DicomTransferSyntax& syntax,
           syntax = Orthanc::DicomTransferSyntax_LittleEndianImplicit;
           return true;
         }
+        else if (transferSyntax == "1.2.840.10008.1.2.2")  // New in 1.3
+        {
+          syntax = Orthanc::DicomTransferSyntax_BigEndianExplicit;
+          return false;
+        }        
         else if (transferSyntax == "*")
         {
-          // New in DICOMweb plugin 1.1.0
+          // New in DICOMweb plugin 1.1
           return false;
         }
         else
