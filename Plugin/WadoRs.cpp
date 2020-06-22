@@ -57,7 +57,7 @@ static std::string GetResourceUri(Orthanc::ResourceType level,
 
 
 static bool AcceptMultipartDicom(bool& transcode,
-                                 Orthanc::DicomTransferSyntax& transferSyntax /* only if transcoding */,
+                                 Orthanc::DicomTransferSyntax& targetSyntax /* only if transcoding */,
                                  const OrthancPluginHttpRequest* request)
 {
   transcode = false;
@@ -106,9 +106,13 @@ static bool AcceptMultipartDicom(bool& transcode,
     }
     else
     {
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest,
-                                      "This WADO-RS plugin cannot change the transfer syntax to " + 
-                                      found->second);
+      transcode = true;
+
+      if (!Orthanc::LookupTransferSyntax(targetSyntax, found->second))
+      {
+        throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest,
+                                        "Unsupported transfer syntax in WADO-RS: " + found->second);
+      }
     }
   }
 
@@ -234,7 +238,7 @@ static void AnswerListOfDicomInstances(OrthancPluginRestOutput* output,
                                        Orthanc::ResourceType level,
                                        const std::string& publicId,
                                        bool transcode,
-                                       Orthanc::DicomTransferSyntax transferSyntax /* only if transcoding */)
+                                       Orthanc::DicomTransferSyntax targetSyntax /* only if transcoding */)
 {
   if (level != Orthanc::ResourceType_Study &&
       level != Orthanc::ResourceType_Series &&
@@ -277,14 +281,27 @@ static void AnswerListOfDicomInstances(OrthancPluginRestOutput* output,
     OrthancPlugins::MemoryBuffer dicom;
     if (dicom.RestApiGet(uri, false))
     {
-      if (!
-        OrthancPluginSendMultipartItem(context, output, dicom.GetData(), dicom.GetSize()) != 0)
-    {
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
-    }
+      if (transcode)
+      {
+        std::unique_ptr<OrthancPlugins::DicomInstance> transcoded(
+          OrthancPlugins::DicomInstance::Transcode(
+            dicom.GetData(), dicom.GetSize(), Orthanc::GetTransferSyntaxUid(targetSyntax)));
 
-      /*instance.reset(OrthancPlugins::DicomInstance::Transcode(
-        content.GetData(), content.GetSize(), GetTransferSyntaxUid(targetSyntax)));*/
+        if (OrthancPluginSendMultipartItem(
+              context, output, reinterpret_cast<const char*>(transcoded->GetBuffer()),
+              transcoded->GetSize()) != 0)
+        {
+          throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
+        }
+      }
+      else
+      {
+        if (OrthancPluginSendMultipartItem(context, output, dicom.GetData(), dicom.GetSize()) != 0)
+        {
+          throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
+        }
+      }
+    }
   }
 }
 
@@ -885,9 +902,9 @@ void RetrieveDicomStudy(OrthancPluginRestOutput* output,
                         const OrthancPluginHttpRequest* request)
 {
   bool transcode;
-  Orthanc::DicomTransferSyntax transferSyntax;
+  Orthanc::DicomTransferSyntax targetSyntax;
   
-  if (!AcceptMultipartDicom(transcode, transferSyntax, request))
+  if (!AcceptMultipartDicom(transcode, targetSyntax, request))
   {
     OrthancPluginSendHttpStatusCode(OrthancPlugins::GetGlobalContext(), output, 400 /* Bad request */);
   }
@@ -896,7 +913,7 @@ void RetrieveDicomStudy(OrthancPluginRestOutput* output,
     std::string orthancId, studyInstanceUid;
     if (LocateStudy(output, orthancId, studyInstanceUid, request))
     {
-      AnswerListOfDicomInstances(output, Orthanc::ResourceType_Study, orthancId, transcode, transferSyntax);
+      AnswerListOfDicomInstances(output, Orthanc::ResourceType_Study, orthancId, transcode, targetSyntax);
     }
   }
 }
@@ -907,9 +924,9 @@ void RetrieveDicomSeries(OrthancPluginRestOutput* output,
                          const OrthancPluginHttpRequest* request)
 {
   bool transcode;
-  Orthanc::DicomTransferSyntax transferSyntax;
+  Orthanc::DicomTransferSyntax targetSyntax;
   
-  if (!AcceptMultipartDicom(transcode, transferSyntax, request))
+  if (!AcceptMultipartDicom(transcode, targetSyntax, request))
   {
     OrthancPluginSendHttpStatusCode(OrthancPlugins::GetGlobalContext(), output, 400 /* Bad request */);
   }
@@ -918,7 +935,7 @@ void RetrieveDicomSeries(OrthancPluginRestOutput* output,
     std::string orthancId, studyInstanceUid, seriesInstanceUid;
     if (LocateSeries(output, orthancId, studyInstanceUid, seriesInstanceUid, request))
     {
-      AnswerListOfDicomInstances(output, Orthanc::ResourceType_Series, orthancId, transcode, transferSyntax);
+      AnswerListOfDicomInstances(output, Orthanc::ResourceType_Series, orthancId, transcode, targetSyntax);
     }
   }
 }
@@ -930,9 +947,9 @@ void RetrieveDicomInstance(OrthancPluginRestOutput* output,
                            const OrthancPluginHttpRequest* request)
 {
   bool transcode;
-  Orthanc::DicomTransferSyntax transferSyntax;
+  Orthanc::DicomTransferSyntax targetSyntax;
   
-  if (!AcceptMultipartDicom(transcode, transferSyntax, request))
+  if (!AcceptMultipartDicom(transcode, targetSyntax, request))
   {
     OrthancPluginSendHttpStatusCode(OrthancPlugins::GetGlobalContext(), output, 400 /* Bad request */);
   }
@@ -941,7 +958,7 @@ void RetrieveDicomInstance(OrthancPluginRestOutput* output,
     std::string orthancId, studyInstanceUid, seriesInstanceUid, sopInstanceUid;
     if (LocateInstance(output, orthancId, studyInstanceUid, seriesInstanceUid, sopInstanceUid, request))
     {
-      AnswerListOfDicomInstances(output, Orthanc::ResourceType_Instance, orthancId, transcode, transferSyntax);
+      AnswerListOfDicomInstances(output, Orthanc::ResourceType_Instance, orthancId, transcode, targetSyntax);
     }
   }
 }

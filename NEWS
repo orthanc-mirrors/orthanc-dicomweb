@@ -1,6 +1,7 @@
 Pending changes in the mainline
 ===============================
 
+* Support transcoding in WADO-RS RetrieveStudy, RetrieveSeries and RetrieveInstance
 * Support of dynamic linking against the Orthanc framework library
 
 
