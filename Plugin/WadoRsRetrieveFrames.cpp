@@ -454,6 +454,11 @@ static void RetrieveFrames(OrthancPluginRestOutput* output,
     else
     {
       instance.reset(new OrthancPlugins::DicomInstance(content.GetData(), content.GetSize()));
+      if (!Orthanc::LookupTransferSyntax(targetSyntax, instance->GetTransferSyntaxUid()))
+      {
+        throw Orthanc::OrthancException(Orthanc::ErrorCode_NotImplemented,
+                                        "Unknown transfer syntax: " + targetSyntax);
+      }
     }
 
     if (instance.get() == NULL)
