@@ -3,6 +3,7 @@ Pending changes in the mainline
 
 * Support transcoding in WADO-RS RetrieveStudy, RetrieveSeries and RetrieveInstance
 * Support of dynamic linking against the Orthanc framework library
+* Fix ".../rendered" on MONOCHROME1 images
 
 
 Version 1.2 (2020-05-26)

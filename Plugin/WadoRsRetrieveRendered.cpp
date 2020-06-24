@@ -598,7 +598,8 @@ static void ApplyWindowing(Orthanc::ImageAccessor& target,
 
 static void ApplyRendering(Orthanc::ImageAccessor& target,
                            const Orthanc::ImageAccessor& source,
-                           const RenderingParameters& parameters)
+                           const RenderingParameters& parameters,
+                           bool invert)
 {
   Orthanc::ImageProcessing::Set(target, 0);
 
@@ -661,6 +662,10 @@ static void ApplyRendering(Orthanc::ImageAccessor& target,
     Orthanc::ImageProcessing::FlipY(scaled);
   }
 
+  if (invert)
+  {
+    Orthanc::ImageProcessing::Invert(scaled);
+  }
 
   // TODO => Replace what follows with a call to "Orthanc::ImageProcessing::FitSize()"
 
@@ -697,6 +702,7 @@ static void AnswerFrameRendered(OrthancPluginRestOutput* output,
 {
   static const char* const RESCALE_INTERCEPT = "0028,1052";
   static const char* const RESCALE_SLOPE = "0028,1053";
+  static const char* const PHOTOMETRIC_INTERPRETATION = "0028,0004";
 
   Orthanc::MimeType mime = Orthanc::MimeType_Jpeg;  // This is the default in DICOMweb
       
@@ -795,8 +801,22 @@ static void AnswerFrameRendered(OrthancPluginRestOutput* output,
       Orthanc::Image target(targetFormat, parameters.GetTargetWidth(source.GetWidth()),
                             parameters.GetTargetHeight(source.GetHeight()), false);
 
-      ApplyRendering(target, source, parameters);
-          
+      // New in 1.3: Fix for MONOCHROME1 images
+      bool invert = false;
+      if (target.GetFormat() == Orthanc::PixelFormat_Grayscale8 &&
+          tags.isMember(PHOTOMETRIC_INTERPRETATION) &&
+          tags[PHOTOMETRIC_INTERPRETATION].type() == Json::stringValue)
+      {
+        std::string s = tags[PHOTOMETRIC_INTERPRETATION].asString();
+        Orthanc::Toolbox::StripSpaces(s);
+        if (s == "MONOCHROME1")
+        {
+          invert = true;
+        }
+      }
+      
+      ApplyRendering(target, source, parameters, invert);
+
       switch (mime)
       {
         case Orthanc::MimeType_Png:
