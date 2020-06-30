@@ -455,7 +455,12 @@ extern "C"
     assert(DisplayPerformanceWarning(context));
 
     OrthancPlugins::SetGlobalContext(context);
+    
+#if defined(ORTHANC_FRAMEWORK_VERSION_IS_ABOVE)  // This indicates Orthanc framework >= 1.7.2
     Orthanc::Logging::InitializePluginContext(context);
+#else
+    Orthanc::Logging::Initialize(context);
+#endif
 
     /* Check the version of the Orthanc core */
     if (OrthancPluginCheckVersion(context) == 0)
