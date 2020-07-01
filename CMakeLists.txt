@@ -58,7 +58,7 @@ if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux" OR
     ${CMAKE_SYSTEM_NAME} STREQUAL "kFreeBSD" OR
     ${CMAKE_SYSTEM_NAME} STREQUAL "FreeBSD" OR
     ${CMAKE_SYSTEM_NAME} STREQUAL "OpenBSD")
-  set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--version-script=${CMAKE_SOURCE_DIR}/Resources/Orthanc/Plugins/VersionScript.map")
+  set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--version-script=${CMAKE_SOURCE_DIR}/Resources/Orthanc/Plugins/VersionScriptPlugins.map")
 endif()
 
 
@@ -73,7 +73,7 @@ if (ORTHANC_FRAMEWORK_SOURCE STREQUAL "system")
   link_libraries(OrthancFramework)
 else()
   include(${CMAKE_SOURCE_DIR}/Resources/Orthanc/CMake/DownloadOrthancFramework.cmake)
-  include(${ORTHANC_ROOT}/Resources/CMake/OrthancFrameworkParameters.cmake)
+  include(${ORTHANC_FRAMEWORK_ROOT}/Resources/CMake/OrthancFrameworkParameters.cmake)
 
   set(ENABLE_LOCALE ON)         # Enable support for locales (notably in Boost)
   set(ENABLE_GOOGLE_TEST ON)
@@ -82,8 +82,8 @@ else()
   set(HAS_EMBEDDED_RESOURCES ON)
   set(USE_BOOST_ICONV ON)
   
-  include(${ORTHANC_ROOT}/Resources/CMake/OrthancFrameworkConfiguration.cmake)
-  include_directories(${ORTHANC_ROOT}/Core)
+  include(${ORTHANC_FRAMEWORK_ROOT}/Resources/CMake/OrthancFrameworkConfiguration.cmake)
+  include_directories(${ORTHANC_FRAMEWORK_ROOT}/Sources)
 endif()
 
 
@@ -98,7 +98,7 @@ if (STATIC_BUILD OR NOT USE_SYSTEM_ORTHANC_SDK)
   if (ORTHANC_SDK_VERSION STREQUAL "1.7.0")
     include_directories(${CMAKE_SOURCE_DIR}/Resources/Orthanc/Sdk-1.7.0)
   elseif (ORTHANC_SDK_VERSION STREQUAL "framework")
-    include_directories(${ORTHANC_ROOT}/Plugins/Include)
+    include_directories(${ORTHANC_FRAMEWORK_ROOT}/Plugins/Include)
   else()
     message(FATAL_ERROR "Unsupported version of the Orthanc plugin SDK: ${ORTHANC_SDK_VERSION}")
   endif()
@@ -119,7 +119,7 @@ elseif (${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
 
   execute_process(
     COMMAND 
-    ${PYTHON_EXECUTABLE} ${ORTHANC_ROOT}/Resources/WindowsResources.py
+    ${PYTHON_EXECUTABLE} ${ORTHANC_FRAMEWORK_ROOT}/Resources/WindowsResources.py
     ${ORTHANC_DICOM_WEB_VERSION} "DICOMweb plugin" OrthancDicomWeb.dll
     "Plugin to extend Orthanc with the DICOMweb API"
     ERROR_VARIABLE Failure
