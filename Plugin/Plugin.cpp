@@ -18,6 +18,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  **/
 
+#include "../Resources/Orthanc/Plugins/OrthancPluginCppWrapper.h"
 #include "DicomWebClient.h"
 #include "DicomWebServers.h"
 #include "QidoRs.h"
@@ -25,7 +26,6 @@
 #include "WadoRs.h"
 #include "WadoUri.h"
 
-#include <OrthancPluginCppWrapper.h>
 #include <SystemToolbox.h>
 #include <Toolbox.h>
 

@@ -21,9 +21,8 @@
 
 #include "WadoUri.h"
 
+#include "../Resources/Orthanc/Plugins/OrthancPluginCppWrapper.h"
 #include "Configuration.h"
-
-#include <OrthancPluginCppWrapper.h>
 
 #include <string>
 

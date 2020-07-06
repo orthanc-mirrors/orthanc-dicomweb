@@ -21,8 +21,9 @@
 
 #include "WadoRs.h"
 
+#include "../Resources/Orthanc/Plugins/OrthancPluginCppWrapper.h"
+
 #include <Toolbox.h>
-#include <OrthancPluginCppWrapper.h>
 
 #include <memory>
 #include <list>

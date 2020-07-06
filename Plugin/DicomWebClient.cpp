@@ -21,13 +21,13 @@
 
 #include "DicomWebClient.h"
 
+#include "../Resources/Orthanc/Plugins/OrthancPluginCppWrapper.h"
 #include "DicomWebServers.h"
 
 #include <Compatibility.h>
 #include <HttpServer/MultipartStreamReader.h>
 #include <ChunkedBuffer.h>
 #include <Toolbox.h>
-#include <OrthancPluginCppWrapper.h>
 
 #include <json/reader.h>
 #include <list>

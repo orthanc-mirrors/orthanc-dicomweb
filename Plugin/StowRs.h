@@ -21,9 +21,10 @@
 
 #pragma once
 
+#include "../Resources/Orthanc/Plugins/OrthancPluginCppWrapper.h"
+
 #include <Compatibility.h>
 #include <HttpServer/MultipartStreamReader.h>
-#include <OrthancPluginCppWrapper.h>
 
 namespace OrthancPlugins
 {

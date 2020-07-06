@@ -21,10 +21,10 @@
 
 #include "Configuration.h"
 
+#include "../Resources/Orthanc/Plugins/OrthancPluginCppWrapper.h"
 #include "DicomWebServers.h"
 
 #include <Compatibility.h>
-#include <OrthancPluginCppWrapper.h>
 #include <Toolbox.h>
 
 #include <fstream>

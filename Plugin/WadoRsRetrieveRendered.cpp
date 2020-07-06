@@ -20,11 +20,12 @@
 
 #include "WadoRs.h"
 
+#include "../Resources/Orthanc/Plugins/OrthancPluginCppWrapper.h"
+
 #include <Images/Image.h>
 #include <Images/ImageProcessing.h>
 #include <Images/ImageTraits.h>
 #include <Toolbox.h>
-#include <OrthancPluginCppWrapper.h>
 
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/math/special_functions/round.hpp>

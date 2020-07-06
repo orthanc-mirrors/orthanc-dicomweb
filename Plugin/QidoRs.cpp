@@ -21,13 +21,13 @@
 
 #include "QidoRs.h"
 
+#include "../Resources/Orthanc/Plugins/OrthancPluginCppWrapper.h"
 #include "Configuration.h"
 #include "DicomWebFormatter.h"
 
 #include <DicomFormat/DicomMap.h>
 #include <DicomFormat/DicomTag.h>
 #include <Toolbox.h>
-#include <OrthancPluginCppWrapper.h>
 
 #include <list>
 #include <boost/lexical_cast.hpp>
