@@ -71,7 +71,6 @@ else()
   set(ENABLE_GOOGLE_TEST ON)
   set(ENABLE_PUGIXML ON)
   set(ENABLE_MODULE_JOBS OFF)
-  set(HAS_EMBEDDED_RESOURCES ON)
   set(USE_BOOST_ICONV ON)
   
   include(${ORTHANC_FRAMEWORK_ROOT}/Resources/CMake/OrthancFrameworkConfiguration.cmake)
