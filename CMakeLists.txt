@@ -56,10 +56,6 @@ set(BUILD_BABEL_POLYFILL OFF CACHE BOOL "Retrieve babel-polyfill from npm")
 # Download and setup the Orthanc framework
 if (ORTHANC_FRAMEWORK_SOURCE STREQUAL "system")
   include(${CMAKE_SOURCE_DIR}/Resources/Orthanc/CMake/DownloadOrthancFramework.cmake)
-
-  include_directories(
-    ${CMAKE_SOURCE_DIR}/Resources/Orthanc/
-    )
   link_libraries(${ORTHANC_FRAMEWORK_LIBRARIES})
 
   set(USE_SYSTEM_GOOGLE_TEST ON CACHE BOOL "Use the system version of Google Test")
