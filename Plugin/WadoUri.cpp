@@ -169,54 +169,50 @@ static void AnswerDicom(OrthancPluginRestOutput* output,
 }
 
 
-static bool RetrievePngPreview(OrthancPlugins::MemoryBuffer& png,
-                               const std::string& instance)
+static void AnswerPreview(OrthancPluginRestOutput* output,
+                          const std::string& instance,
+                          const std::map<std::string, std::string>& httpHeaders)
 {
-  std::string uri = "/instances/" + instance + "/preview";
+  /**
+   * (*) We can use "/rendered" that was introduced in the REST API of
+   * Orthanc 1.6.0, as since release 1.2 of the DICOMweb plugin, the
+   * minimal SDK version is Orthanc 1.7.0 (in order to be able to use
+   * transcoding primitives). In releases <= 1.2, "/preview" was used,
+   * which caused one issue:
+   * https://groups.google.com/d/msg/orthanc-users/mKgr2QAKTCU/R7u4I1LvBAAJ
+   **/
+  const std::string uri = "/instances/" + instance + "/rendered";
 
-  if (png.RestApiGet(uri, true))
+  OrthancPluginContext* context = OrthancPlugins::GetGlobalContext();
+
+  OrthancPlugins::MemoryBuffer png;
+  if (png.RestApiGet(uri, httpHeaders, true))
   {
-    return true;
+    OrthancPluginAnswerBuffer(context, output, png.GetData(), png.GetSize(), "image/png");
   }
   else
   {
     OrthancPlugins::LogError("WADO-URI: Unable to generate a preview image for " + uri);
-    return false;
+    throw Orthanc::OrthancException(Orthanc::ErrorCode_Plugin);
   }
 }
 
 
 static void AnswerPngPreview(OrthancPluginRestOutput* output,
-                             const std::string& instance)
+                              const std::string& instance)
 {
-  OrthancPluginContext* context = OrthancPlugins::GetGlobalContext();
-
-  OrthancPlugins::MemoryBuffer png;
-  if (RetrievePngPreview(png, instance))
-  {
-    OrthancPluginAnswerBuffer(context, output, 
-                              png.GetData(), png.GetSize(), "image/png");
-  }
-  else
-  {
-    throw Orthanc::OrthancException(Orthanc::ErrorCode_Plugin);
-  }
+  std::map<std::string, std::string> httpHeaders;
+  httpHeaders["Accept"] = "image/png";
+  AnswerPreview(output, instance, httpHeaders);
 }
 
 
 static void AnswerJpegPreview(OrthancPluginRestOutput* output,
                               const std::string& instance)
 {
-  // Retrieve the preview in the PNG format
-  OrthancPlugins::MemoryBuffer png;
-  if (!RetrievePngPreview(png, instance))
-  {
-    throw Orthanc::OrthancException(Orthanc::ErrorCode_Plugin);
-  }
-  
-  OrthancPlugins::OrthancImage image;
-  image.UncompressPngImage(png.GetData(), png.GetSize());
-  image.AnswerJpegImage(output, 90 /* quality */);
+  std::map<std::string, std::string> httpHeaders;
+  httpHeaders["Accept"] = "image/jpeg";
+  AnswerPreview(output, instance, httpHeaders);
 }
 
 

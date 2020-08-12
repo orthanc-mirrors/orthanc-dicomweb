@@ -843,10 +843,19 @@ static void AnswerFrameRendered(OrthancPluginRestOutput* output,
     std::map<std::string, std::string> headers;
     headers["Accept"] = Orthanc::EnumerationToString(mime);
 
-    // In DICOMweb, the "frame" parameter is in the range [1..N],
-    // whereas Orthanc uses range [0..N-1], hence the "-1" below.
+    /**
+     * (1) In DICOMweb, the "frame" parameter is in the range [1..N],
+     * whereas Orthanc uses range [0..N-1], hence the "-1" below.
+     * 
+     * (2) We can use "/rendered" that was introduced in the REST API
+     * of Orthanc 1.6.0, as since release 1.2 of the DICOMweb plugin,
+     * the minimal SDK version is Orthanc 1.7.0 (in order to be able
+     * to use transcoding primitives). In releases <= 1.2, "/preview"
+     * was used, which caused one issue:
+     * https://groups.google.com/d/msg/orthanc-users/mKgr2QAKTCU/R7u4I1LvBAAJ
+     **/
     if (buffer.RestApiGet("/instances/" + instanceId + "/frames/" +
-                          boost::lexical_cast<std::string>(frame - 1) + "/preview", headers, false))
+                          boost::lexical_cast<std::string>(frame - 1) + "/rendered", headers, false))
     {
       OrthancPluginAnswerBuffer(OrthancPlugins::GetGlobalContext(), output, buffer.GetData(),
                                 buffer.GetSize(), Orthanc::EnumerationToString(mime));
