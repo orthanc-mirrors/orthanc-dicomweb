@@ -626,6 +626,14 @@ static void ApplyRendering(Orthanc::ImageAccessor& target,
     {
       switch (source.GetFormat())
       {
+        case Orthanc::PixelFormat_Grayscale8:
+          ApplyWindowing<Orthanc::PixelFormat_Grayscale8>(scaled, region, parameters.GetWindowCenter(),
+                                                          parameters.GetWindowWidth(),
+                                                          parameters.GetWindowingMode(),
+                                                          parameters.GetRescaleSlope(),
+                                                          parameters.GetRescaleIntercept());
+          break;
+
         case Orthanc::PixelFormat_Grayscale16:
           ApplyWindowing<Orthanc::PixelFormat_Grayscale16>(scaled, region, parameters.GetWindowCenter(),
                                                            parameters.GetWindowWidth(),
