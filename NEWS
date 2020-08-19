@@ -6,6 +6,7 @@ Pending changes in the mainline
 * Support rendering of images whose pixel format is uint8_t
 * Fix ".../rendered" on MONOCHROME1 images
 * Fix default windowing in rendered frames using WADO-URI and WADO-RS
+* More verbose logs to debug chunked transfers
 
 
 Version 1.2 (2020-05-26)
