@@ -623,6 +623,7 @@ private:
     JobContext&     context_;
     std::string     boundary_;
     bool            done_;
+    size_t          processedSize_;
 
   public:
     RequestBody(StowClientJob& that,
@@ -630,7 +631,8 @@ private:
       that_(that),
       context_(context),
       boundary_(that.boundary_),
-      done_(false)
+      done_(false),
+      processedSize_(0)
     {
     }
 
@@ -660,8 +662,15 @@ private:
 
         //boost::this_thread::sleep(boost::posix_time::seconds(1));
 
+        processedSize_ += chunk.size();
+        
         return true;
       }
+    }
+
+    size_t GetProcessedSize() const
+    {
+      return processedSize_;
     }
   };
 
@@ -704,6 +713,7 @@ private:
       OrthancPlugins::HttpClient::HttpHeaders answerHeaders;
       Json::Value answerBody;
 
+      assert(client.get() != NULL);
       client->SetBody(*body);
 
       try
@@ -717,10 +727,28 @@ private:
           /**
            * "Length required" error. This might indicate an older
            * version of Orthanc (<= 1.5.6) that does not support
-           * chunked transfers.
+           * chunked transfers, or a version of Orthanc <= 1.7.2 that
+           * supports chunk transfers, but cannot receive multipart
+           * messages larger than 2GB. The latter problem is fixed by:
+           * https://hg.orthanc-server.com/orthanc/rev/36257d6f348f
            **/
-          LOG(ERROR) << "The remote DICOMweb server \"" << serverName << "\" does not support chunked transfers, "
-                     << "set configuration option \"ChunkedTransfers\" to \"0\" in the configuration";
+          if (client->IsChunkedTransfersAllowed())
+          {
+            LOG(ERROR) << "The remote DICOMweb server \"" << serverName << "\" does not support chunked transfers "
+                       << "(this might indicate Orthanc <= 1.5.6), set configuration option \"ChunkedTransfers\" "
+                       << "to \"false\" in the configuration (or upgrade remote Orthanc if applicable)";
+          }
+          else if (body->GetProcessedSize() >= 2 * static_cast<uint64_t>(1024 * 1024 * 1024))
+          {
+            LOG(ERROR) << "Cannot send a study larger than 2GB (chunked transfer is disabled) using STOW-RS, "
+                       << "this might indicate that the remote DICOMweb server is Orthanc <= 1.7.2 "
+                       << "(if so, please upgrade the remote Orthanc)";
+          }
+          else
+          {
+            LOG(ERROR) << "Cannot send a study of " << (body->GetProcessedSize() / (1024 * 1024))
+                       << "MB with STOW-RS (chunked transfer is disabled), check out the logs of the remote modality";
+          }
         }
 
         throw;
