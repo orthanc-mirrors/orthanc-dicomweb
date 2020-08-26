@@ -59,8 +59,8 @@ for i in range(2, len(sys.argv)):
 body += bytearray('--%s--' % boundary, 'ascii')
 
 headers = {
-    'Content-Type' : 'multipart/related; type=application/dicom; boundary=%s' % boundary,
-    'Accept' : 'application/json',
+    'Content-Type' : 'multipart/related; type="application/dicom"; boundary=%s' % boundary,
+    'Accept' : 'application/dicom+json',
     }
 
 # Do the HTTP POST request to the STOW-RS server
@@ -73,7 +73,11 @@ else:
     def gen():
         chunkSize = 1024 * 1024
 
-        l = len(body) / chunkSize
+        if sys.version_info[0] == 2:
+            l = len(body) / chunkSize
+        else:
+            l = len(body) // chunkSize
+            
         for i in range(l):
             pos = i * chunkSize
             yield body[pos : pos + chunkSize]
