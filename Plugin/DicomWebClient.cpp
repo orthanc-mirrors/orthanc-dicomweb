@@ -179,10 +179,10 @@ private:
   {
     assert(job != NULL && factory != NULL);
 
-    JobContext context(*job);
-
     try
     {
+      JobContext context(*job);
+
       std::unique_ptr<IFunction> function(factory->CreateFunction());
       function->Execute(context);
 
@@ -768,21 +768,21 @@ private:
   };
   
 
-  virtual void CancelFunction()
+  virtual void CancelFunction() ORTHANC_OVERRIDE
   {
     boost::mutex::scoped_lock lock(mutex_);
     action_ = Action_Cancel;
   }
   
 
-  virtual void PauseFunction()
+  virtual void PauseFunction() ORTHANC_OVERRIDE
   {
     boost::mutex::scoped_lock lock(mutex_);
     action_ = Action_Pause;
   }
 
   
-  virtual IFunction* CreateFunction()
+  virtual IFunction* CreateFunction() ORTHANC_OVERRIDE
   {
     action_ = Action_None;
     return new F(*this);
@@ -1014,7 +1014,7 @@ private:
 
   virtual void HandlePart(const Orthanc::MultipartStreamReader::HttpHeaders& headers,
                           const void* part,
-                          size_t size)
+                          size_t size) ORTHANC_OVERRIDE
   {
     std::string contentType;
     if (!Orthanc::MultipartStreamReader::GetMainContentType(contentType, headers))
@@ -1088,7 +1088,7 @@ public:
   }
 
   virtual void AddHeader(const std::string& key,
-                         const std::string& value)
+                         const std::string& value) ORTHANC_OVERRIDE
   {
     boost::mutex::scoped_lock lock(mutex_);
 
@@ -1137,7 +1137,7 @@ public:
   }
 
   virtual void AddChunk(const void* data,
-                        size_t size)
+                        size_t size) ORTHANC_OVERRIDE
   {
     boost::mutex::scoped_lock lock(mutex_);
 
@@ -1373,7 +1373,7 @@ private:
   }
 
 
-  virtual void CancelFunction()
+  virtual void CancelFunction() ORTHANC_OVERRIDE
   {
     boost::mutex::scoped_lock lock(mutex_);
 
@@ -1384,13 +1384,13 @@ private:
     }
   }
 
-  virtual void PauseFunction()
+  virtual void PauseFunction() ORTHANC_OVERRIDE
   {
     // This type of job cannot be paused
     CancelFunction();
   }
 
-  virtual IFunction* CreateFunction()
+  virtual IFunction* CreateFunction() ORTHANC_OVERRIDE
   {
     // This type of job cannot be paused: If restarting, always go
     // back to the beginning

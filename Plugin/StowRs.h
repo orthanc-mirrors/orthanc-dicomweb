@@ -46,7 +46,7 @@ namespace OrthancPlugins
 
     virtual void HandlePart(const Orthanc::MultipartStreamReader::HttpHeaders& headers,
                             const void* part,
-                            size_t size);
+                            size_t size) ORTHANC_OVERRIDE;
 
   public:
     StowServer(OrthancPluginContext* context,
@@ -54,9 +54,9 @@ namespace OrthancPlugins
                const std::string& expectedStudy);
 
     virtual void AddChunk(const void* data,
-                          size_t size);
+                          size_t size) ORTHANC_OVERRIDE;
 
-    virtual void Execute(OrthancPluginRestOutput* output);
+    virtual void Execute(OrthancPluginRestOutput* output) ORTHANC_OVERRIDE;
 
     static IChunkedRequestReader* PostCallback(const char* url,
                                                const OrthancPluginHttpRequest* request);

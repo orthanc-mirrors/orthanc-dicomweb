@@ -169,10 +169,10 @@ namespace
             std::vector<std::string> tags;
             Orthanc::Toolbox::TokenizeString(tags, value, ',');
             
-            for (size_t i = 0; i < tags.size(); i++)
+            for (size_t j = 0; j < tags.size(); j++)
             {
               Orthanc::DicomTag tag(0, 0);
-              if (OrthancPlugins::ParseTag(tag, tags[i]))
+              if (OrthancPlugins::ParseTag(tag, tags[j]))
               {
                 includeFields_.push_back(tag);
               }
@@ -524,12 +524,6 @@ static void ApplyMatcher(OrthancPluginRestOutput* output,
     {
       Orthanc::DicomMap source;
       source.FromDicomAsJson(tags);
-
-      std::string wadoUrl = OrthancPlugins::Configuration::GetWadoUrl(
-        wadoBase,
-        source.GetStringValue(Orthanc::DICOM_TAG_STUDY_INSTANCE_UID, "", false),
-        source.GetStringValue(Orthanc::DICOM_TAG_SERIES_INSTANCE_UID, "", false),
-        source.GetStringValue(Orthanc::DICOM_TAG_SOP_INSTANCE_UID, "", false));
 
       Orthanc::DicomMap target;
       target.Assign(derivedTags);

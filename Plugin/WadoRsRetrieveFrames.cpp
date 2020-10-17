@@ -388,8 +388,6 @@ static void AnswerFrames(OrthancPluginRestOutput* output,
                                     "Cannot start a multipart answer");
   }
 
-  const std::string base = OrthancPlugins::Configuration::GetBaseUrl(request);
-    
   for (std::list<unsigned int>::const_iterator
          frame = frames.begin(); frame != frames.end(); ++frame)
   {
@@ -402,6 +400,7 @@ static void AnswerFrames(OrthancPluginRestOutput* output,
     OrthancPluginErrorCode error;
 
 #if HAS_SEND_MULTIPART_ITEM_2 == 1
+    const std::string base = OrthancPlugins::Configuration::GetBaseUrl(request);
     std::string location = (
       OrthancPlugins::Configuration::GetWadoUrl(base, studyInstanceUid, seriesInstanceUid, sopInstanceUid) +
       "frames/" + boost::lexical_cast<std::string>(*frame + 1));
@@ -463,7 +462,7 @@ static void RetrieveFrames(OrthancPluginRestOutput* output,
       if (!Orthanc::LookupTransferSyntax(targetSyntax, instance->GetTransferSyntaxUid()))
       {
         throw Orthanc::OrthancException(Orthanc::ErrorCode_NotImplemented,
-                                        "Unknown transfer syntax: " + targetSyntax);
+                                        "Unknown transfer syntax: " + std::string(GetTransferSyntaxUid(targetSyntax)));
       }
     }
 

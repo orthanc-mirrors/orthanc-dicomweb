@@ -149,7 +149,7 @@ namespace OrthancPlugins
       }
 
       MemoryBuffer tmp;
-      bool ok = tmp.RestApiPost("/instances", part, size, false);
+      ok = tmp.RestApiPost("/instances", part, size, false);
       tmp.Clear();
 
       if (ok)
