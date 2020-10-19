@@ -246,7 +246,7 @@ public:
     }
   }
 
-  virtual OrthancPluginJobStepStatus Step()
+  virtual OrthancPluginJobStepStatus Step() ORTHANC_OVERRIDE
   {
     if (factory_ == NULL)
     {
@@ -280,7 +280,7 @@ public:
     }
   }
 
-  virtual void Stop(OrthancPluginJobStopReason reason)
+  virtual void Stop(OrthancPluginJobStopReason reason) ORTHANC_OVERRIDE
   {
     if (factory_ == NULL)
     {
@@ -307,7 +307,7 @@ public:
     }
   }
 
-  virtual void Reset()
+  virtual void Reset() ORTHANC_OVERRIDE
   {
     boost::mutex::scoped_lock lock(mutex_);
 
@@ -636,7 +636,7 @@ private:
     {
     }
 
-    virtual bool ReadNextChunk(std::string& chunk)
+    virtual bool ReadNextChunk(std::string& chunk) ORTHANC_OVERRIDE
     {
       if (done_)
       {
