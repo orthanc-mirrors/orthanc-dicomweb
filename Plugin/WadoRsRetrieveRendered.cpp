@@ -25,6 +25,7 @@
 #include <Images/Image.h>
 #include <Images/ImageProcessing.h>
 #include <Images/ImageTraits.h>
+#include <Logging.h>
 #include <Toolbox.h>
 
 #include <boost/algorithm/string/predicate.hpp>

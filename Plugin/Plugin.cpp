@@ -26,6 +26,7 @@
 #include "WadoRs.h"
 #include "WadoUri.h"
 
+#include <Logging.h>
 #include <SystemToolbox.h>
 #include <Toolbox.h>
 

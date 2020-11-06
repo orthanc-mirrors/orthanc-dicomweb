@@ -24,9 +24,10 @@
 #include "../Resources/Orthanc/Plugins/OrthancPluginCppWrapper.h"
 #include "DicomWebServers.h"
 
+#include <ChunkedBuffer.h>
 #include <Compatibility.h>
 #include <HttpServer/MultipartStreamReader.h>
-#include <ChunkedBuffer.h>
+#include <Logging.h>
 #include <Toolbox.h>
 
 #include <json/reader.h>

@@ -27,6 +27,7 @@
 
 #include <DicomFormat/DicomMap.h>
 #include <DicomFormat/DicomTag.h>
+#include <Logging.h>
 #include <Toolbox.h>
 
 #include <list>
