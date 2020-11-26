@@ -25,6 +25,7 @@
 
 #include <Compatibility.h>
 #include <ChunkedBuffer.h>
+#include <Logging.h>
 #include <Toolbox.h>
 
 #include <memory>
@@ -394,11 +395,14 @@ namespace
           ++current;
         }
 
+        target.SetValue(tag, maxValue, false);
+
         // Take the ceiling of the number of available instances
         const size_t threshold = instances_.size() / 2 + 1;
-        if (maxCount >= threshold)
+        if (maxCount < threshold)
         {
-          target.SetValue(tag, maxValue, false);
+          LOG(WARNING) << "No consensus on the value of a tag during WADO-RS Retrieve "
+                       << "Metadata in Extrapolate mode: " << tag.Format();
         }
       }
     }
