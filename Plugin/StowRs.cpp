@@ -59,6 +59,16 @@ namespace OrthancPlugins
                                       "The STOW-RS plugin currently only supports \"application/dicom\" subtype");
     }
 
+    // Hotfix for bug #190, until the Orthanc Framework is fixed
+    // https://bugs.orthanc-server.com/show_bug.cgi?id=190
+    if (!boundary.empty() &&
+        boundary.size() >= 2 &&
+        boundary[0] == '"' &&
+        boundary[boundary.size() - 1] == '"')
+    {
+      boundary = boundary.substr(1, boundary.size() - 2);
+    }
+
     parser_.reset(new Orthanc::MultipartStreamReader(boundary));
     parser_->SetHandler(*this);
   }
