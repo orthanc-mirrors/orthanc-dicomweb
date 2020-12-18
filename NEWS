@@ -1,6 +1,10 @@
 Pending changes in the mainline
 ===============================
 
+
+Version 1.4 (2020-12-18)
+========================
+
 * "Extrapolate" mode doesn't fail if no consensus is found in WADO-RS Retrieve Metadata.
   This is necessary for proper behavior of the Stone Web viewer on very small series.
 * Fix issue #190 (STOW-RS fails is multipart boundary is surrounded by quotes in headers)
