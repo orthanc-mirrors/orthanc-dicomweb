@@ -23,8 +23,8 @@
 
 #include "../Resources/Orthanc/Plugins/OrthancPluginCppWrapper.h"
 
-#if !defined(NDEBUG)
-#  include <json/reader.h>
+#if !defined(NDEBUG)  // In debug mode, check that the value is actually a JSON string
+#  include <Toolbox.h>
 #endif
 
 
@@ -217,10 +217,8 @@ namespace OrthancPlugins
     }
 
 #if !defined(NDEBUG)  // In debug mode, check that the value is actually a JSON string
-    Json::Reader reader;
     Json::Value json;
-    if (!reader.parse(reinterpret_cast<const char*>(data),
-                      reinterpret_cast<const char*>(data) + size, json))
+    if (!Orthanc::Toolbox::ReadJson(json, data, size))
     {
       throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
     }

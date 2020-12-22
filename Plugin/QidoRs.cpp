@@ -492,11 +492,7 @@ static void ApplyMatcher(OrthancPluginRestOutput* output,
   LOG(INFO) << "Body of the call from QIDO-RS to /tools/find: " << find.toStyledString();
   
   std::string body;
-
-  {
-    Json::FastWriter writer;
-    body = writer.write(find);
-  }
+  Orthanc::Toolbox::WriteJson(body, find, true /* fast */);
   
   Json::Value resources;
   if (!OrthancPlugins::RestApiPost(resources, "/tools/find", body, false) ||

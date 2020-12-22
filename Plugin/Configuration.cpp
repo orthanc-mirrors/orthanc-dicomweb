@@ -28,7 +28,6 @@
 #include <Toolbox.h>
 
 #include <fstream>
-#include <json/reader.h>
 #include <boost/regex.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/algorithm/string/predicate.hpp>
@@ -156,9 +155,7 @@ namespace OrthancPlugins
   void ParseJsonBody(Json::Value& target,
                      const OrthancPluginHttpRequest* request)
   {
-    Json::Reader reader;
-    if (!reader.parse(reinterpret_cast<const char*>(request->body),
-                      reinterpret_cast<const char*>(request->body) + request->bodySize, target))
+    if (!Orthanc::Toolbox::ReadJson(target, request->body, request->bodySize))
     {
       throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat,
                                       "A JSON file was expected");

@@ -30,7 +30,6 @@
 #include <Logging.h>
 #include <Toolbox.h>
 
-#include <json/reader.h>
 #include <list>
 #include <set>
 #include <boost/lexical_cast.hpp>
