@@ -1,6 +1,9 @@
 Pending changes in the mainline
 ===============================
 
+* Fix compliance with DICOM >= 2016c: If no "transfer-syntax" is provided in WADO-RS
+  Retrieve Instance/Series/Study, DICOM shall be transcoded to Little Endian Explicit
+
 
 Version 1.4 (2020-12-18)
 ========================

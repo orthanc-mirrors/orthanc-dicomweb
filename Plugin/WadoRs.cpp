@@ -57,16 +57,41 @@ static std::string GetResourceUri(Orthanc::ResourceType level,
 
 
 
-static bool AcceptMultipartDicom(bool& transcode,
+static void AcceptMultipartDicom(bool& transcode,
                                  Orthanc::DicomTransferSyntax& targetSyntax /* only if transcoding */,
                                  const OrthancPluginHttpRequest* request)
 {
-  transcode = false;
+  /**
+   * Up to release 1.4 of the DICOMweb plugin, WADO-RS
+   * RetrieveInstance, RetrieveSeries and RetrieveStudy did *NOT*
+   * transcode if no transer syntax was explicitly provided. This was
+   * because the DICOM standard didn't specify a behavior in this case
+   * up to DICOM 2016b:
+   * http://dicom.nema.org/medical/dicom/2016b/output/chtml/part18/sect_6.5.3.html
+   *
+   * However, starting with DICOM 2016c, it is explicitly stated that
+   * "If transfer-syntax is not specified in the dcm-parameters the
+   * origin server shall use the Explicit VR Little Endian Transfer
+   * Syntax "1.2.840.10008.1.2.1" for each Instance":
+   * http://dicom.nema.org/medical/dicom/2016c/output/chtml/part18/sect_6.5.3.html
+   * 
+   * As a consequence, starting with release 1.5 of the DICOMweb
+   * plugin, transcoding to "Little Endian Explicit" takes place by
+   * default. If this transcoding is not desirable, the "Accept" HTTP
+   * header can be set to
+   * "multipart/related;type=application/dicom;transfer-syntax=*" (not
+   * the asterisk "*") in order to prevent transcoding. The same
+   * convention is used by the Google Cloud Platform:
+   * https://cloud.google.com/healthcare/docs/dicom
+   **/
+  transcode = true;
+  targetSyntax = Orthanc::DicomTransferSyntax_LittleEndianExplicit;
+  
   std::string accept;
 
   if (!OrthancPlugins::LookupHttpHeader(accept, request, "accept"))
   {
-    return true;   // By default, return "multipart/related; type=application/dicom;"
+    return;   // By default, return "multipart/related; type=application/dicom;"
   }
 
   std::string application;
@@ -116,8 +141,6 @@ static bool AcceptMultipartDicom(bool& transcode,
       }
     }
   }
-
-  return true;
 }
 
 
@@ -274,15 +297,41 @@ static void AnswerListOfDicomInstances(OrthancPluginRestOutput* output,
   {
     throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);
   }
-  
+
   for (Json::Value::ArrayIndex i = 0; i < instances.size(); i++)
   {
-    std::string uri = "/instances/" + instances[i]["ID"].asString() + "/file";
+    const std::string uri = "/instances/" + instances[i]["ID"].asString();
 
-    OrthancPlugins::MemoryBuffer dicom;
-    if (dicom.RestApiGet(uri, false))
+    bool transcodeThisInstance;
+    
+    std::string sourceTransferSyntax;
+    if (!transcode)
     {
-      if (transcode)
+      transcodeThisInstance = false;      
+    }
+    else if (OrthancPlugins::RestApiGetString(sourceTransferSyntax, uri + "/metadata/TransferSyntax", false))
+    {
+      // Avoid transcoding if the source file already uses the expected transfer syntax
+      Orthanc::DicomTransferSyntax syntax;
+      if (Orthanc::LookupTransferSyntax(syntax, sourceTransferSyntax))
+      {
+        transcodeThisInstance = (syntax != targetSyntax);
+      }
+      else
+      {
+        transcodeThisInstance = true;
+      }
+    }
+    else
+    {
+      // The transfer syntax of the source file is unknown, transcode it to be sure
+      transcodeThisInstance = true;
+    }
+    
+    OrthancPlugins::MemoryBuffer dicom;
+    if (dicom.RestApiGet(uri + "/file", false))
+    {
+      if (transcodeThisInstance)
       {
         std::unique_ptr<OrthancPlugins::DicomInstance> transcoded(
           OrthancPlugins::DicomInstance::Transcode(
@@ -907,18 +956,13 @@ void RetrieveDicomStudy(OrthancPluginRestOutput* output,
 {
   bool transcode;
   Orthanc::DicomTransferSyntax targetSyntax;
+
+  AcceptMultipartDicom(transcode, targetSyntax, request);
   
-  if (!AcceptMultipartDicom(transcode, targetSyntax, request))
+  std::string orthancId, studyInstanceUid;
+  if (LocateStudy(output, orthancId, studyInstanceUid, request))
   {
-    OrthancPluginSendHttpStatusCode(OrthancPlugins::GetGlobalContext(), output, 400 /* Bad request */);
-  }
-  else
-  {
-    std::string orthancId, studyInstanceUid;
-    if (LocateStudy(output, orthancId, studyInstanceUid, request))
-    {
-      AnswerListOfDicomInstances(output, Orthanc::ResourceType_Study, orthancId, transcode, targetSyntax);
-    }
+    AnswerListOfDicomInstances(output, Orthanc::ResourceType_Study, orthancId, transcode, targetSyntax);
   }
 }
 
@@ -930,17 +974,12 @@ void RetrieveDicomSeries(OrthancPluginRestOutput* output,
   bool transcode;
   Orthanc::DicomTransferSyntax targetSyntax;
   
-  if (!AcceptMultipartDicom(transcode, targetSyntax, request))
+  AcceptMultipartDicom(transcode, targetSyntax, request);
+  
+  std::string orthancId, studyInstanceUid, seriesInstanceUid;
+  if (LocateSeries(output, orthancId, studyInstanceUid, seriesInstanceUid, request))
   {
-    OrthancPluginSendHttpStatusCode(OrthancPlugins::GetGlobalContext(), output, 400 /* Bad request */);
-  }
-  else
-  {
-    std::string orthancId, studyInstanceUid, seriesInstanceUid;
-    if (LocateSeries(output, orthancId, studyInstanceUid, seriesInstanceUid, request))
-    {
-      AnswerListOfDicomInstances(output, Orthanc::ResourceType_Series, orthancId, transcode, targetSyntax);
-    }
+    AnswerListOfDicomInstances(output, Orthanc::ResourceType_Series, orthancId, transcode, targetSyntax);
   }
 }
 
@@ -953,17 +992,12 @@ void RetrieveDicomInstance(OrthancPluginRestOutput* output,
   bool transcode;
   Orthanc::DicomTransferSyntax targetSyntax;
   
-  if (!AcceptMultipartDicom(transcode, targetSyntax, request))
+  AcceptMultipartDicom(transcode, targetSyntax, request);
+  
+  std::string orthancId, studyInstanceUid, seriesInstanceUid, sopInstanceUid;
+  if (LocateInstance(output, orthancId, studyInstanceUid, seriesInstanceUid, sopInstanceUid, request))
   {
-    OrthancPluginSendHttpStatusCode(OrthancPlugins::GetGlobalContext(), output, 400 /* Bad request */);
-  }
-  else
-  {
-    std::string orthancId, studyInstanceUid, seriesInstanceUid, sopInstanceUid;
-    if (LocateInstance(output, orthancId, studyInstanceUid, seriesInstanceUid, sopInstanceUid, request))
-    {
-      AnswerListOfDicomInstances(output, Orthanc::ResourceType_Instance, orthancId, transcode, targetSyntax);
-    }
+    AnswerListOfDicomInstances(output, Orthanc::ResourceType_Instance, orthancId, transcode, targetSyntax);
   }
 }
 
