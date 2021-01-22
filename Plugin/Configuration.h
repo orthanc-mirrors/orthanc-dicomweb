@@ -133,5 +133,9 @@ namespace OrthancPlugins
 
     void GetExtrapolatedMetadataTags(std::set<Orthanc::DicomTag>& tags,
                                      Orthanc::ResourceType level);
+
+    void LoadDicomWebServers();
+
+    void SaveDicomWebServers();
   }
 }

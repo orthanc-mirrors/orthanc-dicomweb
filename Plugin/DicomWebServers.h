@@ -39,23 +39,23 @@ namespace OrthancPlugins
     boost::mutex  mutex_;
     Servers       servers_;
 
-    void Clear();
-
     DicomWebServers()  // Forbidden (singleton pattern)
     {
     }
 
   public:
-    static void UriEncode(std::string& uri,
-                          const std::string& resource,
-                          const std::map<std::string, std::string>& getArguments);
-
-    void Load(const Json::Value& configuration);
-
     ~DicomWebServers()
     {
       Clear();
     }
+    
+    static void UriEncode(std::string& uri,
+                          const std::string& resource,
+                          const std::map<std::string, std::string>& getArguments);
+
+    void Clear();
+
+    void LoadGlobalConfiguration(const Json::Value& configuration);
 
     static DicomWebServers& GetInstance();
 
@@ -72,10 +72,14 @@ namespace OrthancPlugins
 
     void SetServer(const std::string& name,
                    const Orthanc::WebServiceParameters& parameters);
+
+    void SerializeGlobalProperty(std::string& target);
+
+    void UnserializeGlobalProperty(const std::string& source);
   };
 
 
-  void CallServer(OrthancPlugins::MemoryBuffer& answerBody /* out */,
+  void CallServer(MemoryBuffer& answerBody /* out */,
                   std::map<std::string, std::string>& answerHeaders /* out */,
                   const Orthanc::WebServiceParameters& server,
                   OrthancPluginHttpMethod method,

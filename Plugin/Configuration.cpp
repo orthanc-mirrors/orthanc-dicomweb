@@ -25,12 +25,20 @@
 #include "DicomWebServers.h"
 
 #include <Compatibility.h>
+#include <Logging.h>
 #include <Toolbox.h>
 
 #include <fstream>
 #include <boost/regex.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/algorithm/string/predicate.hpp>
+
+
+// Assume Latin-1 encoding by default (as in the Orthanc core)
+static Orthanc::Encoding defaultEncoding_ = Orthanc::Encoding_Latin1;
+static std::unique_ptr<OrthancPlugins::OrthancConfiguration> configuration_;
+static bool serversInDatabase_ = false;
+static const int32_t GLOBAL_PROPERTY_SERVERS = 5468;
 
 
 namespace OrthancPlugins
@@ -140,7 +148,7 @@ namespace OrthancPlugins
   {
     OrthancPluginDictionaryEntry entry;
     
-    if (OrthancPluginLookupDictionary(OrthancPlugins::GetGlobalContext(), &entry, name.c_str()) == OrthancPluginErrorCode_Success)
+    if (OrthancPluginLookupDictionary(GetGlobalContext(), &entry, name.c_str()) == OrthancPluginErrorCode_Success)
     {
       target = Orthanc::DicomTag(entry.group, entry.element);
       return true;
@@ -284,16 +292,11 @@ namespace OrthancPlugins
 
   namespace Configuration
   {
-    // Assume Latin-1 encoding by default (as in the Orthanc core)
-    static Orthanc::Encoding defaultEncoding_ = Orthanc::Encoding_Latin1;
-    static std::unique_ptr<OrthancConfiguration> configuration_;
-
-
     void Initialize()
     {
       configuration_.reset(new OrthancConfiguration);
       
-      OrthancPlugins::OrthancConfiguration global;
+      OrthancConfiguration global;
       global.GetSection(*configuration_, "DicomWeb");
 
       std::string s;
@@ -302,10 +305,22 @@ namespace OrthancPlugins
         defaultEncoding_ = Orthanc::StringToEncoding(s.c_str());
       }
 
-      OrthancPlugins::OrthancConfiguration servers;
-      configuration_->GetSection(servers, "Servers");
-      OrthancPlugins::DicomWebServers::GetInstance().Load(servers.GetJson());
+      if (!configuration_->LookupBooleanValue(serversInDatabase_, "ServersInDatabase"))
+      {
+        serversInDatabase_ = false;
+      }
 
+      if (serversInDatabase_)
+      {
+        LOG(INFO) << "The DICOMweb plugin stores the DICOMweb servers in the Orthanc database";
+      }
+      else
+      {
+        LOG(INFO) << "The DICOMweb plugin reads the DICOMweb servers from the configuration file";
+      }
+
+      DicomWebServers::GetInstance().Clear();
+        
       // Check configuration during initialization
       GetMetadataMode(Orthanc::ResourceType_Study);
       GetMetadataMode(Orthanc::ResourceType_Series);
@@ -371,7 +386,7 @@ namespace OrthancPlugins
     
     std::string GetOrthancApiRoot()
     {
-      std::string root = OrthancPlugins::Configuration::GetDicomWebRoot();
+      std::string root = Configuration::GetDicomWebRoot();
       std::vector<std::string> tokens;
       Orthanc::Toolbox::TokenizeString(tokens, root, '/');
 
@@ -444,10 +459,10 @@ namespace OrthancPlugins
 
 
     static bool LookupHttpHeader2(std::string& value,
-                                  const OrthancPlugins::HttpClient::HttpHeaders& headers,
+                                  const HttpClient::HttpHeaders& headers,
                                   const std::string& name)
     {
-      for (OrthancPlugins::HttpClient::HttpHeaders::const_iterator
+      for (HttpClient::HttpHeaders::const_iterator
              it = headers.begin(); it != headers.end(); ++it)
       {
         if (boost::iequals(it->first, name))
@@ -461,7 +476,7 @@ namespace OrthancPlugins
     }
 
 
-    std::string GetBaseUrl(const OrthancPlugins::HttpClient::HttpHeaders& headers)
+    std::string GetBaseUrl(const HttpClient::HttpHeaders& headers)
     {
       assert(configuration_.get() != NULL);
       std::string host = configuration_->GetStringValue("Host", "");
@@ -521,7 +536,7 @@ namespace OrthancPlugins
 
     std::string GetBaseUrl(const OrthancPluginHttpRequest* request)
     {
-      OrthancPlugins::HttpClient::HttpHeaders headers;
+      HttpClient::HttpHeaders headers;
 
       std::string value;
       if (LookupHttpHeader(value, request, "forwarded"))
@@ -584,8 +599,8 @@ namespace OrthancPlugins
       }
       else
       {
-        OrthancPlugins::LogError("Unsupported return MIME type: " + accept +
-                                 ", will return DICOM+JSON");
+        LogError("Unsupported return MIME type: " + accept +
+                 ", will return DICOM+JSON");
         return false;
       }
     }
@@ -610,7 +625,7 @@ namespace OrthancPlugins
     {
       std::string accept;
 
-      if (OrthancPlugins::LookupHttpHeader(accept, request, "accept"))
+      if (LookupHttpHeader(accept, request, "accept"))
       {
         return IsXmlExpected(accept);
       }
@@ -707,6 +722,58 @@ namespace OrthancPlugins
 
         default:
           throw Orthanc::OrthancException(Orthanc::ErrorCode_ParameterOutOfRange);
+      }
+    }
+
+
+    void LoadDicomWebServers()
+    {
+      if (serversInDatabase_)
+      {
+        // New in DICOMweb 1.5
+        OrthancString property;
+        property.Assign(OrthancPluginGetGlobalProperty(
+                          GetGlobalContext(), GLOBAL_PROPERTY_SERVERS, "{}"));
+
+        if (property.GetContent() == NULL)
+        {
+          DicomWebServers::GetInstance().Clear();
+        }
+        else
+        {
+          try
+          {
+            DicomWebServers::GetInstance().UnserializeGlobalProperty(property.GetContent());
+          }
+          catch (Orthanc::OrthancException&)
+          {
+            DicomWebServers::GetInstance().Clear();
+            LOG(ERROR) << "Cannot read the DICOMweb servers from the database, no server will be defined";
+          }
+        }
+      }
+      else
+      {
+        OrthancConfiguration servers;
+        configuration_->GetSection(servers, "Servers");
+        DicomWebServers::GetInstance().LoadGlobalConfiguration(servers.GetJson());
+      }
+    }
+
+    
+    void SaveDicomWebServers()
+    {
+      if (serversInDatabase_)
+      {
+        // New in DICOMweb 1.5
+        std::string property;
+        DicomWebServers::GetInstance().SerializeGlobalProperty(property);
+
+        if (!OrthancPluginSetGlobalProperty(
+              OrthancPlugins::GetGlobalContext(), GLOBAL_PROPERTY_SERVERS, property.c_str()))
+        {
+          LOG(ERROR) << "Cannot write the DICOMweb servers into the database";
+        }
       }
     }
   }

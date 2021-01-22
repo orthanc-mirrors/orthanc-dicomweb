@@ -1,6 +1,8 @@
 Pending changes in the mainline
 ===============================
 
+* Possibility to store the definition of DICOMweb servers into the Orthanc database
+* New configuration option "DicomWeb.ServersInDatabase"
 * Fix compliance with DICOM >= 2016c: If no "transfer-syntax" is provided in WADO-RS
   Retrieve Instance/Series/Study, DICOM shall be transcoded to Little Endian Explicit
 

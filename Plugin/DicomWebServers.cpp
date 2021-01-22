@@ -34,12 +34,15 @@ namespace OrthancPlugins
   {
     for (Servers::iterator it = servers_.begin(); it != servers_.end(); ++it)
     {
+      assert(it->second != NULL);
       delete it->second;
     }
+
+    servers_.clear();
   }
 
 
-  void DicomWebServers::Load(const Json::Value& servers)
+  void DicomWebServers::LoadGlobalConfiguration(const Json::Value& servers)
   {
     boost::mutex::scoped_lock lock(mutex_);
 
@@ -68,8 +71,8 @@ namespace OrthancPlugins
     }
     catch (Orthanc::OrthancException& e)
     {
-      OrthancPlugins::LogError("Exception while parsing the \"DicomWeb.Servers\" section "
-                               "of the configuration file: " + std::string(e.What()));
+      LogError("Exception while parsing the \"DicomWeb.Servers\" section "
+               "of the configuration file: " + std::string(e.What()));
       throw;
     }
 
@@ -114,6 +117,7 @@ namespace OrthancPlugins
     servers.clear();
     for (Servers::const_iterator it = servers_.begin(); it != servers_.end(); ++it)
     {
+      assert(it->second != NULL);
       servers.push_back(it->first);
     }
   }
@@ -207,7 +211,7 @@ namespace OrthancPlugins
 
 
 
-  void CallServer(OrthancPlugins::MemoryBuffer& answerBody /* out */,
+  void CallServer(MemoryBuffer& answerBody /* out */,
                   std::map<std::string, std::string>& answerHeaders /* out */,
                   const Orthanc::WebServiceParameters& server,
                   OrthancPluginHttpMethod method,
@@ -271,7 +275,7 @@ namespace OrthancPlugins
       bodySize = body.size();
     }
 
-    OrthancPluginContext* context = OrthancPlugins::GetGlobalContext();
+    OrthancPluginContext* context = GetGlobalContext();
 
     uint16_t status = 0;
     MemoryBuffer answerHeadersTmp;
@@ -368,6 +372,53 @@ namespace OrthancPlugins
       {
         uri += key + "=" + value;
       }
+    }
+  }
+
+
+  void DicomWebServers::SerializeGlobalProperty(std::string& target)
+  {
+    boost::mutex::scoped_lock lock(mutex_);
+
+    Json::Value json = Json::objectValue;
+
+    for (Servers::const_iterator it = servers_.begin(); it != servers_.end(); ++it)
+    {
+      assert(it->second != NULL);
+
+      Json::Value server;
+      it->second->Serialize(server, true /* advanced format */, true /* store passwords */);
+      json[it->first] = server;
+    }
+
+    Orthanc::Toolbox::WriteFastJson(target, json);
+  }
+
+
+  void DicomWebServers::UnserializeGlobalProperty(const std::string& source)
+  {
+    Json::Value json;
+    
+    if (!Orthanc::Toolbox::ReadJson(json, source) ||
+        json.type() != Json::objectValue)
+    {
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat, "Cannot unserialize "
+                                      "the list of DICOMweb servers from global properties");
+    }
+
+    Clear();
+
+    std::vector<std::string> members = json.getMemberNames();
+    
+    for (size_t i = 0; i < members.size(); i++)
+    {
+      const std::string& name = members[i];
+      
+      std::unique_ptr<Orthanc::WebServiceParameters> server(new Orthanc::WebServiceParameters);
+      server->Unserialize(json[name]);
+
+      assert(servers_.find(name) == servers_.end());
+      servers_[name] = server.release();
     }
   }
 }

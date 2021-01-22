@@ -24,6 +24,7 @@
 #include <boost/algorithm/string/predicate.hpp>
 
 #include "../Plugin/Configuration.h"
+#include "../Plugin/DicomWebServers.h"
 
 using namespace OrthancPlugins;
 
@@ -58,6 +59,50 @@ TEST(ContentType, Parse)
   ParseContentType(c, a, "multipart/related");
   ASSERT_EQ(c, "multipart/related");
   ASSERT_EQ(0u, a.size());
+}
+
+
+TEST(DicomWebServers, Serialization)
+{
+  std::list<std::string> servers;
+  DicomWebServers::GetInstance().ListServers(servers);
+  ASSERT_TRUE(servers.empty());
+
+  {
+    std::string json;
+    DicomWebServers::GetInstance().SerializeGlobalProperty(json);
+    DicomWebServers::GetInstance().UnserializeGlobalProperty(json);
+    ASSERT_TRUE(servers.empty());
+  }
+
+  Orthanc::WebServiceParameters p;
+  p.SetUrl("http://hello/");
+  p.SetCredentials("user", "world");
+  DicomWebServers::GetInstance().SetServer("test", p);
+
+  std::string json;
+  DicomWebServers::GetInstance().SerializeGlobalProperty(json);
+
+  p.SetUrl("http://nope/");
+  p.ClearCredentials();
+  DicomWebServers::GetInstance().SetServer("nope", p);
+
+  DicomWebServers::GetInstance().ListServers(servers);
+  ASSERT_EQ(2u, servers.size());
+  
+  DicomWebServers::GetInstance().UnserializeGlobalProperty(json);
+
+  DicomWebServers::GetInstance().ListServers(servers);
+  ASSERT_EQ(1u, servers.size());
+
+  ASSERT_THROW(DicomWebServers::GetInstance().GetServer("nope"), Orthanc::OrthancException);
+  p = DicomWebServers::GetInstance().GetServer("test");
+  ASSERT_EQ("http://hello/", p.GetUrl());
+  ASSERT_EQ("user", p.GetUsername());
+
+  DicomWebServers::GetInstance().Clear();
+  DicomWebServers::GetInstance().ListServers(servers);
+  ASSERT_TRUE(servers.empty());
 }
 
 

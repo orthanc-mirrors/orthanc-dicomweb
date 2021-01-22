@@ -126,7 +126,7 @@ namespace OrthancPlugins
 
   DicomWebFormatter::HttpWriter::HttpWriter(OrthancPluginRestOutput* output,
                                             bool isXml) :
-    context_(OrthancPlugins::GetGlobalContext()),
+    context_(GetGlobalContext()),
     output_(output),
     isXml_(isXml),
     first_(true)
@@ -163,8 +163,7 @@ namespace OrthancPlugins
 
     std::string item;
 
-    OrthancPlugins::DicomWebFormatter::Apply(
-      item, context_, dicom, size, isXml_, mode, bulkRoot);
+    DicomWebFormatter::Apply(item, context_, dicom, size, isXml_, mode, bulkRoot);
    
     if (isXml_)
     {

@@ -128,6 +128,8 @@ void ListServerOperations(OrthancPluginRestOutput* output,
     case OrthancPluginHttpMethod_Delete:
     {
       OrthancPlugins::DicomWebServers::GetInstance().DeleteServer(request->groups[0]);
+      OrthancPlugins::Configuration::SaveDicomWebServers();
+
       std::string answer = "{}";
       OrthancPluginAnswerBuffer(context, output, answer.c_str(), answer.size(), "application/json");
       break;
@@ -141,6 +143,8 @@ void ListServerOperations(OrthancPluginRestOutput* output,
       Orthanc::WebServiceParameters parameters(body);
       
       OrthancPlugins::DicomWebServers::GetInstance().SetServer(request->groups[0], parameters);
+      OrthancPlugins::Configuration::SaveDicomWebServers();
+      
       std::string answer = "{}";
       OrthancPluginAnswerBuffer(context, output, answer.c_str(), answer.size(), "application/json");
       break;
@@ -449,6 +453,36 @@ void ServeDicomWebClient(OrthancPluginRestOutput* output,
 #endif
 
 
+static OrthancPluginErrorCode OnChangeCallback(OrthancPluginChangeType changeType, 
+                                               OrthancPluginResourceType resourceType, 
+                                               const char *resourceId)
+{
+  try
+  {
+    switch (changeType)
+    {
+      case OrthancPluginChangeType_OrthancStarted:
+        OrthancPlugins::Configuration::LoadDicomWebServers();
+        break;
+
+      default:
+        break;
+    }
+  }
+  catch (Orthanc::OrthancException& e)
+  {
+    LOG(ERROR) << "Exception: " << e.What();
+  }
+  catch (...)
+  {
+    LOG(ERROR) << "Uncatched native exception";
+  }  
+
+  return OrthancPluginErrorCode_Success;
+}
+
+
+
 extern "C"
 {
   ORTHANC_PLUGINS_API int32_t OrthancPluginInitialize(OrthancPluginContext* context)
@@ -462,6 +496,8 @@ extern "C"
 #else
     Orthanc::Logging::Initialize(context);
 #endif
+
+    Orthanc::Logging::EnableInfoLevel(true);
 
     /* Check the version of the Orthanc core */
     if (OrthancPluginCheckVersion(context) == 0)
@@ -537,6 +573,8 @@ extern "C"
         OrthancPlugins::RegisterRestCallback<RetrieveSeriesRendered>(root + "studies/([^/]*)/series/([^/]*)/rendered", true);
         OrthancPlugins::RegisterRestCallback<RetrieveInstanceRendered>(root + "studies/([^/]*)/series/([^/]*)/instances/([^/]*)/rendered", true);
         OrthancPlugins::RegisterRestCallback<RetrieveFrameRendered>(root + "studies/([^/]*)/series/([^/]*)/instances/([^/]*)/frames/([^/]*)/rendered", true);
+
+        OrthancPluginRegisterOnChangeCallback(context, OnChangeCallback);
 
 
         // Extend the default Orthanc Explorer with custom JavaScript for STOW client
