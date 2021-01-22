@@ -391,7 +391,7 @@ namespace OrthancPlugins
       json[it->first] = server;
     }
 
-    Orthanc::Toolbox::WriteFastJson(target, json);
+    OrthancPlugins::WriteFastJson(target, json);
   }
 
 
@@ -399,7 +399,7 @@ namespace OrthancPlugins
   {
     Json::Value json;
     
-    if (!Orthanc::Toolbox::ReadJson(json, source) ||
+    if (!OrthancPlugins::ReadJson(json, source) ||
         json.type() != Json::objectValue)
     {
       throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat, "Cannot unserialize "

@@ -217,7 +217,7 @@ namespace OrthancPlugins
 
 #if !defined(NDEBUG)  // In debug mode, check that the value is actually a JSON string
     Json::Value json;
-    if (!Orthanc::Toolbox::ReadJson(json, data, size))
+    if (!OrthancPlugins::ReadJson(json, data, size))
     {
       throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
     }

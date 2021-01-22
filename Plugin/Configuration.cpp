@@ -163,7 +163,7 @@ namespace OrthancPlugins
   void ParseJsonBody(Json::Value& target,
                      const OrthancPluginHttpRequest* request)
   {
-    if (!Orthanc::Toolbox::ReadJson(target, request->body, request->bodySize))
+    if (!OrthancPlugins::ReadJson(target, request->body, request->bodySize))
     {
       throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat,
                                       "A JSON file was expected");
