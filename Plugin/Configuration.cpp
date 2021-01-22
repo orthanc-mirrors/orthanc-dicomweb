@@ -769,8 +769,9 @@ namespace OrthancPlugins
         std::string property;
         DicomWebServers::GetInstance().SerializeGlobalProperty(property);
 
-        if (!OrthancPluginSetGlobalProperty(
-              OrthancPlugins::GetGlobalContext(), GLOBAL_PROPERTY_SERVERS, property.c_str()))
+        if (OrthancPluginSetGlobalProperty(
+              OrthancPlugins::GetGlobalContext(), GLOBAL_PROPERTY_SERVERS, property.c_str()) !=
+            OrthancPluginErrorCode_Success)
         {
           LOG(ERROR) << "Cannot write the DICOMweb servers into the database";
         }
