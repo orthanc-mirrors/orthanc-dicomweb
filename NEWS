@@ -1,6 +1,10 @@
 Pending changes in the mainline
 ===============================
 
+
+Version 1.5 (2021-01-26)
+========================
+
 * Possibility to store the definition of DICOMweb servers into the Orthanc database
 * New configuration option "DicomWeb.ServersInDatabase"
 * Fix compliance with DICOM >= 2016c: If no "transfer-syntax" is provided in WADO-RS
