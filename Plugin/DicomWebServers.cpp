@@ -155,6 +155,11 @@ namespace OrthancPlugins
       parameters.GetBooleanUserProperty(HAS_CHUNKED_TRANSFERS, true));
 
     userProperties = parameters.GetUserProperties();
+
+    if (parameters.HasTimeout())
+    {
+      client.SetTimeout(parameters.GetTimeout());
+    }
   }
 
 

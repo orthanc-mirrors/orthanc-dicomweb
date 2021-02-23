@@ -1,6 +1,8 @@
 Pending changes in the mainline
 ===============================
 
+* New field "Timeout" in "DicomWeb.Servers" to specify HTTP timeout on a per-server basis
+
 
 Version 1.5 (2021-01-26)
 ========================
