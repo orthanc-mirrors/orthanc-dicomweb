@@ -2,6 +2,8 @@ Pending changes in the mainline
 ===============================
 
 * New field "Timeout" in "DicomWeb.Servers" to specify HTTP timeout on a per-server basis
+* Reduced memory consumption in STOW-RS server thanks to an optimization of
+  Orthanc::MultipartStreamReader in Orthanc framework 1.9.3
 
 
 Version 1.5 (2021-01-26)
