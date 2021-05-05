@@ -37,7 +37,9 @@ namespace OrthancPlugins
     isFirst_(true),
     result_(Json::objectValue),
     success_(Json::arrayValue),
-    failed_(Json::arrayValue)
+    failed_(Json::arrayValue),
+    hasBadSyntax_(false),
+    hasConflict_(false)
   { 
     std::string tmp, contentType, subType, boundary;
     if (!Orthanc::MultipartStreamReader::GetMainContentType(tmp, headers) ||
@@ -111,8 +113,9 @@ namespace OrthancPlugins
 
     if (!ok)
     {
-      // Bad DICOM file => TODO add to error
+      // Bad DICOM file
       LogWarning("STOW-RS cannot parse an incoming DICOM file");
+      hasBadSyntax_ = true;
       return;
     }
 
@@ -127,6 +130,21 @@ namespace OrthancPlugins
         dicom[Orthanc::DICOM_TAG_STUDY_INSTANCE_UID.Format()].type() != Json::stringValue)
     {
       LogWarning("STOW-RS: Missing a mandatory tag in incoming DICOM file");
+      hasBadSyntax_ = true;      
+
+      if (dicom.isMember(Orthanc::DICOM_TAG_SOP_CLASS_UID.Format()) &&
+          dicom.isMember(Orthanc::DICOM_TAG_SOP_INSTANCE_UID.Format()) &&
+          dicom[Orthanc::DICOM_TAG_SOP_CLASS_UID.Format()].type() == Json::stringValue &&
+          dicom[Orthanc::DICOM_TAG_SOP_INSTANCE_UID.Format()].type() == Json::stringValue)
+      {
+        Json::Value item = Json::objectValue;
+        item[DICOM_TAG_REFERENCED_SOP_CLASS_UID.Format()] = dicom[Orthanc::DICOM_TAG_SOP_CLASS_UID.Format()].asString();
+        item[DICOM_TAG_REFERENCED_SOP_INSTANCE_UID.Format()] = dicom[Orthanc::DICOM_TAG_SOP_INSTANCE_UID.Format()].asString();
+        item[DICOM_TAG_FAILURE_REASON.Format()] =
+          boost::lexical_cast<std::string>(0xC000);  // Error: Cannot understand
+        failed_.append(item);
+      }
+
       return;
     }
 
@@ -142,12 +160,14 @@ namespace OrthancPlugins
     if (!expectedStudy_.empty() &&
         studyInstanceUid != expectedStudy_)
     {
-      LogInfo("STOW-RS request restricted to study [" + expectedStudy_ + 
-              "]: Ignoring instance from study [" + studyInstanceUid + "]");
+      LogWarning("STOW-RS request restricted to study [" + expectedStudy_ + 
+                 "], but received instance from study [" + studyInstanceUid + "]");
 
-      /*item[DICOM_TAG_WARNING_REASON.Format()] =
-        boost::lexical_cast<std::string>(0xB006);  // Elements discarded
-        success.append(item);*/
+      hasConflict_ = true;
+
+      item[DICOM_TAG_FAILURE_REASON.Format()] =
+        boost::lexical_cast<std::string>(0x0110);  // Processing failure
+      failed_.append(item);
     }
     else
     {
@@ -203,9 +223,23 @@ namespace OrthancPlugins
     
     DicomWebFormatter::Apply(answer, context_, result_, xml_,
                              OrthancPluginDicomWebBinaryMode_Ignore, "");
-      
-    OrthancPluginAnswerBuffer(context_, output, answer.c_str(), answer.size(),
-                              xml_ ? "application/dicom+xml" : "application/dicom+json");
+
+    // http://dicom.nema.org/medical/dicom/current/output/html/part18.html#table_10.5.3-1
+    if (hasBadSyntax_)
+    {
+      // Error 400
+      OrthancPluginSendHttpStatus(context_, output, 400, answer.c_str(), answer.size());
+    }
+    else if (hasConflict_)
+    {
+      // Error 409
+      OrthancPluginSendHttpStatus(context_, output, 409, answer.c_str(), answer.size());
+    }
+    else
+    {      
+      OrthancPluginAnswerBuffer(context_, output, answer.c_str(), answer.size(),
+                                xml_ ? "application/dicom+xml" : "application/dicom+json");
+    }
   };
 
   

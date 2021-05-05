@@ -41,6 +41,8 @@ namespace OrthancPlugins
     Json::Value            result_;
     Json::Value            success_;
     Json::Value            failed_;
+    bool                   hasBadSyntax_;
+    bool                   hasConflict_;
 
     std::unique_ptr<Orthanc::MultipartStreamReader>  parser_;
 
