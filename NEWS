@@ -4,6 +4,7 @@ Pending changes in the mainline
 * New field "Timeout" in "DicomWeb.Servers" to specify HTTP timeout on a per-server basis
 * Reduced memory consumption in STOW-RS server thanks to an optimization of
   Orthanc::MultipartStreamReader in Orthanc framework 1.9.3
+* Fix issue #194 (Upgrade media types to DICOM 2021a, cf. table 8.7.3-5)
 * Fix issue #196 (STOW-RS: Should return 200 only when successfully stored all instances)
 
 

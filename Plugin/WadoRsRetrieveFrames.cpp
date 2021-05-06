@@ -166,19 +166,25 @@ static bool ParseTransferSyntax(Orthanc::DicomTransferSyntax& syntax,
           syntax = Orthanc::DicomTransferSyntax_JPEGProcess14;
           return true;
         }
-        else if (type == "image/x-dicom-rle" && (transferSyntax.empty() ||  // Default
-                                                 transferSyntax == "1.2.840.10008.1.2.5"))
+        else if ((type == "image/x-dicom-rle" ||   // Table 6.1.1.8-3b of DICOM 2017c (backward compatibility)
+                  type == "image/dicom-rle") &&    // Table 8.7.3-5 of DICOM 2021a
+                 (transferSyntax.empty() ||        // Default
+                  transferSyntax == "1.2.840.10008.1.2.5"))
         {
           syntax = Orthanc::DicomTransferSyntax_RLELossless;
           return true;
         }
-        else if (type == "image/x-jls" && (transferSyntax.empty() ||  // Default
-                                           transferSyntax == "1.2.840.10008.1.2.4.80"))
+        else if ((type == "image/x-jls" ||   // Table 6.1.1.8-3b of DICOM 2017c (backward compatibility)
+                  type == "image/jls") &&    // Table 8.7.3-5 of DICOM 2021a
+                 (transferSyntax.empty() ||  // Default
+                  transferSyntax == "1.2.840.10008.1.2.4.80"))
         {
           syntax = Orthanc::DicomTransferSyntax_JPEGLSLossless;
           return true;
         }
-        else if (type == "image/x-jls" && transferSyntax == "1.2.840.10008.1.2.4.81")
+        else if ((type == "image/x-jls" ||   // Table 6.1.1.8-3b of DICOM 2017c (backward compatibility)
+                  type == "image/jls") &&    // Table 8.7.3-5 of DICOM 2021a
+                 transferSyntax == "1.2.840.10008.1.2.4.81")
         {
           syntax = Orthanc::DicomTransferSyntax_JPEGLSLossy;
           return true;
@@ -345,13 +351,16 @@ static const char* GetMimeType(const Orthanc::DicomTransferSyntax& syntax)
       return "image/jpeg; transfer-syntax=1.2.840.10008.1.2.4.70";
     
     case Orthanc::DicomTransferSyntax_RLELossless:
-      return "image/x-dicom-rle; transfer-syntax=1.2.840.10008.1.2.5";
+      // Was "image/x-dicom-rle" in DICOMweb <= 1.5
+      return "image/dicom-rle; transfer-syntax=1.2.840.10008.1.2.5";
 
     case Orthanc::DicomTransferSyntax_JPEGLSLossless:
-      return "image/x-jls; transfer-syntax=1.2.840.10008.1.2.4.80";
+      // Was "image/x-jls" in DICOMweb <= 1.5
+      return "image/jls; transfer-syntax=1.2.840.10008.1.2.4.80";
 
     case Orthanc::DicomTransferSyntax_JPEGLSLossy:
-      return "image/x-jls; transfer-syntax=1.2.840.10008.1.2.4.81";
+      // Was "image/x-jls" in DICOMweb <= 1.5
+      return "image/jls; transfer-syntax=1.2.840.10008.1.2.4.81";
 
     case Orthanc::DicomTransferSyntax_JPEG2000LosslessOnly:
       return "image/jp2; transfer-syntax=1.2.840.10008.1.2.4.90";
