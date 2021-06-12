@@ -60,8 +60,19 @@ include(${CMAKE_SOURCE_DIR}/Resources/Orthanc/CMake/DownloadOrthancFramework.cma
 include_directories(${ORTHANC_FRAMEWORK_ROOT})
 
 if (ORTHANC_FRAMEWORK_SOURCE STREQUAL "system")
-  link_libraries(${ORTHANC_FRAMEWORK_LIBRARIES})
+  if (ORTHANC_FRAMEWORK_USE_SHARED)
+    include(FindBoost)
+    find_package(Boost COMPONENTS regex thread)
+    
+    if (NOT Boost_FOUND)
+      message(FATAL_ERROR "Unable to locate Boost on this system")
+    endif()
+    
+    link_libraries(${Boost_LIBRARIES} jsoncpp)
+  endif()
 
+  link_libraries(${ORTHANC_FRAMEWORK_LIBRARIES})
+  
   set(USE_SYSTEM_GOOGLE_TEST ON CACHE BOOL "Use the system version of Google Test")
   set(USE_GOOGLE_TEST_DEBIAN_PACKAGE OFF CACHE BOOL "Use the sources of Google Test shipped with libgtest-dev (Debian only)")
   mark_as_advanced(USE_GOOGLE_TEST_DEBIAN_PACKAGE)
