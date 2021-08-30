@@ -26,6 +26,7 @@
 #include <Images/ImageProcessing.h>
 #include <Images/ImageTraits.h>
 #include <Logging.h>
+#include <SerializationToolbox.h>
 #include <Toolbox.h>
 
 #include <boost/algorithm/string/predicate.hpp>
@@ -271,11 +272,6 @@ namespace
     }
 
 
-    bool HasCustomization() const
-    {
-      return (hasViewport_ || hasQuality_ || hasWindowing_);
-    }
-
     unsigned int GetTargetWidth(unsigned int sourceWidth) const
     {
       if (hasVW_)
@@ -347,9 +343,17 @@ namespace
       return quality_;
     }
 
-    bool IsWindowing() const
+    bool HasWindowing() const
     {
       return hasWindowing_;
+    }
+
+    void SetWindow(float center,
+                   float width)
+    {
+      hasWindowing_ = true;
+      windowCenter_ = center;
+      windowWidth_ = width;
     }
 
     float GetWindowCenter() const
@@ -704,15 +708,68 @@ static void ApplyRendering(Orthanc::ImageAccessor& target,
 }
 
 
+static bool ReadRescale(RenderingParameters& parameters,
+                        const Json::Value& tags)
+{
+  static const char* const RESCALE_INTERCEPT = "0028,1052";
+  static const char* const RESCALE_SLOPE = "0028,1053";
+
+  if (tags.type() == Json::objectValue &&
+      tags.isMember(RESCALE_SLOPE) &&
+      tags.isMember(RESCALE_INTERCEPT) &&
+      tags[RESCALE_SLOPE].type() == Json::stringValue &&
+      tags[RESCALE_INTERCEPT].type() == Json::stringValue)
+  {
+    float s, i;
+
+    if (Orthanc::SerializationToolbox::ParseFloat(s, tags[RESCALE_SLOPE].asString()) &&
+        Orthanc::SerializationToolbox::ParseFloat(i, tags[RESCALE_INTERCEPT].asString()))
+    {
+      parameters.SetRescaleSlope(s);
+      parameters.SetRescaleIntercept(i);
+      return true;
+    }
+  }
+
+  return false;
+}
+
+
+static bool ReadDefaultWindow(RenderingParameters& parameters,
+                              const Json::Value& tags)
+{
+  static const char* const WINDOW_CENTER = "0028,1050";
+  static const char* const WINDOW_WIDTH = "0028,1051";
+
+  if (tags.type() == Json::objectValue &&
+      tags.isMember(WINDOW_CENTER) &&
+      tags.isMember(WINDOW_WIDTH) &&
+      tags[WINDOW_CENTER].type() == Json::stringValue &&
+      tags[WINDOW_WIDTH].type() == Json::stringValue)
+  {
+    float wc, ww;
+
+    if (Orthanc::SerializationToolbox::ParseFirstFloat(wc, tags[WINDOW_CENTER].asString()) &&
+        Orthanc::SerializationToolbox::ParseFirstFloat(ww, tags[WINDOW_WIDTH].asString()))
+    {
+      parameters.SetWindow(wc, ww);
+      return true;
+    }
+  }
+
+  return false;
+}
+
 
 static void AnswerFrameRendered(OrthancPluginRestOutput* output,
                                 std::string instanceId,
                                 int frame,
                                 const OrthancPluginHttpRequest* request)
 {
-  static const char* const RESCALE_INTERCEPT = "0028,1052";
-  static const char* const RESCALE_SLOPE = "0028,1053";
   static const char* const PHOTOMETRIC_INTERPRETATION = "0028,0004";
+  static const char* const PER_FRAME_FUNCTIONAL_GROUPS_SEQUENCE = "5200,9230";
+  static const char* const PIXEL_VALUE_TRANSFORMATION_SEQUENCE = "0028,9145";
+  static const char* const FRAME_VOI_LUT_SEQUENCE = "0028,9132";
 
   Orthanc::MimeType mime = Orthanc::MimeType_Jpeg;  // This is the default in DICOMweb
       
@@ -744,141 +801,107 @@ static void AnswerFrameRendered(OrthancPluginRestOutput* output,
   RenderingParameters parameters(request);
       
   OrthancPlugins::MemoryBuffer buffer;
-  bool badFrameError = false;
 
-
-  if (parameters.HasCustomization())
-  {
-    if (frame <= 0)
-    {
-      badFrameError = true;
-    }
-    else
-    {
-      buffer.GetDicomInstance(instanceId);
-
-      Json::Value tags;
-      buffer.DicomToJson(tags, OrthancPluginDicomToJsonFormat_Short, OrthancPluginDicomToJsonFlags_None, 255);
-          
-      if (tags.isMember(RESCALE_SLOPE) &&
-          tags[RESCALE_SLOPE].type() == Json::stringValue)
-      {
-        try
-        {
-          parameters.SetRescaleSlope
-            (boost::lexical_cast<float>
-             (Orthanc::Toolbox::StripSpaces(tags[RESCALE_SLOPE].asString())));
-        }
-        catch (boost::bad_lexical_cast&)
-        {
-        }
-      }
-
-      if (tags.isMember(RESCALE_INTERCEPT) &&
-          tags[RESCALE_INTERCEPT].type() == Json::stringValue)
-      {
-        try
-        {
-          parameters.SetRescaleIntercept
-            (boost::lexical_cast<float>
-             (Orthanc::Toolbox::StripSpaces(tags[RESCALE_INTERCEPT].asString())));
-        }
-        catch (boost::bad_lexical_cast&)
-        {
-        }
-      }
-
-      OrthancPlugins::OrthancImage dicom;
-      dicom.DecodeDicomImage(buffer.GetData(), buffer.GetSize(), static_cast<unsigned int>(frame - 1));
-
-      Orthanc::PixelFormat targetFormat;
-      OrthancPluginPixelFormat sdkFormat;
-      if (dicom.GetPixelFormat() == OrthancPluginPixelFormat_RGB24)
-      {
-        targetFormat = Orthanc::PixelFormat_RGB24;
-        sdkFormat = OrthancPluginPixelFormat_RGB24;
-      }
-      else
-      {
-        targetFormat = Orthanc::PixelFormat_Grayscale8;
-        sdkFormat = OrthancPluginPixelFormat_Grayscale8;
-      }
-
-      Orthanc::ImageAccessor source;
-      source.AssignReadOnly(Convert(dicom.GetPixelFormat()),
-                            dicom.GetWidth(), dicom.GetHeight(), dicom.GetPitch(), dicom.GetBuffer());
-          
-      Orthanc::Image target(targetFormat, parameters.GetTargetWidth(source.GetWidth()),
-                            parameters.GetTargetHeight(source.GetHeight()), false);
-
-      // New in 1.3: Fix for MONOCHROME1 images
-      bool invert = false;
-      if (target.GetFormat() == Orthanc::PixelFormat_Grayscale8 &&
-          tags.isMember(PHOTOMETRIC_INTERPRETATION) &&
-          tags[PHOTOMETRIC_INTERPRETATION].type() == Json::stringValue)
-      {
-        std::string s = tags[PHOTOMETRIC_INTERPRETATION].asString();
-        Orthanc::Toolbox::StripSpaces(s);
-        if (s == "MONOCHROME1")
-        {
-          invert = true;
-        }
-      }
-      
-      ApplyRendering(target, source, parameters, invert);
-
-      switch (mime)
-      {
-        case Orthanc::MimeType_Png:
-          OrthancPluginCompressAndAnswerPngImage(OrthancPlugins::GetGlobalContext(), output, sdkFormat,
-                                                 target.GetWidth(), target.GetHeight(), target.GetPitch(), target.GetBuffer());
-          break;
-              
-        case Orthanc::MimeType_Jpeg:
-          OrthancPluginCompressAndAnswerJpegImage(OrthancPlugins::GetGlobalContext(), output, sdkFormat,
-                                                  target.GetWidth(), target.GetHeight(), target.GetPitch(), target.GetBuffer(),
-                                                  parameters.GetQuality());
-          break;
-
-        default:
-          throw Orthanc::OrthancException(Orthanc::ErrorCode_NotImplemented);
-      }
-    }
-  }
-  else
-  {
-    // No customization of the rendering. Return the default
-    // preview of Orthanc.
-    std::map<std::string, std::string> headers;
-    headers["Accept"] = Orthanc::EnumerationToString(mime);
-
-    /**
-     * (1) In DICOMweb, the "frame" parameter is in the range [1..N],
-     * whereas Orthanc uses range [0..N-1], hence the "-1" below.
-     * 
-     * (2) We can use "/rendered" that was introduced in the REST API
-     * of Orthanc 1.6.0, as since release 1.2 of the DICOMweb plugin,
-     * the minimal SDK version is Orthanc 1.7.0 (in order to be able
-     * to use transcoding primitives). In releases <= 1.2, "/preview"
-     * was used, which caused one issue:
-     * https://groups.google.com/d/msg/orthanc-users/mKgr2QAKTCU/R7u4I1LvBAAJ
-     **/
-    if (buffer.RestApiGet("/instances/" + instanceId + "/frames/" +
-                          boost::lexical_cast<std::string>(frame - 1) + "/rendered", headers, false))
-    {
-      OrthancPluginAnswerBuffer(OrthancPlugins::GetGlobalContext(), output, buffer.GetData(),
-                                buffer.GetSize(), Orthanc::EnumerationToString(mime));
-    }
-    else
-    {
-      badFrameError = true;
-    }
-  }
-
-  if (badFrameError)
+  if (frame <= 0)
   {
     throw Orthanc::OrthancException(Orthanc::ErrorCode_ParameterOutOfRange,
                                     "Inexistent frame index in this image: " + boost::lexical_cast<std::string>(frame));
+  }
+  else
+  {
+    buffer.GetDicomInstance(instanceId);
+
+    Json::Value tags;
+    buffer.DicomToJson(tags, OrthancPluginDicomToJsonFormat_Short, OrthancPluginDicomToJsonFlags_None, 255);
+
+    const unsigned int f = static_cast<unsigned int>(frame - 1);
+    
+    if (ReadRescale(parameters, tags))
+    {
+    }
+    else if (tags.isMember(PER_FRAME_FUNCTIONAL_GROUPS_SEQUENCE) &&
+             tags[PER_FRAME_FUNCTIONAL_GROUPS_SEQUENCE].type() == Json::arrayValue &&
+             static_cast<Json::Value::ArrayIndex>(f) < tags[PER_FRAME_FUNCTIONAL_GROUPS_SEQUENCE].size() &&
+             tags[PER_FRAME_FUNCTIONAL_GROUPS_SEQUENCE][f].type() == Json::objectValue &&
+             tags[PER_FRAME_FUNCTIONAL_GROUPS_SEQUENCE][f].isMember(PIXEL_VALUE_TRANSFORMATION_SEQUENCE) &&
+             tags[PER_FRAME_FUNCTIONAL_GROUPS_SEQUENCE][f][PIXEL_VALUE_TRANSFORMATION_SEQUENCE].type() == Json::arrayValue &&
+             tags[PER_FRAME_FUNCTIONAL_GROUPS_SEQUENCE][f][PIXEL_VALUE_TRANSFORMATION_SEQUENCE].size() == 1)
+    {
+      ReadRescale(parameters, tags[PER_FRAME_FUNCTIONAL_GROUPS_SEQUENCE][f][PIXEL_VALUE_TRANSFORMATION_SEQUENCE][0]);
+    }
+
+    if (!parameters.HasWindowing())
+    {
+      if (ReadDefaultWindow(parameters, tags))
+      {
+      }
+      else if (tags.isMember(PER_FRAME_FUNCTIONAL_GROUPS_SEQUENCE) &&
+               tags[PER_FRAME_FUNCTIONAL_GROUPS_SEQUENCE].type() == Json::arrayValue &&
+               static_cast<Json::Value::ArrayIndex>(f) < tags[PER_FRAME_FUNCTIONAL_GROUPS_SEQUENCE].size() &&
+               tags[PER_FRAME_FUNCTIONAL_GROUPS_SEQUENCE][f].type() == Json::objectValue &&
+               tags[PER_FRAME_FUNCTIONAL_GROUPS_SEQUENCE][f].isMember(FRAME_VOI_LUT_SEQUENCE) &&
+               tags[PER_FRAME_FUNCTIONAL_GROUPS_SEQUENCE][f][FRAME_VOI_LUT_SEQUENCE].type() == Json::arrayValue &&
+               tags[PER_FRAME_FUNCTIONAL_GROUPS_SEQUENCE][f][FRAME_VOI_LUT_SEQUENCE].size() == 1)
+      {
+        ReadDefaultWindow(parameters, tags[PER_FRAME_FUNCTIONAL_GROUPS_SEQUENCE][f][FRAME_VOI_LUT_SEQUENCE][0]);
+      }
+    }
+
+    OrthancPlugins::OrthancImage dicom;
+    dicom.DecodeDicomImage(buffer.GetData(), buffer.GetSize(), f);
+
+    Orthanc::PixelFormat targetFormat;
+    OrthancPluginPixelFormat sdkFormat;
+    if (dicom.GetPixelFormat() == OrthancPluginPixelFormat_RGB24)
+    {
+      targetFormat = Orthanc::PixelFormat_RGB24;
+      sdkFormat = OrthancPluginPixelFormat_RGB24;
+    }
+    else
+    {
+      targetFormat = Orthanc::PixelFormat_Grayscale8;
+      sdkFormat = OrthancPluginPixelFormat_Grayscale8;
+    }
+
+    Orthanc::ImageAccessor source;
+    source.AssignReadOnly(Convert(dicom.GetPixelFormat()),
+                          dicom.GetWidth(), dicom.GetHeight(), dicom.GetPitch(), dicom.GetBuffer());
+          
+    Orthanc::Image target(targetFormat, parameters.GetTargetWidth(source.GetWidth()),
+                          parameters.GetTargetHeight(source.GetHeight()), false);
+
+    // New in 1.3: Fix for MONOCHROME1 images
+    bool invert = false;
+    if (target.GetFormat() == Orthanc::PixelFormat_Grayscale8 &&
+        tags.isMember(PHOTOMETRIC_INTERPRETATION) &&
+        tags[PHOTOMETRIC_INTERPRETATION].type() == Json::stringValue)
+    {
+      std::string s = tags[PHOTOMETRIC_INTERPRETATION].asString();
+      Orthanc::Toolbox::StripSpaces(s);
+      if (s == "MONOCHROME1")
+      {
+        invert = true;
+      }
+    }
+      
+    ApplyRendering(target, source, parameters, invert);
+
+    switch (mime)
+    {
+      case Orthanc::MimeType_Png:
+        OrthancPluginCompressAndAnswerPngImage(OrthancPlugins::GetGlobalContext(), output, sdkFormat,
+                                               target.GetWidth(), target.GetHeight(), target.GetPitch(), target.GetBuffer());
+        break;
+              
+      case Orthanc::MimeType_Jpeg:
+        OrthancPluginCompressAndAnswerJpegImage(OrthancPlugins::GetGlobalContext(), output, sdkFormat,
+                                                target.GetWidth(), target.GetHeight(), target.GetPitch(), target.GetBuffer(),
+                                                parameters.GetQuality());
+        break;
+
+      default:
+        throw Orthanc::OrthancException(Orthanc::ErrorCode_NotImplemented);
+    }
   }
 }
 
