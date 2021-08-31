@@ -26,11 +26,68 @@
 #include <Images/ImageProcessing.h>
 #include <Images/ImageTraits.h>
 #include <Logging.h>
-#include <SerializationToolbox.h>
 #include <Toolbox.h>
+
+#if ORTHANC_FRAMEWORK_VERSION_IS_ABOVE(1, 9, 7)
+#  include <SerializationToolbox.h>
+#else
+#  include <boost/lexical_cast.hpp>
+#endif
 
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/math/special_functions/round.hpp>
+
+
+static bool ParseFloat(float& target,
+                       const std::string& source)
+{
+#if ORTHANC_FRAMEWORK_VERSION_IS_ABOVE(1, 9, 7)
+  return Orthanc::SerializationToolbox::ParseFloat(target, source);
+
+#else
+  // Emulation for older versions of the Orthanc framework
+  std::string s = Orthanc::Toolbox::StripSpaces(source);
+  
+  if (s.empty())
+  {
+    return false;
+  }
+  else
+  {
+    try
+    {
+      target = boost::lexical_cast<float>(s);
+      return true;
+    }
+    catch (boost::bad_lexical_cast&)
+    {
+      return false;
+    }
+  }
+#endif
+}
+
+
+static bool ParseFirstFloat(float& target,
+                            const std::string& source)
+{
+#if ORTHANC_FRAMEWORK_VERSION_IS_ABOVE(1, 9, 7)
+  return Orthanc::SerializationToolbox::ParseFirstFloat(target, source);
+
+#else
+  // Emulation for older versions of the Orthanc framework
+  std::vector<std::string> tokens;
+  Orthanc::Toolbox::TokenizeString(tokens, source, '\\');
+  if (tokens.empty())
+  {
+    return false;
+  }
+  else
+  {
+    return ParseFloat(target, tokens[0]);
+  }
+#endif
+}
 
 
 namespace
@@ -722,8 +779,8 @@ static bool ReadRescale(RenderingParameters& parameters,
   {
     float s, i;
 
-    if (Orthanc::SerializationToolbox::ParseFloat(s, tags[RESCALE_SLOPE].asString()) &&
-        Orthanc::SerializationToolbox::ParseFloat(i, tags[RESCALE_INTERCEPT].asString()))
+    if (ParseFloat(s, tags[RESCALE_SLOPE].asString()) &&
+        ParseFloat(i, tags[RESCALE_INTERCEPT].asString()))
     {
       parameters.SetRescaleSlope(s);
       parameters.SetRescaleIntercept(i);
@@ -749,8 +806,8 @@ static bool ReadDefaultWindow(RenderingParameters& parameters,
   {
     float wc, ww;
 
-    if (Orthanc::SerializationToolbox::ParseFirstFloat(wc, tags[WINDOW_CENTER].asString()) &&
-        Orthanc::SerializationToolbox::ParseFirstFloat(ww, tags[WINDOW_WIDTH].asString()))
+    if (ParseFirstFloat(wc, tags[WINDOW_CENTER].asString()) &&
+        ParseFirstFloat(ww, tags[WINDOW_WIDTH].asString()))
     {
       parameters.SetWindow(wc, ww);
       return true;
