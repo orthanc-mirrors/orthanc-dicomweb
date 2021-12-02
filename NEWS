@@ -1,8 +1,12 @@
 Pending changes in the mainline
 ===============================
 
-* Detection of windowing and rescale in ".../rendered" for Philips multiframe images
 * Show an error message when trying to send studies > 4GB via STOW-RS
+
+Version 1.7 (2021-08-31)
+========================
+
+* Detection of windowing and rescale in ".../rendered" for Philips multiframe images
 
 
 Version 1.6 (2021-05-07)
