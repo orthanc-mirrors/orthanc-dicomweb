@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 #
 # This maintenance script updates the content of the "Orthanc" folder
@@ -8,7 +8,7 @@
 import multiprocessing
 import os
 import stat
-import urllib2
+import urllib.request
 
 TARGET = os.path.join(os.path.dirname(__file__), 'Orthanc')
 PLUGIN_SDK_VERSION = '1.7.0'
@@ -45,7 +45,7 @@ def Download(x):
     branch = x[0]
     source = x[1]
     target = os.path.join(TARGET, x[2])
-    print target
+    print(target)
 
     try:
         os.makedirs(os.path.dirname(target))
@@ -54,9 +54,9 @@ def Download(x):
 
     url = '%s/%s/%s' % (REPOSITORY, branch, source)
 
-    with open(target, 'w') as f:
+    with open(target, 'wb') as f:
         try:
-            f.write(urllib2.urlopen(url).read())
+            f.write(urllib.request.urlopen(url).read())
         except:
             print('ERROR %s' % url)
             raise
