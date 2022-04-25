@@ -35,6 +35,11 @@
 #include <boost/algorithm/string/predicate.hpp>
 
 
+#define ORTHANC_CORE_MINIMAL_MAJOR     1
+#define ORTHANC_CORE_MINIMAL_MINOR     11
+#define ORTHANC_CORE_MINIMAL_REVISION  0
+
+
 static const char* const HAS_DELETE = "HasDelete";
 
 
@@ -508,6 +513,20 @@ extern "C"
               ORTHANC_PLUGINS_MINIMAL_MAJOR_NUMBER,
               ORTHANC_PLUGINS_MINIMAL_MINOR_NUMBER,
               ORTHANC_PLUGINS_MINIMAL_REVISION_NUMBER);
+      OrthancPluginLogError(context, info);
+      return -1;
+    }
+
+    if (!OrthancPlugins::CheckMinimalOrthancVersion(ORTHANC_CORE_MINIMAL_MAJOR,
+                                                    ORTHANC_CORE_MINIMAL_MINOR,
+                                                    ORTHANC_CORE_MINIMAL_REVISION))
+    {
+      char info[1024];
+      sprintf(info, "Your version of Orthanc (%s) must be above %d.%d.%d to run this plugin",
+              context->orthancVersion,
+              ORTHANC_CORE_MINIMAL_MAJOR,
+              ORTHANC_CORE_MINIMAL_MINOR,
+              ORTHANC_CORE_MINIMAL_REVISION);
       OrthancPluginLogError(context, info);
       return -1;
     }
