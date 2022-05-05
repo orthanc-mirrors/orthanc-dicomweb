@@ -30,7 +30,11 @@ Pending changes in the mainline
       ],
       "Patient": []
     }
-
+* New configuration "PublicRoot" that is used in RetrieveUrl tags
+  and location information.  This is useful if, e.g, your Orthanc is
+  behind a reverse-proxy and has another base endpoint than the "Root"
+  one.  Note that, if using a reverse-proxy, make sure to set the "host"
+  and "proto" correctly in the "Forwarded" HTTP headers.
 
 
 Version 1.7 (2021-08-31)

@@ -105,14 +105,17 @@ namespace OrthancPlugins
 
     std::string GetDicomWebRoot();
 
+    std::string GetPublicRoot();
+
     std::string GetOrthancApiRoot();
 
     std::string GetWadoRoot();
       
-    std::string GetBaseUrl(const std::map<std::string, std::string>& headers);
+    std::string GetBasePublicUrl(const std::map<std::string, std::string>& headers);
 
     // TODO => REMOVE
-    std::string GetBaseUrl(const OrthancPluginHttpRequest* request);
+    std::string GetBasePublicUrl(const OrthancPluginHttpRequest* request);
+
 
     std::string GetWadoUrl(const std::string& wadoBase,
                            const std::string& studyInstanceUid,

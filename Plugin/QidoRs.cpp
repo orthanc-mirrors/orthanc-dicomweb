@@ -345,7 +345,7 @@ namespace
 
     void ExtractFields(Orthanc::DicomMap& result,
                        const Orthanc::DicomMap& source,
-                       const std::string& wadoBase,
+                       const std::string& wadoBasePublicUrl,
                        Orthanc::ResourceType level) const
     {
       std::set<Orthanc::DicomTag> fields;
@@ -363,7 +363,7 @@ namespace
       }
 
       // Set the retrieve URL for WADO-RS
-      std::string url = (wadoBase + "studies/" +
+      std::string url = (wadoBasePublicUrl + "studies/" +
                          source.GetStringValue(Orthanc::DICOM_TAG_STUDY_INSTANCE_UID, "", false));
 
       if (level == Orthanc::ResourceType_Series || 
@@ -405,7 +405,7 @@ static void ApplyMatcher(OrthancPluginRestOutput* output,
     throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
   }
 
-  std::string wadoBase = OrthancPlugins::Configuration::GetBaseUrl(request);
+  std::string wadoBasePublicUrl = OrthancPlugins::Configuration::GetBasePublicUrl(request);
 
   OrthancPlugins::DicomWebFormatter::HttpWriter writer(
     output, OrthancPlugins::Configuration::IsXmlExpected(request));
@@ -422,7 +422,7 @@ static void ApplyMatcher(OrthancPluginRestOutput* output,
 
     Orthanc::DicomMap target;
 
-    matcher.ExtractFields(target, source, wadoBase, level);
+    matcher.ExtractFields(target, source, wadoBasePublicUrl, level);
     writer.AddOrthancMap(target);
   }
   writer.Send();

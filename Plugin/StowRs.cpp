@@ -32,7 +32,7 @@ namespace OrthancPlugins
                          const std::string& expectedStudy) :
     context_(context),
     xml_(Configuration::IsXmlExpected(headers)),
-    wadoBase_(Configuration::GetBaseUrl(headers)),
+    wadoBasePublicUrl_(Configuration::GetBasePublicUrl(headers)),
     expectedStudy_(expectedStudy),
     isFirst_(true),
     result_(Json::objectValue),
@@ -173,7 +173,7 @@ namespace OrthancPlugins
     {
       if (isFirst_)
       {
-        std::string url = wadoBase_ + "studies/" + studyInstanceUid;
+        std::string url = wadoBasePublicUrl_ + "studies/" + studyInstanceUid;
         result_[DICOM_TAG_RETRIEVE_URL.Format()] = url;
         isFirst_ = false;
       }
@@ -184,7 +184,7 @@ namespace OrthancPlugins
 
       if (ok)
       {
-        std::string url = (wadoBase_ + 
+        std::string url = (wadoBasePublicUrl_ + 
                            "studies/" + studyInstanceUid +
                            "/series/" + seriesInstanceUid +
                            "/instances/" + sopInstanceUid);

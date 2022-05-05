@@ -409,7 +409,7 @@ static void AnswerFrames(OrthancPluginRestOutput* output,
     OrthancPluginErrorCode error;
 
 #if HAS_SEND_MULTIPART_ITEM_2 == 1
-    const std::string base = OrthancPlugins::Configuration::GetBaseUrl(request);
+    const std::string base = OrthancPlugins::Configuration::GetBasePublicUrl(request);
     std::string location = (
       OrthancPlugins::Configuration::GetWadoUrl(base, studyInstanceUid, seriesInstanceUid, sopInstanceUid) +
       "frames/" + boost::lexical_cast<std::string>(*frame + 1));

@@ -1127,7 +1127,7 @@ void RetrieveStudyMetadata(OrthancPluginRestOutput* output,
         for (std::list<Identifier>::const_iterator b = instances.begin(); b != instances.end(); ++b)
         {
           WriteInstanceMetadata(writer, mode, cache, b->GetOrthancId(), studyInstanceUid, a->GetDicomUid(),
-                                b->GetDicomUid(), OrthancPlugins::Configuration::GetBaseUrl(request));
+                                b->GetDicomUid(), OrthancPlugins::Configuration::GetBasePublicUrl(request));
         }
       }
 
@@ -1166,7 +1166,7 @@ void RetrieveSeriesMetadata(OrthancPluginRestOutput* output,
       for (std::list<Identifier>::const_iterator a = instances.begin(); a != instances.end(); ++a)
       {
         WriteInstanceMetadata(writer, mode, cache, a->GetOrthancId(), studyInstanceUid, seriesInstanceUid,
-                              a->GetDicomUid(), OrthancPlugins::Configuration::GetBaseUrl(request));
+                              a->GetDicomUid(), OrthancPlugins::Configuration::GetBasePublicUrl(request));
       }
 
       writer.Send();
@@ -1193,7 +1193,7 @@ void RetrieveInstanceMetadata(OrthancPluginRestOutput* output,
     {
       OrthancPlugins::DicomWebFormatter::HttpWriter writer(output, isXml);
       WriteInstanceMetadata(writer, OrthancPlugins::MetadataMode_Full, cache, orthancId, studyInstanceUid,
-                            seriesInstanceUid, sopInstanceUid, OrthancPlugins::Configuration::GetBaseUrl(request));
+                            seriesInstanceUid, sopInstanceUid, OrthancPlugins::Configuration::GetBasePublicUrl(request));
       writer.Send();      
     }
   }

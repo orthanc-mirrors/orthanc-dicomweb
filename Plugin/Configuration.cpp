@@ -362,11 +362,10 @@ namespace OrthancPlugins
       return configuration_->GetUnsignedIntegerValue(key, defaultValue);
     }
 
-
-    std::string GetDicomWebRoot()
+    std::string GetRootPath(const char* configName, const char* defaultValue)
     {
       assert(configuration_.get() != NULL);
-      std::string root = configuration_->GetStringValue("Root", "/dicom-web/");
+      std::string root = configuration_->GetStringValue(configName, defaultValue);
 
       // Make sure the root URI starts and ends with a slash
       if (root.size() == 0 ||
@@ -383,7 +382,17 @@ namespace OrthancPlugins
       return root;
     }
 
-    
+    std::string GetDicomWebRoot()
+    {
+      return GetRootPath("Root", "/dicom-web/");
+    }
+
+    std::string GetPublicRoot()
+    {
+      std::string root = GetDicomWebRoot();
+      return GetRootPath("PublicRoot", root.c_str());
+    }
+
     std::string GetOrthancApiRoot()
     {
       std::string root = Configuration::GetDicomWebRoot();
@@ -476,7 +485,7 @@ namespace OrthancPlugins
     }
 
 
-    std::string GetBaseUrl(const HttpClient::HttpHeaders& headers)
+    std::string GetBasePublicUrl(const HttpClient::HttpHeaders& headers)
     {
       assert(configuration_.get() != NULL);
       std::string host = configuration_->GetStringValue("Host", "");
@@ -530,11 +539,10 @@ namespace OrthancPlugins
         host = "localhost:8042";
       }
 
-      return (https ? "https://" : "http://") + host + GetDicomWebRoot();
+      return (https ? "https://" : "http://") + host + GetPublicRoot();
     }
 
-
-    std::string GetBaseUrl(const OrthancPluginHttpRequest* request)
+    std::string GetBasePublicUrl(const OrthancPluginHttpRequest* request)
     {
       HttpClient::HttpHeaders headers;
 
@@ -549,7 +557,7 @@ namespace OrthancPlugins
         headers["Host"] = value;
       }
 
-      return GetBaseUrl(headers);
+      return GetBasePublicUrl(headers);
     }
 
 

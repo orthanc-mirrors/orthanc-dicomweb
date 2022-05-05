@@ -35,7 +35,7 @@ namespace OrthancPlugins
   private:
     OrthancPluginContext*  context_;
     bool                   xml_;
-    std::string            wadoBase_;
+    std::string            wadoBasePublicUrl_;
     std::string            expectedStudy_;
     bool                   isFirst_;
     Json::Value            result_;
