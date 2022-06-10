@@ -1,2 +1,7 @@
 * Implement capabilities: https://www.dicomstandard.org/using/dicomweb/capabilities/
   from https://groups.google.com/d/msgid/orthanc-users/c60227f2-c6da-4fd9-9b03-3ce9bf7d1af5n%40googlegroups.com?utm_medium=email&utm_source=footer
+
+* use the same DicomMap as the core of Orthanc (wrt ExtraMainDicomTags)
+  from https://groups.google.com/g/orthanc-users/c/-ZKW9967DW4/m/9T3bwHeCAAAJ
+  command to test:
+  curl -H "Accept: application/json" http://localhost:8044/dicom-web/studies/1.2.840.113619.2.404.3.2831156996.875.1599094730.441/series/1.2.840.113619.2.404.3.2831156996.875.1599094730.453.5/metadata
