@@ -5,3 +5,8 @@
   from https://groups.google.com/g/orthanc-users/c/-ZKW9967DW4/m/9T3bwHeCAAAJ
   command to test:
   curl -H "Accept: application/json" http://localhost:8044/dicom-web/studies/1.2.840.113619.2.404.3.2831156996.875.1599094730.441/series/1.2.840.113619.2.404.3.2831156996.875.1599094730.453.5/metadata
+
+* handle same SeriesInstanceUID in different studies:
+  from https://groups.google.com/g/orthanc-users/c/nSBcMP_ri4o/m/sQxqKa72BAAJ
+  We can indeed solve the issue by calling tools/find instead of tools/lookup in the LocateSeries method
+
