@@ -10,3 +10,10 @@
   from https://groups.google.com/g/orthanc-users/c/nSBcMP_ri4o/m/sQxqKa72BAAJ
   We can indeed solve the issue by calling tools/find instead of tools/lookup in the LocateSeries method
 
+* From Sylvain:
+  curl http://localhost:8044/dicom-web/instances?StudyInstanceUID=1.2.3.4 shall return not only the instance tags but also the study level tags.
+  See section 10.6.3.3.3 "Instance Resources" in https://dicom.nema.org/medical/dicom/current/output/html/part18.html:
+  "If the Target Resource is All Instances, then include all Study level Attributes specified in Section 10.6.3.3.1."
+
+
+* idea to investigate: implement /metadata route by providing only the MainDicomTags - ExtraMainDicomTags and sequences stored in DB.  Not all tags !
