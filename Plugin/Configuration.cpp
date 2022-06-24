@@ -23,6 +23,7 @@
 
 #include "../Resources/Orthanc/Plugins/OrthancPluginCppWrapper.h"
 #include "DicomWebServers.h"
+#include <DicomFormat/DicomMap.h>
 
 #include <Compatibility.h>
 #include <Logging.h>
@@ -36,7 +37,8 @@
 
 // Assume Latin-1 encoding by default (as in the Orthanc core)
 static Orthanc::Encoding defaultEncoding_ = Orthanc::Encoding_Latin1;
-static std::unique_ptr<OrthancPlugins::OrthancConfiguration> configuration_;
+static std::unique_ptr<OrthancPlugins::OrthancConfiguration> dicomWebConfiguration_;
+static std::unique_ptr<OrthancPlugins::OrthancConfiguration> globalConfiguration_;
 static bool serversInDatabase_ = false;
 static const int32_t GLOBAL_PROPERTY_SERVERS = 5468;
 
@@ -292,20 +294,50 @@ namespace OrthancPlugins
 
   namespace Configuration
   {
+    // TODO: find a way to reuse/share the method from/with the Orthanc Core
+    void LoadMainDicomTags(const Json::Value& configuration)
+    {
+      static const char* const EXTRA_MAIN_DICOM_TAGS = "ExtraMainDicomTags";
+      
+
+      LOG(INFO) << "The DICOMweb plugin is loading configuration: " << configuration.toStyledString();
+
+      // note: the configuration is assumed to be valid since it has already been parsed by the Orthanc Core
+      Json::Value::Members levels(configuration[EXTRA_MAIN_DICOM_TAGS].getMemberNames());
+
+      for (Json::Value::ArrayIndex i = 0; i < levels.size(); i++)
+      {
+        Orthanc::ResourceType level = Orthanc::StringToResourceType(levels[i].c_str());
+
+        const Json::Value& content = configuration[EXTRA_MAIN_DICOM_TAGS][levels[i]];
+
+        if (content.size() > 0)
+        {
+          for (Json::Value::ArrayIndex t = 0; t < content.size(); t++)
+          {
+            const std::string& tagName = content[t].asString();
+            Orthanc::DicomTag tag(0, 0);
+            OrthancPlugins::ParseTag(tag, tagName);
+            Orthanc::DicomMap::AddMainDicomTag(tag, tagName, level);
+          }
+        }
+      }
+    }
+
     void Initialize()
     {
-      configuration_.reset(new OrthancConfiguration);
-      
-      OrthancConfiguration global;
-      global.GetSection(*configuration_, "DicomWeb");
+      dicomWebConfiguration_.reset(new OrthancConfiguration);
+      globalConfiguration_.reset(new OrthancConfiguration);
+
+      globalConfiguration_->GetSection(*dicomWebConfiguration_, "DicomWeb");
 
       std::string s;
-      if (global.LookupStringValue(s, "DefaultEncoding"))
+      if (globalConfiguration_->LookupStringValue(s, "DefaultEncoding"))
       {
         defaultEncoding_ = Orthanc::StringToEncoding(s.c_str());
       }
 
-      if (!configuration_->LookupBooleanValue(serversInDatabase_, "ServersInDatabase"))
+      if (!dicomWebConfiguration_->LookupBooleanValue(serversInDatabase_, "ServersInDatabase"))
       {
         serversInDatabase_ = false;
       }
@@ -328,44 +360,46 @@ namespace OrthancPlugins
       std::set<Orthanc::DicomTag> tags;
       GetExtrapolatedMetadataTags(tags, Orthanc::ResourceType_Study);
       GetExtrapolatedMetadataTags(tags, Orthanc::ResourceType_Series);
+
+      LoadMainDicomTags(globalConfiguration_->GetJson());
     }
 
 
     std::string GetStringValue(const std::string& key,
                                const std::string& defaultValue)
     {
-      assert(configuration_.get() != NULL);
-      return configuration_->GetStringValue(key, defaultValue);
+      assert(dicomWebConfiguration_.get() != NULL);
+      return dicomWebConfiguration_->GetStringValue(key, defaultValue);
     }
 
 
     bool GetBooleanValue(const std::string& key,
                          bool defaultValue)
     {
-      assert(configuration_.get() != NULL);
-      return configuration_->GetBooleanValue(key, defaultValue);
+      assert(dicomWebConfiguration_.get() != NULL);
+      return dicomWebConfiguration_->GetBooleanValue(key, defaultValue);
     }
 
 
     bool LookupBooleanValue(bool& target,
                             const std::string& key)
     {
-      assert(configuration_.get() != NULL);
-      return configuration_->LookupBooleanValue(target, key);
+      assert(dicomWebConfiguration_.get() != NULL);
+      return dicomWebConfiguration_->LookupBooleanValue(target, key);
     }
 
 
     unsigned int GetUnsignedIntegerValue(const std::string& key,
                                          unsigned int defaultValue)
     {
-      assert(configuration_.get() != NULL);
-      return configuration_->GetUnsignedIntegerValue(key, defaultValue);
+      assert(dicomWebConfiguration_.get() != NULL);
+      return dicomWebConfiguration_->GetUnsignedIntegerValue(key, defaultValue);
     }
 
     std::string GetRootPath(const char* configName, const char* defaultValue)
     {
-      assert(configuration_.get() != NULL);
-      std::string root = configuration_->GetStringValue(configName, defaultValue);
+      assert(dicomWebConfiguration_.get() != NULL);
+      std::string root = dicomWebConfiguration_->GetStringValue(configName, defaultValue);
 
       // Make sure the root URI starts and ends with a slash
       if (root.size() == 0 ||
@@ -429,8 +463,8 @@ namespace OrthancPlugins
 
     std::string GetWadoRoot()
     {
-      assert(configuration_.get() != NULL);
-      std::string root = configuration_->GetStringValue("WadoRoot", "/wado/");
+      assert(dicomWebConfiguration_.get() != NULL);
+      std::string root = dicomWebConfiguration_->GetStringValue("WadoRoot", "/wado/");
 
       // Make sure the root URI starts with a slash
       if (root.size() == 0 ||
@@ -487,9 +521,9 @@ namespace OrthancPlugins
 
     std::string GetBasePublicUrl(const HttpClient::HttpHeaders& headers)
     {
-      assert(configuration_.get() != NULL);
-      std::string host = configuration_->GetStringValue("Host", "");
-      bool https = configuration_->GetBooleanValue("Ssl", false);
+      assert(dicomWebConfiguration_.get() != NULL);
+      std::string host = dicomWebConfiguration_->GetStringValue("Host", "");
+      bool https = dicomWebConfiguration_->GetBooleanValue("Ssl", false);
 
       std::string forwarded;
       if (host.empty() &&
@@ -696,7 +730,7 @@ namespace OrthancPlugins
 
       std::list<std::string> s;
       
-      if (configuration_->LookupListOfStrings(s, key, false))
+      if (dicomWebConfiguration_->LookupListOfStrings(s, key, false))
       {
         for (std::list<std::string>::const_iterator it = s.begin(); it != s.end(); ++it)
         {
@@ -763,7 +797,7 @@ namespace OrthancPlugins
       else
       {
         OrthancConfiguration servers;
-        configuration_->GetSection(servers, "Servers");
+        dicomWebConfiguration_->GetSection(servers, "Servers");
         DicomWebServers::GetInstance().LoadGlobalConfiguration(servers.GetJson());
       }
     }
