@@ -175,6 +175,46 @@ namespace OrthancPlugins
     }
   }
 
+
+  static void ToShortDicomAsJson(Json::Value& target, const Json::Value& fullJsonSource)
+  {
+    // printf("%s", fullJsonSource.toStyledString().c_str());
+
+    if (fullJsonSource.isArray() && target.isArray())
+    {
+      for (Json::Value::ArrayIndex i = 0; i < fullJsonSource.size(); ++i)
+      {
+        Json::Value& child = target.append(Json::objectValue);
+        ToShortDicomAsJson(child, fullJsonSource[i]);
+      }
+    }
+    else if (fullJsonSource.isObject() && target.isObject())
+    {
+      const Json::Value::Members& members = fullJsonSource.getMemberNames();
+      for (Json::Value::Members::const_iterator member = members.begin();
+           member != members.end(); ++member)
+      {
+        target[*member] = Json::objectValue;
+        const Json::Value& jsonSourceMember = fullJsonSource[*member];
+        if (jsonSourceMember.isMember("Type"))
+        {
+          if (jsonSourceMember["Type"] == "String")
+          {
+            target[*member] = jsonSourceMember["Value"];
+          }
+          else if (jsonSourceMember["Type"] == "Sequence")
+          {
+            target[*member] = Json::arrayValue;
+            ToShortDicomAsJson(target[*member], jsonSourceMember["Value"]);
+          }
+          else if (jsonSourceMember["Type"] == "Null")
+          {
+            target[*member] = Json::nullValue;
+          }
+        }
+      }
+    }
+  }
                   
   void DicomWebFormatter::HttpWriter::AddOrthancMap(const Orthanc::DicomMap& value)
   {
@@ -183,13 +223,23 @@ namespace OrthancPlugins
     std::set<Orthanc::DicomTag> tags;
     value.GetTags(tags);
     
+    // construct a "short" DicomAsJson that can be used in CreateDicom
     for (std::set<Orthanc::DicomTag>::const_iterator
            it = tags.begin(); it != tags.end(); ++it)
     {
-      std::string s;
-      if (value.LookupStringValue(s, *it, false))
+      const Orthanc::DicomValue& v = value.GetValue(*it);
+      if (v.IsSequence())
       {
-        json[it->Format()] = s;
+        json[it->Format()] = Json::arrayValue;
+        ToShortDicomAsJson(json[it->Format()], v.GetSequenceContent());
+      }
+      else
+      {
+        std::string s;
+        if (value.LookupStringValue(s, *it, false))
+        {
+          json[it->Format()] = s;
+        }
       }
     }
     

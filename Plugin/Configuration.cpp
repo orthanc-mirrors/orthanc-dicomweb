@@ -318,7 +318,7 @@ namespace OrthancPlugins
             const std::string& tagName = content[t].asString();
             Orthanc::DicomTag tag(0, 0);
             OrthancPlugins::ParseTag(tag, tagName);
-            Orthanc::DicomMap::AddMainDicomTag(tag, tagName, level);
+            Orthanc::DicomMap::AddMainDicomTag(tag, level);
           }
         }
       }

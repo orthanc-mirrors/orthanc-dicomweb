@@ -484,16 +484,16 @@ namespace
       switch (level)
       {
         case Orthanc::ResourceType_Study:
-          uri = "/studies/" + orthancId;
+          uri = "/studies/" + orthancId + "?full";
           break;
             
         case Orthanc::ResourceType_Series:
-          uri = "/series/" + orthancId;
+          uri = "/series/" + orthancId + "?full";
           parentField = "ParentStudy";
           break;
             
         case Orthanc::ResourceType_Instance:
-          uri = "/instances/" + orthancId;
+          uri = "/instances/" + orthancId + "?full";
           parentField = "ParentSeries";
           break;
 
@@ -514,13 +514,13 @@ namespace
         throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
       }
 
-      dicom.ParseMainDicomTags(value[MAIN_DICOM_TAGS], level);
+      dicom.FromDicomAsJson(value[MAIN_DICOM_TAGS], false /* append */, true /* parseSequences */);
 
       if (level == Orthanc::ResourceType_Study)
       {
         if (value.isMember(PATIENT_MAIN_DICOM_TAGS))
         {
-          dicom.ParseMainDicomTags(value[PATIENT_MAIN_DICOM_TAGS], Orthanc::ResourceType_Patient);
+          dicom.FromDicomAsJson(value[PATIENT_MAIN_DICOM_TAGS], true /* append */, true /* parseSequences */);
         }
         else
         {
