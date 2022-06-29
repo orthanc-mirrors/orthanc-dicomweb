@@ -298,9 +298,6 @@ namespace OrthancPlugins
     void LoadMainDicomTags(const Json::Value& configuration)
     {
       static const char* const EXTRA_MAIN_DICOM_TAGS = "ExtraMainDicomTags";
-      
-
-      LOG(INFO) << "The DICOMweb plugin is loading configuration: " << configuration.toStyledString();
 
       // note: the configuration is assumed to be valid since it has already been parsed by the Orthanc Core
       Json::Value::Members levels(configuration[EXTRA_MAIN_DICOM_TAGS].getMemberNames());
