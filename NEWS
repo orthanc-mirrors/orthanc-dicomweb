@@ -1,11 +1,22 @@
 Pending changes in the mainline
 ===============================
 
+=> Minimum SDK version: 1.9.2 <=
+=> Minimum Orthanc version: 1.11.1 <=
+
 * if using "MainDicomTags" mode for "SeriesMetadata" and "StudiesMetadata",
   the plugin now returns the "ExtraMainDicomTags" that have been configured on Orthanc side.
 * Now able to return sequences stored in "ExtraMainDicomTags" (with Orthanc 1.11.1)
 * refactored the way WADO-RS locate resources.  If the same SeriesInstanceUID is re-used
   across multiple Studies, the plugin should now locate it correctly.
+* HTTP headers are now forwarded to "tools/find" route in Orthanc allowing user to overwrite
+  the "tools/find" route in e.g. a python plugin to limit the returned results based on e.g
+  an authentication token in an HTTP header.  The "tools/find" route is mainly used in QIDO-RS.
+  HTTP headers are not forward to GET routes in Orthanc.  If you want to check authorization
+  for these routes, it is recommended to perform it in "IncomingHttpRequestFilter" in Lua or
+  with the authorization plugin.
+
+
 
 Version 1.8 (2022-05-09)
 ========================

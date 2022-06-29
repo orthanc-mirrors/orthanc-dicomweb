@@ -254,10 +254,7 @@ namespace OrthancPlugins
     }
 
     std::map<std::string, std::string> headers;
-    for (uint32_t i = 0; i < request->headersCount; i++)
-    {
-      headers[request->headersKeys[i]] = request->headersValues[i];
-    }
+    OrthancPlugins::GetHttpHeaders(headers, request);
 
     std::string expectedStudy;
     if (request->groupsCount == 1)

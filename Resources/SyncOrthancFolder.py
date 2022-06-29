@@ -11,7 +11,7 @@ import stat
 import urllib.request
 
 TARGET = os.path.join(os.path.dirname(__file__), 'Orthanc')
-PLUGIN_SDK_VERSION = '1.7.0'
+PLUGIN_SDK_VERSION = '1.9.2'
 REPOSITORY = 'https://hg.orthanc-server.com/orthanc/raw-file'
 
 FILES = [
@@ -72,7 +72,7 @@ for f in FILES:
 for f in SDK:
     commands.append([
         'Orthanc-%s' % PLUGIN_SDK_VERSION, 
-        'Plugins/Include/%s' % f,
+        'OrthancServer/Plugins/Include/%s' % f,
         'Sdk-%s/%s' % (PLUGIN_SDK_VERSION, f) 
     ])
 

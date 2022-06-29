@@ -837,10 +837,11 @@ bool LocateResource(OrthancPluginRestOutput* output,
     payloadQuery["StudyInstanceUID"] = studyInstanceUid;
     payload["Query"] = payloadQuery;
 
-    OrthancPlugins::WriteFastJson(body, payload);
-    
+    std::map<std::string, std::string> httpHeaders;
+    OrthancPlugins::GetHttpHeaders(httpHeaders, request);
+
     Json::Value resources;
-    if (!OrthancPlugins::RestApiPost(resources, "/tools/find", body, false) ||
+    if (!OrthancPlugins::RestApiPost(resources, "/tools/find", payload, httpHeaders, true) ||
         resources.type() != Json::arrayValue)
     {
       throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
