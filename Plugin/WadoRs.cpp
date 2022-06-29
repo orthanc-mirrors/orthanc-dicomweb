@@ -801,106 +801,12 @@ static void WriteInstanceMetadata(OrthancPlugins::DicomWebFormatter::HttpWriter&
 #endif
 }
 
-
-
-bool LocateStudy(OrthancPluginRestOutput* output,
-                 std::string& orthancId,
-                 std::string& studyInstanceUid,
-                 const OrthancPluginHttpRequest* request)
-{
-  OrthancPluginContext* context = OrthancPlugins::GetGlobalContext();
-
-  if (request->method != OrthancPluginHttpMethod_Get)
-  {
-    OrthancPluginSendMethodNotAllowed(context, output, "GET");
-    return false;
-  }
-
-  studyInstanceUid = request->groups[0];
-
-  try
-  {
-    OrthancPlugins::OrthancString tmp;
-    tmp.Assign(OrthancPluginLookupStudy(context, studyInstanceUid.c_str()));
-
-    if (tmp.GetContent() != NULL)
-    {
-      tmp.ToString(orthancId);
-      return true;
-    }
-  }
-  catch (Orthanc::OrthancException&)
-  {
-  }
-
-  throw Orthanc::OrthancException(Orthanc::ErrorCode_InexistentItem, 
-                                  "Accessing an inexistent study with WADO-RS: " + studyInstanceUid);
-}
-
-
-bool LocateSeries(OrthancPluginRestOutput* output,
-                  std::string& orthancId,
-                  std::string& studyInstanceUid,
-                  std::string& seriesInstanceUid,
-                  const OrthancPluginHttpRequest* request)
-{
-  OrthancPluginContext* context = OrthancPlugins::GetGlobalContext();
-
-  if (request->method != OrthancPluginHttpMethod_Get)
-  {
-    OrthancPluginSendMethodNotAllowed(context, output, "GET");
-    return false;
-  }
-
-  studyInstanceUid = request->groups[0];
-  seriesInstanceUid = request->groups[1];
-
-  bool found = false;
-
-  try
-  {
-    OrthancPlugins::OrthancString tmp;
-    tmp.Assign(OrthancPluginLookupSeries(context, seriesInstanceUid.c_str()));
-
-    if (tmp.GetContent() != NULL)
-    {
-      tmp.ToString(orthancId);
-      found = true;
-    }
-  }
-  catch (Orthanc::OrthancException&)
-  {
-  }
-
-  if (!found)
-  {
-    throw Orthanc::OrthancException(Orthanc::ErrorCode_InexistentItem, 
-                                    "Accessing an inexistent series with WADO-RS: " + seriesInstanceUid);
-  }
-  
-  Json::Value study;
-  if (!OrthancPlugins::RestApiGet(study, "/series/" + orthancId + "/study", false))
-  {
-    OrthancPluginSendHttpStatusCode(context, output, 404);
-    return false;
-  }
-  else if (study[MAIN_DICOM_TAGS]["StudyInstanceUID"].asString() != studyInstanceUid)
-  {
-    throw Orthanc::OrthancException(Orthanc::ErrorCode_InexistentItem, 
-                                    "No series " + seriesInstanceUid + " in study " + studyInstanceUid);
-  }
-  else
-  {
-    return true;
-  }
-}
-
-
-bool LocateInstance(OrthancPluginRestOutput* output,
+bool LocateResource(OrthancPluginRestOutput* output,
                     std::string& orthancId,
                     std::string& studyInstanceUid,
                     std::string& seriesInstanceUid,
                     std::string& sopInstanceUid,
+                    const std::string& level,
                     const OrthancPluginHttpRequest* request)
 {
   OrthancPluginContext* context = OrthancPlugins::GetGlobalContext();
@@ -911,42 +817,109 @@ bool LocateInstance(OrthancPluginRestOutput* output,
     return false;
   }
 
+  {
+    std::string body;
+    Json::Value payload;
+    Json::Value payloadQuery;
+
+    payload["Level"] = level;
+    
+    if (!sopInstanceUid.empty())
+    {
+      payloadQuery["SOPInstanceUID"] = sopInstanceUid;
+    }
+    
+    if (!seriesInstanceUid.empty())
+    {
+      payloadQuery["SeriesInstanceUID"] = seriesInstanceUid;
+    }
+
+    payloadQuery["StudyInstanceUID"] = studyInstanceUid;
+    payload["Query"] = payloadQuery;
+
+    OrthancPlugins::WriteFastJson(body, payload);
+    
+    Json::Value resources;
+    if (!OrthancPlugins::RestApiPost(resources, "/tools/find", body, false) ||
+        resources.type() != Json::arrayValue)
+    {
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
+    }
+
+    if (resources.size() == 0)
+    {
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_InexistentItem,
+                                      "Accessing an inexistent " + level + " with WADO-RS: " + studyInstanceUid + "/" + seriesInstanceUid + "/" + sopInstanceUid);
+    }
+    if (resources.size() > 1)
+    {
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_InexistentItem,
+                                      "Multiple " + level + " found for WADO-RS: " + studyInstanceUid + "/" + seriesInstanceUid + "/" + sopInstanceUid);
+    }
+    orthancId = resources[0].asString();
+    return true;
+  }
+}
+
+
+
+bool LocateStudy(OrthancPluginRestOutput* output,
+                 std::string& orthancId,
+                 std::string& studyInstanceUid,
+                 const OrthancPluginHttpRequest* request)
+{
+  std::string sopInstanceUid;
+  std::string seriesInstanceUid;
+  studyInstanceUid = request->groups[0];
+
+  return LocateResource(output,
+                        orthancId,
+                        studyInstanceUid,
+                        seriesInstanceUid,
+                        sopInstanceUid,
+                        "Study",
+                        request);
+}
+
+
+bool LocateSeries(OrthancPluginRestOutput* output,
+                  std::string& orthancId,
+                  std::string& studyInstanceUid,
+                  std::string& seriesInstanceUid,
+                  const OrthancPluginHttpRequest* request)
+{
+  std::string sopInstanceUid;
+  studyInstanceUid = request->groups[0];
+  seriesInstanceUid = request->groups[1];
+
+  return LocateResource(output,
+                        orthancId,
+                        studyInstanceUid,
+                        seriesInstanceUid,
+                        sopInstanceUid,
+                        "Series",
+                        request);
+}
+
+
+bool LocateInstance(OrthancPluginRestOutput* output,
+                    std::string& orthancId,
+                    std::string& studyInstanceUid,
+                    std::string& seriesInstanceUid,
+                    std::string& sopInstanceUid,
+                    const OrthancPluginHttpRequest* request)
+{
   studyInstanceUid = request->groups[0];
   seriesInstanceUid = request->groups[1];
   sopInstanceUid = request->groups[2];
-  
-  {
-    OrthancPlugins::OrthancString tmp;
-    tmp.Assign(OrthancPluginLookupInstance(context, sopInstanceUid.c_str()));
 
-    if (tmp.GetContent() == NULL)
-    {
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_InexistentItem,
-                                      "Accessing an inexistent instance with WADO-RS: " + sopInstanceUid);
-    }
-
-    tmp.ToString(orthancId);
-  }
-  
-  Json::Value study, series;
-  if (!OrthancPlugins::RestApiGet(series, "/instances/" + orthancId + "/series", false) ||
-      !OrthancPlugins::RestApiGet(study, "/instances/" + orthancId + "/study", false))
-  {
-    OrthancPluginSendHttpStatusCode(context, output, 404);
-    return false;
-  }
-  else if (study[MAIN_DICOM_TAGS]["StudyInstanceUID"].asString() != studyInstanceUid ||
-           series[MAIN_DICOM_TAGS]["SeriesInstanceUID"].asString() != seriesInstanceUid)
-  {
-    throw Orthanc::OrthancException(Orthanc::ErrorCode_InexistentItem,
-                                    "Instance " + sopInstanceUid + 
-                                    " is not both in study " + studyInstanceUid +
-                                    " and in series " + seriesInstanceUid);
-  }
-  else
-  {
-    return true;
-  }
+  return LocateResource(output,
+                        orthancId,
+                        studyInstanceUid,
+                        seriesInstanceUid,
+                        sopInstanceUid,
+                        "Instance",
+                        request);
 }
 
 

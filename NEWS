@@ -4,6 +4,8 @@ Pending changes in the mainline
 * if using "MainDicomTags" mode for "SeriesMetadata" and "StudiesMetadata",
   the plugin now returns the "ExtraMainDicomTags" that have been configured on Orthanc side.
 * Now able to return sequences stored in "ExtraMainDicomTags" (with Orthanc 1.11.1)
+* refactored the way WADO-RS locate resources.  If the same SeriesInstanceUID is re-used
+  across multiple Studies, the plugin should now locate it correctly.
 
 Version 1.8 (2022-05-09)
 ========================
