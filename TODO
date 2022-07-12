@@ -1,2 +1,8 @@
 * Implement capabilities: https://www.dicomstandard.org/using/dicomweb/capabilities/
   from https://groups.google.com/d/msgid/orthanc-users/c60227f2-c6da-4fd9-9b03-3ce9bf7d1af5n%40googlegroups.com?utm_medium=email&utm_source=footer
+
+* When SeriesMetadataMode == MainDicomTags:
+  check if the calls to /studies/.../series/metadata is not doing twice the same sub-calls:
+    call to /series/.../instances -> returns all main dicom tags for all instances
+    call to /instances/...?full -> returns all main dicom tags for all instances
+  We might speed it up by a factor of 2
