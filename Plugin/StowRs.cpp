@@ -178,9 +178,25 @@ namespace OrthancPlugins
         isFirst_ = false;
       }
 
-      MemoryBuffer tmp;
-      ok = tmp.RestApiPost("/instances", part, size, false);
-      tmp.Clear();
+      uint16_t failureReason = 0;
+      try
+      {
+        MemoryBuffer tmp;
+        ok = tmp.RestApiPost("/instances", part, size, false);
+        tmp.Clear();
+      }
+      catch (Orthanc::OrthancException& ex)
+      {
+        ok = false;
+        if (ex.GetErrorCode() == Orthanc::ErrorCode_FullStorage)
+        {
+          failureReason = 0xA700;  // out-of-resources
+        }
+        else
+        {
+          failureReason = 0x0110;  // processing error
+        }
+      }
 
       if (ok)
       {
@@ -196,7 +212,7 @@ namespace OrthancPlugins
       {
         LogError("Orthanc was unable to store one instance in a STOW-RS request");
         item[DICOM_TAG_FAILURE_REASON.Format()] =
-          boost::lexical_cast<std::string>(0x0110);  // Processing failure
+          boost::lexical_cast<std::string>(failureReason);
         failed_.append(item);
       }
     }
@@ -225,20 +241,34 @@ namespace OrthancPlugins
                              OrthancPluginDicomWebBinaryMode_Ignore, "");
 
     // http://dicom.nema.org/medical/dicom/current/output/html/part18.html#table_10.5.3-1
+    uint16_t statusCode = 200;
     if (hasBadSyntax_)
     {
-      // Error 400
-      OrthancPluginSendHttpStatus(context_, output, 400, answer.c_str(), answer.size());
+      statusCode = 400;
     }
     else if (hasConflict_)
     {
-      // Error 409
-      OrthancPluginSendHttpStatus(context_, output, 409, answer.c_str(), answer.size());
+      statusCode = 409;
     }
-    else
-    {      
+    else if (failed_.size() > 0 && success_.size() == 0)  // only failed instances but not a conflict or bad syntax -> 400
+    {
+      statusCode = 400;
+    }
+    else if (failed_.size() > 0 && success_.size() > 0) // 202 = Accepted but some instances have failures
+    {
+      statusCode = 202;
+    }
+
+    if (statusCode == 200)
+    {
       OrthancPluginAnswerBuffer(context_, output, answer.c_str(), answer.size(),
                                 xml_ ? "application/dicom+xml" : "application/dicom+json");
+    }
+    else
+    {
+      // TODO: if statusCode is 202, the content will only be sent if HttpDescribeErrors is set to true -> would need OrthancPluginAnswerBuffer with an HttpStatusCode arg
+      OrthancPluginSetHttpHeader(context_, output, "Content-Type", xml_ ? "application/dicom+xml" : "application/dicom+json");
+      OrthancPluginSendHttpStatus(context_, output, statusCode, answer.c_str(), answer.size());  
     }
   };
 
