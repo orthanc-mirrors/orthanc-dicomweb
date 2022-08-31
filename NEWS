@@ -3,7 +3,9 @@ Pending changes in the mainline
 
 * speed-up the /metadata routes by a factor of 2 when in "MainDicomTags" or "Extrapolate"
   mode.
-* improved HTTP status code for Stow-RS (now returning 202)
+* improved HTTP status code for Stow-RS (now returning 202 instead of 200 if some instances 
+  could not be ingested).  Also reporting a Failure Reason "out of resources 0xA700"  if
+  new instances can not be ingested because storage is full.
 
 
 Version 1.9 (2022-06-30)
