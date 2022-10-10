@@ -57,7 +57,7 @@ public:
     }
 
     void SetContent(const std::string& key,
-                    const std::string& value)
+                    const Json::Value& value)
     {
       that_.SetContent(key, value);
     }
@@ -166,8 +166,16 @@ private:
     }
   }
 
+  // void SetContent(const std::string& key,
+  //                 const std::string& value)
+  // {
+  //   boost::mutex::scoped_lock lock(mutex_);
+  //   content_[key] = value;
+  //   UpdateContent(content_);
+  // }
+
   void SetContent(const std::string& key,
-                  const std::string& value)
+                  const Json::Value& value)
   {
     boost::mutex::scoped_lock lock(mutex_);
     content_[key] = value;
@@ -491,8 +499,40 @@ static void CheckStowAnswer(const Json::Value& response,
 }
 
 
+// static void AddResourceForJobContent(Json::Value resourcesForJobContent /* out */, const char* resourceType, const std::string& resourceId)
+static void AddResourceForJobContent(Json::Value& resourcesForJobContent /* out */, Orthanc::ResourceType resourceType, const std::string& resourceId)
+{
+  // const char* resourceGroup = "Instances";
+  // if (resourceType == "Study")
+  // {
+  //   resourceGroup = "Studies";
+  // }
+  // else if (resourceType == "Series")
+  // {
+  //   resourceGroup = "Series";
+  // }
+  // else if (resourceType == "Patient")
+  // {
+  //   resourceGroup = "Patients";
+  // }
+  // else if (resourceType == "Instance")
+  // {
+  //   resourceGroup = "Instances";
+  // }
+  const char* resourceGroup = Orthanc::GetResourceTypeText(resourceType, true, true);
+
+  if (!resourcesForJobContent.isMember(resourceGroup))
+  {
+    resourcesForJobContent[resourceGroup] = Json::arrayValue;
+  }
+  
+  resourcesForJobContent[resourceGroup].append(resourceId);
+}
+
+
 static void ParseStowRequest(std::list<std::string>& instances /* out */,
                              std::map<std::string, std::string>& httpHeaders /* out */,
+                             Json::Value& resourcesForJobContent /* out */,
                              const Json::Value& body /* in */)
 {
   static const char* RESOURCES = "Resources";
@@ -528,27 +568,30 @@ static void ParseStowRequest(std::list<std::string>& instances /* out */,
     }
 
     // Test whether this resource is an instance
-    Json::Value tmp;
-    if (OrthancPlugins::RestApiGet(tmp, "/instances/" + resource, false))
+    Json::Value tmpResource;
+    Json::Value tmpInstances;
+    if (OrthancPlugins::RestApiGet(tmpResource, "/instances/" + resource, false))
     {
-      AddInstance(instances, tmp);
+      AddInstance(instances, tmpResource);
+      AddResourceForJobContent(resourcesForJobContent, Orthanc::ResourceType_Instance, resource);
     }
     // This was not an instance, successively try with series/studies/patients
-    else if ((OrthancPlugins::RestApiGet(tmp, "/series/" + resource, false) &&
-              OrthancPlugins::RestApiGet(tmp, "/series/" + resource + "/instances", false)) ||
-             (OrthancPlugins::RestApiGet(tmp, "/studies/" + resource, false) &&
-              OrthancPlugins::RestApiGet(tmp, "/studies/" + resource + "/instances", false)) ||
-             (OrthancPlugins::RestApiGet(tmp, "/patients/" + resource, false) &&
-              OrthancPlugins::RestApiGet(tmp, "/patients/" + resource + "/instances", false)))
+    else if ((OrthancPlugins::RestApiGet(tmpResource, "/series/" + resource, false) &&
+              OrthancPlugins::RestApiGet(tmpInstances, "/series/" + resource + "/instances", false)) ||
+             (OrthancPlugins::RestApiGet(tmpResource, "/studies/" + resource, false) &&
+              OrthancPlugins::RestApiGet(tmpInstances, "/studies/" + resource + "/instances", false)) ||
+             (OrthancPlugins::RestApiGet(tmpResource, "/patients/" + resource, false) &&
+              OrthancPlugins::RestApiGet(tmpInstances, "/patients/" + resource + "/instances", false)))
     {
-      if (tmp.type() != Json::arrayValue)
+      if (tmpInstances.type() != Json::arrayValue)
       {
         throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
       }
 
-      for (Json::Value::ArrayIndex j = 0; j < tmp.size(); j++)
+      for (Json::Value::ArrayIndex j = 0; j < tmpInstances.size(); j++)
       {
-        AddInstance(instances, tmp[j]);
+        AddInstance(instances, tmpInstances[j]);
+        AddResourceForJobContent(resourcesForJobContent, Orthanc::StringToResourceType(tmpResource["Type"].asString().c_str()), resource);
       }
     }
     else
@@ -580,6 +623,7 @@ private:
   Action                                   action_;
   size_t                                   networkSize_;
   bool                                     debug_;
+  Json::Value                              resourcesForJobContent_;
 
   bool ReadNextInstance(std::string& dicom,
                         JobContext& context)
@@ -698,6 +742,7 @@ private:
       {
         boost::mutex::scoped_lock lock(that_.mutex_);
         context.SetContent("InstancesCount", boost::lexical_cast<std::string>(that_.instances_.size()));
+        context.SetContent("Resources", that_.GetResourcesForJobContent());
         serverName = that_.serverName_;
         
         startPosition = that_.position_;        
@@ -792,14 +837,16 @@ private:
 public:
   StowClientJob(const std::string& serverName,
                 const std::list<std::string>& instances,
-                const OrthancPlugins::HttpClient::HttpHeaders& headers) :
+                const OrthancPlugins::HttpClient::HttpHeaders& headers,
+                const Json::Value& resourcesForJobContent) :
     SingleFunctionJob("DicomWebStowClient"),
     serverName_(serverName),
     headers_(headers),
     position_(0),
     action_(Action_None),
     networkSize_(0),
-    debug_(false)
+    debug_(false),
+    resourcesForJobContent_(resourcesForJobContent)
   {
     SetFactory(*this);
 
@@ -835,6 +882,11 @@ public:
   {
     debug_ = debug;
   }
+
+  const Json::Value& GetResourcesForJobContent()
+  {
+    return resourcesForJobContent_;
+  }
 };
 
 
@@ -863,12 +915,13 @@ void StowClient(OrthancPluginRestOutput* output,
 
   std::list<std::string> instances;
   std::map<std::string, std::string> httpHeaders;
-  ParseStowRequest(instances, httpHeaders, body);
+  Json::Value resourcesForJobContent;
+  ParseStowRequest(instances, httpHeaders, resourcesForJobContent, body);
 
   OrthancPlugins::LogInfo("Sending " + boost::lexical_cast<std::string>(instances.size()) +
                           " instances using STOW-RS to DICOMweb server: " + serverName);
 
-  std::unique_ptr<StowClientJob> job(new StowClientJob(serverName, instances, httpHeaders));
+  std::unique_ptr<StowClientJob> job(new StowClientJob(serverName, instances, httpHeaders, resourcesForJobContent));
 
   bool debug;
   if (OrthancPlugins::LookupBooleanValue(debug, body, "Debug"))

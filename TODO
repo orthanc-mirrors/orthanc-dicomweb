@@ -3,3 +3,5 @@
 
 * /rendered at study level shall return all instances, not only one (https://groups.google.com/g/orthanc-users/c/uFWanYhV8Fs/m/ezi1iXCXCAAJ)
   Check /rendered at series level too.
+
+* Implement serialization of DicomWeb jobs
