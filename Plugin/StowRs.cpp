@@ -182,7 +182,7 @@ namespace OrthancPlugins
       try
       {
         MemoryBuffer tmp;
-        ok = tmp.RestApiPost("/instances", part, size, false);
+        ok = tmp.RestApiPost("/instances", part, size, headers, true);
         tmp.Clear();
       }
       catch (Orthanc::OrthancException& ex)

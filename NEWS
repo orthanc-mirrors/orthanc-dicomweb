@@ -1,3 +1,9 @@
+Pending changes in the mainline
+===============================
+
+* Stow-RS now calls to the plugin flavored /instances route and now also forwards
+  the HTTP headers from the Incoming Stow-RS request.
+
 Version 1.11 (2022-10-13)
 ===========================
 
