@@ -43,6 +43,7 @@ namespace OrthancPlugins
     Json::Value            failed_;
     bool                   hasBadSyntax_;
     bool                   hasConflict_;
+    std::map<std::string, std::string> headers_;
 
     std::unique_ptr<Orthanc::MultipartStreamReader>  parser_;
 

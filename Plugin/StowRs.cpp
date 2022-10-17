@@ -39,7 +39,8 @@ namespace OrthancPlugins
     success_(Json::arrayValue),
     failed_(Json::arrayValue),
     hasBadSyntax_(false),
-    hasConflict_(false)
+    hasConflict_(false),
+    headers_(headers)
   { 
     std::string tmp, contentType, subType, boundary;
     if (!Orthanc::MultipartStreamReader::GetMainContentType(tmp, headers) ||
@@ -182,7 +183,19 @@ namespace OrthancPlugins
       try
       {
         MemoryBuffer tmp;
-        ok = tmp.RestApiPost("/instances", part, size, headers, true);
+
+        // make sure to forward the auth headers in the request that is sent to Orthanc (to allow usage of the auth plugin)
+        // since we do not know which header is being used, we include all the headers from the Stow-RS request (headers_), replace
+        // the "content-disposition" + "content-type" that are rebuilt from the multi-part message and remove the headers that might
+        // be mi-interpreted by Orthanc core (like "content-length" that is actually the "content-length" from the whole Stow-RS request, not the length of this file)
+        Orthanc::MultipartStreamReader::HttpHeaders mergedHeaders = headers_;
+        Orthanc::MultipartStreamReader::HttpHeaders::iterator foundContentLength = mergedHeaders.find("content-length");
+        if (foundContentLength != mergedHeaders.end())
+        {
+          mergedHeaders.erase(foundContentLength);
+        }
+        
+        ok = tmp.RestApiPost("/instances", part, size, mergedHeaders, true);
         tmp.Clear();
       }
       catch (Orthanc::OrthancException& ex)
