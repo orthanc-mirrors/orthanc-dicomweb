@@ -5,3 +5,5 @@
   Check /rendered at series level too.
 
 * Implement serialization of DicomWeb jobs
+
+* update OrthancFramework to 1.11.2+ once released (more verbose HttpClient)

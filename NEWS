@@ -1,11 +1,12 @@
-Pending changes in the mainline
-===============================
+Version 1.12 (2022-10-27)
+=========================
 
 * Stow-RS now calls to the plugin flavored /instances route and now also forwards
   the HTTP headers from the Incoming Stow-RS request.
 
+
 Version 1.11 (2022-10-13)
-===========================
+=========================
 
 * Added a list of "Resources" in the DicomWebStowClient Job "Content"
 
