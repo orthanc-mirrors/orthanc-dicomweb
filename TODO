@@ -6,6 +6,4 @@
 
 * Implement serialization of DicomWeb jobs
 
-* update OrthancFramework to 1.11.2+ once released (more verbose HttpClient)
-
 * Add support for application/zip in /dicom-web/studies/ (aka sup 211: https://www.dicomstandard.org/docs/librariesprovider2/dicomdocuments/news/ftsup/docs/sups/sup211.pdf?sfvrsn=9fe9edae_2)

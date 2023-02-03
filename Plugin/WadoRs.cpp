@@ -803,9 +803,9 @@ static void WriteInstanceMetadata(OrthancPlugins::DicomWebFormatter::HttpWriter&
 
 bool LocateResource(OrthancPluginRestOutput* output,
                     std::string& orthancId,
-                    std::string& studyInstanceUid,
-                    std::string& seriesInstanceUid,
-                    std::string& sopInstanceUid,
+                    const std::string& studyInstanceUid,
+                    const std::string& seriesInstanceUid,
+                    const std::string& sopInstanceUid,
                     const std::string& level,
                     const OrthancPluginHttpRequest* request)
 {
@@ -818,7 +818,6 @@ bool LocateResource(OrthancPluginRestOutput* output,
   }
 
   {
-    std::string body;
     Json::Value payload;
     Json::Value payloadQuery;
 

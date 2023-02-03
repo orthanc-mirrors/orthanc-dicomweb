@@ -297,7 +297,7 @@ namespace
       ExtractResultFields(requestedTags, level);
 
       for (std::set<Orthanc::DicomTag>::const_iterator it = requestedTags.begin();
-          it != requestedTags.end(); it++)
+          it != requestedTags.end(); ++it)
       {
         result["RequestedTags"].append(it->Format());
       }

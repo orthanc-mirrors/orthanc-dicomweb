@@ -44,8 +44,8 @@ ${CPPCHECK} --enable=all --quiet --std=c++11 \
             -D__linux__ \
             -DEM_ASM \
             -UNDEBUG \
-            -I/home/jodogne/Subversion/orthanc/OrthancFramework/Sources \
-            -I/home/jodogne/Subversion/orthanc/OrthancServer/Plugins/Include/ \
+            -I../../orthanc/OrthancFramework/Sources \
+            -I../../orthanc/OrthancServer/Plugins/Include/ \
             \
             ../Plugin \
             ../UnitTestsSources \
