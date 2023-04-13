@@ -7,3 +7,27 @@
 * Implement serialization of DicomWeb jobs
 
 * Add support for application/zip in /dicom-web/studies/ (aka sup 211: https://www.dicomstandard.org/docs/librariesprovider2/dicomdocuments/news/ftsup/docs/sups/sup211.pdf?sfvrsn=9fe9edae_2)
+
+* Based on this discussion: https://discourse.orthanc-server.org/t/series-metadata-retrieval-is-very-long-even-with-configuration-optimization/3389 
+  optimize studies/.../series/.../metadata route when "SeriesMetadata" is set 
+  to "MainDicomTags" and "ExtraMainDicomTags" are configured according to recommandation 
+  (from this setup: https://bitbucket.org/osimis/orthanc-setup-samples/src/master/docker/stone-viewer/docker-compose.yml).
+  
+  with a 600 instance series with SQLite:
+  - time curl http://localhost:8042/dicom-web/studies/1.2.276.0.7230010.3.1.2.1215942821.4756.1664826045.3529/series/1.2.276.0.7230010.3.1.3.1215942821.4756.1664831321.7863/metadata > /dev/null 
+    -> 0.652 second because the plugin makes 600 calls to /instances/...?full 
+    to retrieve all main dicom tags from the DB (but this also retrieves other 
+    data like attachment info + instances metadata)
+  - the content of series/.../metadata could also be obtained alternatively by 
+    calling tools/find that is, in this case: 9 times faster.  However, right now, 
+    it might not return the response in "Full" json format.
+    time curl http://localhost:8042/tools/find --data-binary '{"Level": "Instance", "Query": {"SeriesInstanceUID": "1.2.276.0.7230010.3.1.3.1215942821.4756.1664831321.7863"}, "Expand": true}' > /dev/null 
+    -> 0.070 second
+  - alternate way: 
+    time curl http://localhost:8042/tools/lookup --data-binary '1.2.276.0.7230010.3.1.3.1215942821.4756.1664831321.7863'
+    -> 0.008 second followed by
+    time curl http://localhost:8042/series/a7ea1279-2e784c55-e8786539-9d850b95-4db9be80/instances > /dev/null
+    -> 0.040 second
+    We might also tune the result of this route to return only the main-dicom tags and return them in "Full" json format
+  - note that all measurements have been performed on a DB with a single series !  We should repeat 
+    that with a more realistic DB
