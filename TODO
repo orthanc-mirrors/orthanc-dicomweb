@@ -29,5 +29,6 @@
     time curl http://localhost:8042/series/a7ea1279-2e784c55-e8786539-9d850b95-4db9be80/instances > /dev/null
     -> 0.040 second
     We might also tune the result of this route to return only the main-dicom tags and return them in "Full" json format
+  - idea: implement a http://localhost:8042/series/a7ea1279-2e784c55-e8786539-9d850b95-4db9be80/instances-tags?main
   - note that all measurements have been performed on a DB with a single series !  We should repeat 
     that with a more realistic DB
