@@ -522,6 +522,18 @@ namespace OrthancPlugins
       std::string host = dicomWebConfiguration_->GetStringValue("Host", "");
       bool https = dicomWebConfiguration_->GetBooleanValue("Ssl", false);
 
+      std::string forwardedHost, forwardedProto;
+      if (host.empty() &&
+          LookupHttpHeader2(forwardedHost, headers, "x-forwarded-host") &&
+          LookupHttpHeader2(forwardedProto, headers, "x-forwarded-proto"))
+      {
+        // There is a "X-Forwarded-Proto" and a "X-Forwarded-Host" HTTP header in the query
+        // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Forwarded-Proto
+        
+        host = Orthanc::Toolbox::StripSpaces(forwardedHost);
+        https = IsHttpsProto(Orthanc::Toolbox::StripSpaces(forwardedProto), https);
+      }
+
       std::string forwarded;
       if (host.empty() &&
           LookupHttpHeader2(forwarded, headers, "forwarded"))
@@ -581,6 +593,21 @@ namespace OrthancPlugins
       if (LookupHttpHeader(value, request, "forwarded"))
       {
         headers["Forwarded"] = value;
+      }
+
+      if (LookupHttpHeader(value, request, "host"))
+      {
+        headers["Host"] = value;
+      }
+
+      if (LookupHttpHeader(value, request, "x-forwarded-host"))
+      {
+        headers["X-Forwarded-Host"] = value;
+      }
+
+      if (LookupHttpHeader(value, request, "x-forwarded-proto"))
+      {
+        headers["X-Forwarded-Proto"] = value;
       }
 
       if (LookupHttpHeader(value, request, "host"))
