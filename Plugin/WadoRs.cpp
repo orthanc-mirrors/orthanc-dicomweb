@@ -29,12 +29,30 @@
 #include <Toolbox.h>
 
 #include <memory>
-
+#include <boost/thread/mutex.hpp>
 
 static const char* const MAIN_DICOM_TAGS = "MainDicomTags";
+static const char* const REQUESTED_TAGS = "RequestedTags";
 static const char* const INSTANCES = "Instances";
 static const char* const PATIENT_MAIN_DICOM_TAGS = "PatientMainDicomTags";
 
+static std::string instancesMainDicomTagsList;
+static boost::mutex mainDicomTagsListMutex;
+
+static const std::string& GetInstancesMainDicomTagsList()
+{
+  boost::mutex::scoped_lock lock(mainDicomTagsListMutex);
+  
+  if (instancesMainDicomTagsList.empty())
+  {
+    Json::Value system;
+    OrthancPlugins::RestApiGet(system, "/system", false);
+
+    instancesMainDicomTagsList = system[MAIN_DICOM_TAGS]["Instance"].asString();
+  }
+
+  return instancesMainDicomTagsList;
+}
 
 static std::string GetResourceUri(Orthanc::ResourceType level,
                                   const std::string& publicId)
@@ -689,19 +707,31 @@ namespace
 
     bool GetInstance(Orthanc::DicomMap& dicom,
                      OrthancPlugins::MetadataMode mode,
-                     const std::string& orthancId)
+                     const std::string& instanceOrthancId)
     {
-      std::string seriesId, studyId, nope;
+      std::string seriesOrthancId, studyOrthancId, nope;
       
-      return (ReadResource(dicom, seriesId, mode, orthancId, Orthanc::ResourceType_Instance) &&
-              Lookup(dicom, studyId, mode, seriesId, Orthanc::ResourceType_Series) &&
-              Lookup(dicom, nope /* patient id is unused */, mode, studyId, Orthanc::ResourceType_Study));
+      return (ReadResource(dicom, seriesOrthancId, mode, instanceOrthancId, Orthanc::ResourceType_Instance) &&
+              Lookup(dicom, studyOrthancId, mode, seriesOrthancId, Orthanc::ResourceType_Series) &&
+              Lookup(dicom, nope /* patient id is unused */, mode, studyOrthancId, Orthanc::ResourceType_Study));
+    }
+
+    bool GetSeries(Orthanc::DicomMap& dicom,
+                   OrthancPlugins::MetadataMode mode,
+                   const std::string& seriesOrthancId)
+    {
+      std::string studyOrthancId, nope;
+      
+      return (Lookup(dicom, studyOrthancId, mode, seriesOrthancId, Orthanc::ResourceType_Series) &&
+              Lookup(dicom, nope /* patient id is unused */, mode, studyOrthancId, Orthanc::ResourceType_Study));
     }
   };
 }
 
 
 static void WriteInstancesMetadataFromMainDicomTags(OrthancPlugins::DicomWebFormatter::HttpWriter& writer,
+                                                    OrthancPlugins::MetadataMode mode,
+                                                    MainDicomTagsCache& cache,
                                                     const std::string& seriesOrthancId,
                                                     const std::string& studyInstanceUid,
                                                     const std::string& seriesInstanceUid,
@@ -714,13 +744,23 @@ static void WriteInstancesMetadataFromMainDicomTags(OrthancPlugins::DicomWebForm
 
   Json::Value instances;
 
-  std::string uri = "/series/" + seriesOrthancId + "/instances?full";
+  Orthanc::DicomMap seriesDicom;
+  if (!cache.GetSeries(seriesDicom, mode, seriesOrthancId))
+  {
+    throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError, "unable to get series");
+  }
 
-  if (!OrthancPlugins::RestApiGet(instances, uri, false))
+  std::string seriesInstancesUri = "/series/" + seriesOrthancId + "/instances?full";
+
+  if (mode == OrthancPlugins::MetadataMode_Experimental)
+  {
+    seriesInstancesUri += "&requestedTags=" + GetInstancesMainDicomTagsList();
+  }
+
+  if (!OrthancPlugins::RestApiGet(instances, seriesInstancesUri, false))
   {
     throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError, "unable to get series instances");
   }
-         
 
   if (instances.type() != Json::arrayValue)
   {
@@ -729,10 +769,19 @@ static void WriteInstancesMetadataFromMainDicomTags(OrthancPlugins::DicomWebForm
 
   for (Json::ArrayIndex i = 0; i < instances.size(); ++i)
   {
-    Orthanc::DicomMap dicom;
-    dicom.FromDicomAsJson(instances[i][MAIN_DICOM_TAGS], false /* append */, false /* parseSequences */);
-    writer.AddOrthancMap(dicom);
-    //writer.AddOrthancJson(instances[i][MAIN_DICOM_TAGS]);
+    std::unique_ptr<Orthanc::DicomMap> dicom(seriesDicom.Clone());
+    if (mode == OrthancPlugins::MetadataMode_Experimental)
+    {
+      dicom->FromDicomAsJson(instances[i][REQUESTED_TAGS], true /* append */, false /* parseSequences */);
+    }
+    else
+    {
+      dicom->FromDicomAsJson(instances[i][MAIN_DICOM_TAGS], true /* append */, false /* parseSequences */);
+    }
+
+    // TODO_OPTI: optimize this call since it takes around 1ms per instance which is huge for a CT study with 5x1000 instances.
+    writer.AddOrthancMap(*dicom);
+
   }
 }
 
@@ -1132,9 +1181,11 @@ void RetrieveSeriesMetadata(OrthancPluginRestOutput* output,
     if (LocateSeries(output, seriesOrthancId, studyInstanceUid, seriesInstanceUid, request))
     {
       OrthancPlugins::DicomWebFormatter::HttpWriter writer(output, isXml);
-      if (mode == OrthancPlugins::MetadataMode_MainDicomTags)
+      if (/*mode == OrthancPlugins::MetadataMode_MainDicomTags ||*/ mode == OrthancPlugins::MetadataMode_Experimental)
       {
         WriteInstancesMetadataFromMainDicomTags(writer,
+                                                mode,
+                                                cache,
                                                 seriesOrthancId,
                                                 studyInstanceUid,
                                                 seriesInstanceUid,

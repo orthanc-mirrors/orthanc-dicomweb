@@ -707,6 +707,7 @@ namespace OrthancPlugins
       static const std::string FULL = "Full";
       static const std::string MAIN_DICOM_TAGS = "MainDicomTags";
       static const std::string EXTRAPOLATE = "Extrapolate";
+      static const std::string EXPERIMENTAL = "Experimental";
       
       std::string key;
       switch (level)
@@ -736,6 +737,10 @@ namespace OrthancPlugins
       else if (value == EXTRAPOLATE)
       {
         return MetadataMode_Extrapolate;
+      }
+      else if (value == EXPERIMENTAL)
+      {
+        return MetadataMode_Experimental;
       }
       else
       {

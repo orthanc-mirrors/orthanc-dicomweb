@@ -13,23 +13,24 @@
   to "MainDicomTags" and "ExtraMainDicomTags" are configured according to recommandation 
   (from this setup: https://bitbucket.org/osimis/orthanc-setup-samples/src/master/docker/stone-viewer/docker-compose.yml).
   
-  with a 600 instance series with SQLite:
+  with a 600 instance series with SQLite - all timings are performed without verbose logs !!!!:
   - time curl http://localhost:8043/dicom-web/studies/1.2.276.0.7230010.3.1.2.1215942821.4756.1664826045.3529/series/1.2.276.0.7230010.3.1.3.1215942821.4756.1664833048.11984/metadata > /dev/null 
-    -> 0.985 second because the plugin makes 600 calls to /instances/...?full 
+    -> 0.750 second because the plugin makes 600 calls to /instances/...?full 
     to retrieve all main dicom tags from the DB (but this also retrieves other 
     data like attachment info + instances metadata)
-  - the content of series/.../metadata could also be obtained alternatively by 
-    calling tools/find that is, in this case: 9 times faster.  However, right now, 
-    it might not return the response in "Full" json format.
-    time curl http://localhost:8043/tools/find --data-binary '{"Level": "Instance", "Query": {"SeriesInstanceUID": "1.2.276.0.7230010.3.1.3.1215942821.4756.1664833048.11984"}, "Expand": true}' > /dev/null 
-    -> 0.178 second
-  - alternate way: 
-    time curl http://localhost:8043/tools/lookup --data-binary '1.2.276.0.7230010.3.1.3.1215942821.4756.1664833048.11984'
-    -> 0.016 second followed by
-    time curl http://localhost:8043/series/fdd31453-fa62d8cb-b681823c-f294d34c-182bca4b/instances?full > /dev/null
-    -> 0.083 second
-    UPDATE: we are now using this method but, the full duration to call the /metadata route is
-    -> 0.335 second (only 3x faster)
+  - In "Experimental" mode, we are calling this route: 
+    time curl "http://localhost:8043/series/fdd31453-fa62d8cb-b681823c-f294d34c-182bca4b/instances?full&requestedTags=0008,0005;0008,0008;0008,0012;0008,0013;0008,0016;0008,0018;0008,0023;0008,0033;0018,0050;0020,0012;0020,0013;0020,0032;0020,0037;0020,0052;0020,0100;0020,4000;0028,0004;0028,0008;0028,0010;0028,0011;0028,0030;0028,0100;0028,0101;0028,0103;0028,1050;0028,1051;0028,1052;0028,1053;0054,1330" > /dev/null
+    -> 0.175 second
+    BUT the total time required by the /metadata route is still around 0.9 second because we spend 600-700ms formating the output !!! (see TODO_OPTI in WadoRs.cpp)
+    -> 0.835 second in "Experimental" mode (10% slower if tags are actually in DB of course !)
+    -> 0.700 second in "MainDicomTags" mode (10% faster)
+    FURTHER WORK: 
+      - In the plugin SDK, we should probably have a method to convert DicomAsJson_Full to DicomWebJson without creating a ParsedDicomFile in between.
+      - Or in the core: implement /series/.../instances?dicom-web-json (the core has the primitives to write dicom-web-json)
+      - Even if we optimize the DB, the cost for the response serialization will still be very high and that's likely the first thing to work on !!!
+     
+
+
 
   - note that all measurements have been performed on a DB with a single series !  We should repeat 
     that with a more realistic DB
