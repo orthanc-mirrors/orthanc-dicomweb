@@ -110,6 +110,8 @@ namespace OrthancPlugins
       void AddDicomWebSerializedJson(const void* data,
                                      size_t size);
 
+      void AddDicomWebJson(const Json::Value& value);
+
       void Send();
     };
   };

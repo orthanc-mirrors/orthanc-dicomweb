@@ -7,6 +7,11 @@ Pending changes in the mainline
   from the storage if they are missing (useful if you recently changed the "ExtraMainDicomTags"
   configuration)
 
+Internals:
+
+* WIP: use new "dicomWeb" format and "include" get arguments when calling the core API.
+  - /series/../metadata is functional (tested in StoneViewer)
+  - TODO: XML format is currently not supported
 
 Version 1.13 (2023-02-03)
 =========================

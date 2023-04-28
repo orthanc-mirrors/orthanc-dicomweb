@@ -729,6 +729,32 @@ namespace
 }
 
 
+static void MergeJson(Json::Value &a, const Json::Value &b) {                                                                        
+                                                                                                                  
+  if (!a.isObject() || !b.isObject())
+  {
+    return;
+  }
+
+  Json::Value::Members members = b.getMemberNames();
+
+  for (size_t i = 0; i < members.size(); i++)
+  {
+    std::string key = members[i];
+    
+    if (!a[key].isNull() && a[key].type() == Json::objectValue && b[key].type() == Json::objectValue)
+    {
+      MergeJson(a[key], b[key]);
+    } 
+    else
+    {
+      // const std::string& val = b[key].asString();
+      a[key] = b[key];
+    }
+  }
+}
+
+
 static void WriteInstancesMetadataFromMainDicomTags(OrthancPlugins::DicomWebFormatter::HttpWriter& writer,
                                                     OrthancPlugins::MetadataMode mode,
                                                     MainDicomTagsCache& cache,
@@ -744,6 +770,65 @@ static void WriteInstancesMetadataFromMainDicomTags(OrthancPlugins::DicomWebForm
 
   Json::Value instances;
 
+#if 1
+  Json::Value seriesMainDicomTags;
+  Json::Value value;
+  std::string seriesUri =  "/series/" + seriesOrthancId + "?dicomWeb";    // TODO: use requestedTags & include=RequestedTags
+  if (!OrthancPlugins::RestApiGet(value, seriesUri, false))
+  {
+    throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError, "unable to get series");
+  }
+  seriesMainDicomTags = value[MAIN_DICOM_TAGS];
+  std::string studyId = value["ParentStudy"].asString();
+
+  std::string studyUri =  "/studies/" + studyId + "?dicomWeb";    // TODO: use requestedTags & include=RequestedTags
+  if (!OrthancPlugins::RestApiGet(value, studyUri, false))
+  {
+    throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError, "unable to get study");
+  }
+
+  MergeJson(seriesMainDicomTags, value[MAIN_DICOM_TAGS]);
+  MergeJson(seriesMainDicomTags, value[PATIENT_MAIN_DICOM_TAGS]);
+
+  std::string seriesInstancesUri = "/series/" + seriesOrthancId + "/instances?dicomWeb";
+
+  // DicomWebJson serialization takes a lot of time -> limit the content of the response to the bare minimum
+  if (mode == OrthancPlugins::MetadataMode_Experimental)
+  {
+    seriesInstancesUri += "&include=RequestedTags&requestedTags=" + GetInstancesMainDicomTagsList();
+  }
+  else
+  {
+    seriesInstancesUri += "&include=MainDicomTags";
+  }
+
+  if (!OrthancPlugins::RestApiGet(instances, seriesInstancesUri, false))
+  {
+    throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError, "unable to get series instances");
+  }
+
+  if (instances.type() != Json::arrayValue)
+  {
+    throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
+  }
+
+  for (Json::ArrayIndex i = 0; i < instances.size(); ++i)
+  {
+    Json::Value instanceTags = seriesMainDicomTags;
+
+    if (mode == OrthancPlugins::MetadataMode_Experimental)
+    {
+      MergeJson(instanceTags, instances[i][REQUESTED_TAGS]);
+    }
+    else
+    {
+      MergeJson(instanceTags, instances[i][MAIN_DICOM_TAGS]);
+    }
+    
+    writer.AddDicomWebJson(instanceTags);
+   
+  }
+#else  // keep it for XML output (or adapt ?)
   Orthanc::DicomMap seriesDicom;
   if (!cache.GetSeries(seriesDicom, mode, seriesOrthancId))
   {
@@ -781,8 +866,8 @@ static void WriteInstancesMetadataFromMainDicomTags(OrthancPlugins::DicomWebForm
 
     // TODO_OPTI: optimize this call since it takes around 1ms per instance which is huge for a CT study with 5x1000 instances.
     writer.AddOrthancMap(*dicom);
-
   }
+#endif
 }
 
 
@@ -1181,7 +1266,7 @@ void RetrieveSeriesMetadata(OrthancPluginRestOutput* output,
     if (LocateSeries(output, seriesOrthancId, studyInstanceUid, seriesInstanceUid, request))
     {
       OrthancPlugins::DicomWebFormatter::HttpWriter writer(output, isXml);
-      if (/*mode == OrthancPlugins::MetadataMode_MainDicomTags ||*/ mode == OrthancPlugins::MetadataMode_Experimental)
+      if (mode == OrthancPlugins::MetadataMode_MainDicomTags || mode == OrthancPlugins::MetadataMode_Experimental)
       {
         WriteInstancesMetadataFromMainDicomTags(writer,
                                                 mode,

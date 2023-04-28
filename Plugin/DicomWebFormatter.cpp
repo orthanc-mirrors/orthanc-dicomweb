@@ -256,6 +256,29 @@ namespace OrthancPlugins
   }
 
 
+  void DicomWebFormatter::HttpWriter::AddDicomWebJson(const Json::Value& value)
+  {
+    if (isXml_)
+    {
+      // This function can only be used in the JSON case
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadSequenceOfCalls);
+    }
+
+    if (first_)
+    {
+      first_ = false;
+    }
+    else
+    {
+      jsonBuffer_.AddChunk(",");
+    }
+
+    std::string target;
+    WriteStyledJson(target, value);    
+    jsonBuffer_.AddChunk(target);
+  }
+
+
   void DicomWebFormatter::HttpWriter::AddDicomWebSerializedJson(const void* data,
                                                                 size_t size)
   {

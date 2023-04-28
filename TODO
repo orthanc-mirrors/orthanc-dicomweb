@@ -24,12 +24,14 @@
     BUT the total time required by the /metadata route is still around 0.9 second because we spend 600-700ms formating the output !!! (see TODO_OPTI in WadoRs.cpp)
     -> 0.835 second in "Experimental" mode (10% slower if tags are actually in DB of course !)
     -> 0.700 second in "MainDicomTags" mode (10% faster)
-    FURTHER WORK: 
-      - In the plugin SDK, we should probably have a method to convert DicomAsJson_Full to DicomWebJson without creating a ParsedDicomFile in between.
-      - Or in the core: implement /series/.../instances?dicom-web-json (the core has the primitives to write dicom-web-json)
-      - Even if we optimize the DB, the cost for the response serialization will still be very high and that's likely the first thing to work on !!!
-     
-
+  - in the am-experimental branch of Orthanc, we have implemented a new dicomWeb JSON format and 'include' get arguments:
+    time curl "http://localhost:8043/series/fdd31453-fa62d8cb-b681823c-f294d34c-182bca4b/instances?dicomWeb&include=RequestedTags&requestedTags=0008,0005;0008,0008;0008,0012;0008,0013;0008,0016;0008,0018;0008,0023;0008,0033;0018,0050;0020,0012;0020,0013;0020,0032;0020,0037;0020,0052;0020,0100;0020,4000;0028,0004;0028,0008;0028,0010;0028,0011;0028,0030;0028,0100;0028,0101;0028,0103;0028,1050;0028,1051;0028,1052;0028,1053;0054,1330" > /dev/null
+    -> 0.212 second (with the output in DicomWeb JSON !!)      
+    total time for the /metadata route is now
+    -> 0.459 second in "Experimental" mode.  
+    -> 0.448 second in "MainDicomTags" mode.  
+    
+    There is still a high cost for serialization (which is now simply copying and merging json nodes)
 
 
   - note that all measurements have been performed on a DB with a single series !  We should repeat 
