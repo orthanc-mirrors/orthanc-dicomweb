@@ -12,6 +12,8 @@ Internals:
 * WIP: use new "dicomWeb" format and "include" get arguments when calling the core API.
   - /series/../metadata is functional (tested in StoneViewer)
   - TODO: XML format is currently not supported
+* WIP: in "Full" mode, call "/instances/{id}/file-until-pixel-data" instead of "/instances/{id}/file"
+  to speed up things.  Note: PixelData BulkDataUri is missing !!!
 
 Version 1.13 (2023-02-03)
 =========================

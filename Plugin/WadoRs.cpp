@@ -911,7 +911,7 @@ static void WriteInstanceMetadata(OrthancPlugins::DicomWebFormatter::HttpWriter&
       // cache (see below)
     
       OrthancPlugins::MemoryBuffer dicomFile;
-      if (dicomFile.RestApiGet("/instances/" + orthancId + "/file", false))
+      if (dicomFile.RestApiGet("/instances/" + orthancId + "/file-until-pixel-data", false))
       {
         writer.AddDicom(dicomFile.GetData(), dicomFile.GetSize(), bulkRoot);
       }
