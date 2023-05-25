@@ -84,7 +84,8 @@ namespace OrthancPlugins
                                 size_t size,
                                 bool xml,
                                 OrthancPluginDicomWebBinaryMode mode,
-                                const std::string& bulkRoot)
+                                const std::string& bulkRoot,
+                                bool injectEmptyPixelData)
   {
     DicomWebFormatter payload(mode, bulkRoot);
     
@@ -92,11 +93,11 @@ namespace OrthancPlugins
 
     if (xml)
     {
-      s.Assign(OrthancPluginEncodeDicomWebXml2(context, data, size, Callback, &payload));
+      s.Assign(OrthancPluginEncodeDicomWebXml2(context, data, size, Callback, &payload)); // TODO injectEmptyPixelData
     }
     else
     {
-      s.Assign(OrthancPluginEncodeDicomWebJson2(context, data, size, Callback, &payload));
+      s.Assign(OrthancPluginEncodeDicomWebJson3(context, data, size, Callback, &payload, injectEmptyPixelData));
     }
 
     if (s.GetContent() == NULL)
@@ -116,11 +117,12 @@ namespace OrthancPlugins
                                 const Json::Value& value,
                                 bool xml,
                                 OrthancPluginDicomWebBinaryMode mode,
-                                const std::string& bulkRoot)
+                                const std::string& bulkRoot,
+                                bool injectEmptyPixelData)
   {
     MemoryBuffer dicom;
     dicom.CreateDicom(value, OrthancPluginCreateDicomFlags_None);
-    Apply(target, context, dicom.GetData(), dicom.GetSize(), xml, mode, bulkRoot);
+    Apply(target, context, dicom.GetData(), dicom.GetSize(), xml, mode, bulkRoot, injectEmptyPixelData);
   }
 
 
@@ -151,7 +153,8 @@ namespace OrthancPlugins
   void DicomWebFormatter::HttpWriter::AddInternal(const void* dicom,
                                                   size_t size,
                                                   OrthancPluginDicomWebBinaryMode mode,
-                                                  const std::string& bulkRoot)
+                                                  const std::string& bulkRoot,
+                                                  bool injectEmptyPixelData)
   {
     if (!first_ &&
         !isXml_)
@@ -163,7 +166,7 @@ namespace OrthancPlugins
 
     std::string item;
 
-    DicomWebFormatter::Apply(item, context_, dicom, size, isXml_, mode, bulkRoot);
+    DicomWebFormatter::Apply(item, context_, dicom, size, isXml_, mode, bulkRoot, injectEmptyPixelData);
    
     if (isXml_)
     {
@@ -252,7 +255,7 @@ namespace OrthancPlugins
     MemoryBuffer dicom;
     dicom.CreateDicom(value, OrthancPluginCreateDicomFlags_None);
 
-    AddInternal(dicom.GetData(), dicom.GetSize(), OrthancPluginDicomWebBinaryMode_Ignore, "");
+    AddInternal(dicom.GetData(), dicom.GetSize(), OrthancPluginDicomWebBinaryMode_Ignore, "", false);
   }
 
 

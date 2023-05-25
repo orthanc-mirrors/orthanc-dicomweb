@@ -64,14 +64,16 @@ namespace OrthancPlugins
                       size_t size,
                       bool xml,
                       OrthancPluginDicomWebBinaryMode mode,
-                      const std::string& bulkRoot);
+                      const std::string& bulkRoot,
+                      bool injectEmptyPixelData = false);
 
     static void Apply(std::string& target,
                       OrthancPluginContext* context,
                       const Json::Value& value,
                       bool xml,
                       OrthancPluginDicomWebBinaryMode mode,
-                      const std::string& bulkRoot);
+                      const std::string& bulkRoot,
+                      bool injectEmptyPixelData = false);
 
     class HttpWriter : public boost::noncopyable
     {
@@ -85,7 +87,8 @@ namespace OrthancPlugins
       void AddInternal(const void* dicom,
                        size_t size,
                        OrthancPluginDicomWebBinaryMode mode,
-                       const std::string& bulkRoot);
+                       const std::string& bulkRoot,
+                       bool injectEmptyPixelData);
 
     public:
       HttpWriter(OrthancPluginRestOutput* output,
@@ -98,9 +101,10 @@ namespace OrthancPlugins
 
       void AddDicom(const void* dicom,
                     size_t size,
-                    const std::string& bulkRoot)
+                    const std::string& bulkRoot,
+                    bool injectEmptyPixelData)
       {
-        AddInternal(dicom, size, OrthancPluginDicomWebBinaryMode_BulkDataUri, bulkRoot);
+        AddInternal(dicom, size, OrthancPluginDicomWebBinaryMode_BulkDataUri, bulkRoot, injectEmptyPixelData);
       }
 
       void AddOrthancMap(const Orthanc::DicomMap& value);

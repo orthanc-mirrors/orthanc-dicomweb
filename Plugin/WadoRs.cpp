@@ -913,7 +913,7 @@ static void WriteInstanceMetadata(OrthancPlugins::DicomWebFormatter::HttpWriter&
       OrthancPlugins::MemoryBuffer dicomFile;
       if (dicomFile.RestApiGet("/instances/" + orthancId + "/file-until-pixel-data", false))
       {
-        writer.AddDicom(dicomFile.GetData(), dicomFile.GetSize(), bulkRoot);
+        writer.AddDicom(dicomFile.GetData(), dicomFile.GetSize(), bulkRoot, true);
       }
 
       break;
