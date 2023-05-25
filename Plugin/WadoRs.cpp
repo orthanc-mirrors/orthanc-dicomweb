@@ -97,7 +97,7 @@ static void AcceptMultipartDicom(bool& transcode,
    * plugin, transcoding to "Little Endian Explicit" takes place by
    * default. If this transcoding is not desirable, the "Accept" HTTP
    * header can be set to
-   * "multipart/related;type=application/dicom;transfer-syntax=*" (not
+   * "multipart/related;type=application/dicom;transfer-syntax=*" (note
    * the asterisk "*") in order to prevent transcoding. The same
    * convention is used by the Google Cloud Platform:
    * https://cloud.google.com/healthcare/docs/dicom
