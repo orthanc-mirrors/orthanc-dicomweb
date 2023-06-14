@@ -33,6 +33,9 @@
     
     There is still a high cost for serialization (which is now simply copying and merging json nodes)
 
+    // The "Full" mode optimized with reading only "file-until-pixel-data" and with a single call to get all instances tags is now
+    -> 0.750 s
+
 
   - note that all measurements have been performed on a DB with a single series !  We should repeat 
     that with a more realistic DB

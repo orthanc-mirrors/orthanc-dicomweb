@@ -875,6 +875,7 @@ static void WriteInstanceMetadata(OrthancPlugins::DicomWebFormatter::HttpWriter&
                                   OrthancPlugins::MetadataMode mode,
                                   MainDicomTagsCache& cache,
                                   const std::string& orthancId,
+                                  Orthanc::DicomMap* dicom,
                                   const std::string& studyInstanceUid,
                                   const std::string& seriesInstanceUid,
                                   const std::string& wadoBase)
@@ -884,28 +885,31 @@ static void WriteInstanceMetadata(OrthancPlugins::DicomWebFormatter::HttpWriter&
          !seriesInstanceUid.empty() &&
          !wadoBase.empty());
 
-  Orthanc::DicomMap dicom;
-
-  if (!cache.GetInstance(dicom, mode, orthancId))
-  {
-    throw Orthanc::OrthancException(Orthanc::ErrorCode_UnknownResource, "instance not found: " + orthancId);
-  }
-
   switch (mode)
   {
     case OrthancPlugins::MetadataMode_MainDicomTags:
     case OrthancPlugins::MetadataMode_Extrapolate:
     {
-      writer.AddOrthancMap(dicom);
-      break;
+      // TODO: reactivate
+      // Orthanc::DicomMap dicom;
+
+      // if (!cache.GetInstance(dicom, mode, orthancId))
+      // {
+      //   throw Orthanc::OrthancException(Orthanc::ErrorCode_UnknownResource, "instance not found: " + orthancId);
+      // }
+
+      // writer.AddOrthancMap(dicom);
+      // break;
     }
 
     case OrthancPlugins::MetadataMode_Full:
     {
+      assert(dicom != NULL);
+
       const std::string bulkRoot = (wadoBase +
                                     "studies/" + studyInstanceUid +
                                     "/series/" + seriesInstanceUid + 
-                                    "/instances/" + dicom.GetStringValue(Orthanc::DICOM_TAG_SOP_INSTANCE_UID, "", false) + "/bulk");
+                                    "/instances/" + dicom->GetStringValue(Orthanc::DICOM_TAG_SOP_INSTANCE_UID, "", false) + "/bulk");
 
       // On a SSD drive, this version is twice slower than if using
       // cache (see below)
@@ -1145,16 +1149,16 @@ void RetrieveDicomInstance(OrthancPluginRestOutput* output,
 
 
 
+typedef std::map<std::string, boost::shared_ptr<Orthanc::DicomMap> >  DicomMaps;
 
-
-static void GetChildrenIdentifiers(std::list<std::string>& target,
+static void GetChildrenIdentifiers(DicomMaps& childrenDicomMaps,
                                    std::string& resourceDicomUid,
                                    Orthanc::ResourceType level,
                                    const std::string& orthancId)
 {
-  target.clear();
+  childrenDicomMaps.clear();
 
-  const char* childrenTag = NULL;
+  const char* childrenRoute = NULL;
   const char* dicomUidTag = NULL;
   std::string uri;
 
@@ -1162,13 +1166,13 @@ static void GetChildrenIdentifiers(std::list<std::string>& target,
   {
     case Orthanc::ResourceType_Study:
       uri = "/studies/" + orthancId;
-      childrenTag = "Series";
+      childrenRoute = "series";
       dicomUidTag = "StudyInstanceUID";
       break;
        
     case Orthanc::ResourceType_Series:
       uri = "/series/" + orthancId;
-      childrenTag = "Instances";
+      childrenRoute = "instances";
       dicomUidTag = "SeriesInstanceUID";
       break;
 
@@ -1176,24 +1180,34 @@ static void GetChildrenIdentifiers(std::list<std::string>& target,
       throw Orthanc::OrthancException(Orthanc::ErrorCode_ParameterOutOfRange);
   }
 
-  assert(childrenTag != NULL && dicomUidTag != NULL);
+  assert(childrenRoute != NULL && dicomUidTag != NULL);
   
+  // get the resource itself
   Json::Value resource;
   if (OrthancPlugins::RestApiGet(resource, uri, false))
   {
-    if (resource.type() != Json::objectValue || !resource.isMember(childrenTag) 
+    if (resource.type() != Json::objectValue 
       || !resource.isMember(MAIN_DICOM_TAGS) || !resource[MAIN_DICOM_TAGS].isMember(dicomUidTag))
     {
       throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);
     }
 
-    const Json::Value& children = resource[childrenTag];
     resourceDicomUid = resource[MAIN_DICOM_TAGS][dicomUidTag].asString();
 
-    for (Json::Value::ArrayIndex i = 0; i < children.size(); i++)
+    // get the children resources
+    Json::Value childResources;
+    if (OrthancPlugins::RestApiGet(childResources, uri + "/" + childrenRoute + "?expand&full", false))
     {
-      target.push_back(children[i].asString());
+      for (Json::Value::ArrayIndex i = 0; i < childResources.size(); i++)
+      {
+        const Json::Value& child = childResources[i];
+        Orthanc::DicomMap dicom;
+        dicom.FromDicomAsJson(child[MAIN_DICOM_TAGS], false /* append */, true /* parseSequences */);
+        childrenDicomMaps[child["ID"].asString()] = boost::shared_ptr<Orthanc::DicomMap>(dicom.Clone());
+      }
+
     }
+
   }  
 }
 
@@ -1220,19 +1234,20 @@ void RetrieveStudyMetadata(OrthancPluginRestOutput* output,
     {
       OrthancPlugins::DicomWebFormatter::HttpWriter writer(output, isXml);
 
-      std::list<std::string> series;
+      DicomMaps seriesDicomMaps;
       std::string studyDicomUid;
-      GetChildrenIdentifiers(series, studyDicomUid, Orthanc::ResourceType_Study, studyOrthancId);
+      GetChildrenIdentifiers(seriesDicomMaps, studyDicomUid, Orthanc::ResourceType_Study, studyOrthancId);
 
-      for (std::list<std::string>::const_iterator s = series.begin(); s != series.end(); ++s)
+      for (DicomMaps::const_iterator s = seriesDicomMaps.begin(); s != seriesDicomMaps.end(); ++s)
       {
-        std::list<std::string> instances;
+        DicomMaps instancesDicomMaps;
         std::string seriesDicomUid;
-        GetChildrenIdentifiers(instances, seriesDicomUid, Orthanc::ResourceType_Series, *s);
+        GetChildrenIdentifiers(instancesDicomMaps, seriesDicomUid, Orthanc::ResourceType_Series, s->first);
 
-        for (std::list<std::string>::const_iterator i = instances.begin(); i != instances.end(); ++i)
+        // TODO: parallelize (share code with RetrieveSeriesMetadata)
+        for (DicomMaps::const_iterator i = instancesDicomMaps.begin(); i != instancesDicomMaps.end(); ++i)
         {
-          WriteInstanceMetadata(writer, mode, cache, *i, studyInstanceUid, seriesDicomUid,
+          WriteInstanceMetadata(writer, mode, cache, i->first, i->second.get(), studyInstanceUid, seriesDicomUid,
                                 OrthancPlugins::Configuration::GetBasePublicUrl(request));
         }
       }
@@ -1278,13 +1293,14 @@ void RetrieveSeriesMetadata(OrthancPluginRestOutput* output,
       }
       else
       {
-        std::list<std::string> instances;
-        std::string seriesDicomUid;  // not used
-        GetChildrenIdentifiers(instances, seriesDicomUid, Orthanc::ResourceType_Series, seriesOrthancId);
+        DicomMaps instancesDicomMaps;
+        std::string seriesDicomUid;
+        GetChildrenIdentifiers(instancesDicomMaps, seriesDicomUid, Orthanc::ResourceType_Series, seriesOrthancId);
 
-        for (std::list<std::string>::const_iterator i = instances.begin(); i != instances.end(); ++i)
+        // TODO: parallelize
+        for (DicomMaps::const_iterator i = instancesDicomMaps.begin(); i != instancesDicomMaps.end(); ++i)
         {
-          WriteInstanceMetadata(writer, mode, cache, *i, studyInstanceUid, seriesInstanceUid,
+          WriteInstanceMetadata(writer, mode, cache, i->first, i->second.get(), studyInstanceUid, seriesDicomUid,
                                 OrthancPlugins::Configuration::GetBasePublicUrl(request));
         }
       }
@@ -1312,7 +1328,7 @@ void RetrieveInstanceMetadata(OrthancPluginRestOutput* output,
     if (LocateInstance(output, orthancId, studyInstanceUid, seriesInstanceUid, sopInstanceUid, request))
     {
       OrthancPlugins::DicomWebFormatter::HttpWriter writer(output, isXml);
-      WriteInstanceMetadata(writer, OrthancPlugins::MetadataMode_Full, cache, orthancId, studyInstanceUid,
+      WriteInstanceMetadata(writer, OrthancPlugins::MetadataMode_Full, cache, orthancId, NULL, studyInstanceUid,
                             seriesInstanceUid, OrthancPlugins::Configuration::GetBasePublicUrl(request));
       writer.Send();      
     }
