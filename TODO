@@ -34,7 +34,51 @@
     There is still a high cost for serialization (which is now simply copying and merging json nodes)
 
     // The "Full" mode optimized with reading only "file-until-pixel-data" and with a single call to get all instances tags is now
-    -> 0.750 s
+    -> 0.450 s
+    // after reading 4 files together (still only one DicomWebToJson serializer)
+    -> 0.450 s
+    // after reading 4 files together, with 4 DicomWebToJson serializers
+    -> 0.230 s
+
+4 threads (after removing the ReadJson in debug !):
+W0614 15:49:38.925856 PluginsManager.cpp:157] Get instances tags 90
+W0614 15:49:39.251882 PluginsManager.cpp:157] before send 416
+W0614 15:49:39.255049 PluginsManager.cpp:157] after send 420
+
+single thread:
+W0614 15:52:04.881710 PluginsManager.cpp:157] Get instances tags 92
+W0614 15:52:05.228800 PluginsManager.cpp:157] before send 439
+W0614 15:52:05.231285 PluginsManager.cpp:157] after send 441
+
+old-single threaded code (no log during measures):
+- total time: ~553us
+  - get file-until-pixel-data from plugin SDK: ~100us
+  - writer.AddDicom: ~450us
+    - format DicomWeb JSON: ~450us
+    - AddChunk: 2us
+
+after removing the ReadJson in debug !
+multi-threaded code with a single thread (measured with no logs !):
+- get file-until-pixel-data from plugin SDK: ~91us
+- format DicomWeb JSON: ~420us
+- add to writer: ~4us
+- TOTAL TIME: 413ms (85ms to get the instances tags)
+multi-threaded code with 2 threads (measured with no logs !):
+- get file-until-pixel-data from plugin SDK: ~110us
+- format DicomWeb JSON: ~450us
+- add to writer: ~4us
+- TOTAL TIME: 275ms (85ms to get the instances tags)
+multi-threaded code with 4 threads (measured with no logs !):
+- get file-until-pixel-data from plugin SDK: ~120us
+- format DicomWeb JSON: ~490us
+- add to writer: ~4us  
+- TOTAL TIME: 194ms (85ms to get the instances tags)
+multi-threaded code with 4 threads (measured with no logs !) + !oneLargeQuery mode -> get the instance SOPInstanceUID in the thread:
+- get file-until-pixel-data + SOP InstanceUID from plugin SDK: ~420us
+- format DicomWeb JSON: ~490us
+- add to writer: ~4us  
+- TOTAL TIME: 158ms
+
 
 
   - note that all measurements have been performed on a DB with a single series !  We should repeat 

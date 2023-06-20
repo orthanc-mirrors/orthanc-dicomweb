@@ -26,7 +26,7 @@
 #if !defined(NDEBUG)  // In debug mode, check that the value is actually a JSON string
 #  include <Toolbox.h>
 #endif
-
+#include "Logging.h"
 
 namespace OrthancPlugins
 {
@@ -166,8 +166,18 @@ namespace OrthancPlugins
 
     std::string item;
 
+    static size_t instanceCounter = 0;
+    static size_t totalTime1 = 0;
+    static size_t totalTime2 = 0;
+
+    instanceCounter++;
+    boost::posix_time::ptime start2 = boost::posix_time::microsec_clock::universal_time();
+
     DicomWebFormatter::Apply(item, context_, dicom, size, isXml_, mode, bulkRoot, injectEmptyPixelData);
-   
+
+    boost::posix_time::ptime stop2 = boost::posix_time::microsec_clock::universal_time();
+    totalTime1 += (stop2-start2).total_microseconds();
+
     if (isXml_)
     {
       OrthancPluginSendMultipartItem(context_, output_, item.c_str(), item.size());
@@ -175,6 +185,14 @@ namespace OrthancPlugins
     else
     {
       jsonBuffer_.AddChunk(item);
+    }
+
+    stop2 = boost::posix_time::microsec_clock::universal_time();
+    totalTime2 += (stop2-start2).total_microseconds();
+
+    if (instanceCounter % 100 == 0)
+    {
+      LOG(WARNING) << "AddInternal i: " << instanceCounter << " " << totalTime1/instanceCounter << " " << totalTime2/instanceCounter;
     }
   }
 
@@ -291,13 +309,13 @@ namespace OrthancPlugins
       throw Orthanc::OrthancException(Orthanc::ErrorCode_BadSequenceOfCalls);
     }
 
-#if !defined(NDEBUG)  // In debug mode, check that the value is actually a JSON string
-    Json::Value json;
-    if (!OrthancPlugins::ReadJson(json, data, size))
-    {
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
-    }
-#endif
+// #if !defined(NDEBUG)  // In debug mode, check that the value is actually a JSON string
+//     Json::Value json;
+//     if (!OrthancPlugins::ReadJson(json, data, size))
+//     {
+//       throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
+//     }
+// #endif
     
     if (first_)
     {
