@@ -24,7 +24,7 @@
 #include <ChunkedBuffer.h>
 #include <DicomFormat/DicomMap.h>
 
-#include <orthanc/OrthancCPlugin.h>
+#include "../Resources/Orthanc/Plugins/OrthancPluginCppWrapper.h"
 
 #include <json/value.h>
 
@@ -73,6 +73,13 @@ namespace OrthancPlugins
                       OrthancPluginDicomWebBinaryMode mode,
                       const std::string& bulkRoot);
 
+    static void Apply(std::string& target,
+                      OrthancPluginContext* context,
+                      const DicomInstance& instance,
+                      bool xml,
+                      OrthancPluginDicomWebBinaryMode mode,
+                      const std::string& bulkRoot);
+
     class HttpWriter : public boost::noncopyable
     {
     private:
@@ -111,6 +118,9 @@ namespace OrthancPlugins
                                      size_t size);
 
       void Send();
+
+      void AddInstance(const DicomInstance& instance,
+                       const std::string& bulkRoot);
     };
   };
 }

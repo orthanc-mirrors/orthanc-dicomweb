@@ -87,7 +87,7 @@ namespace OrthancPlugins
                                 const std::string& bulkRoot)
   {
     DicomWebFormatter payload(mode, bulkRoot);
-    
+
     OrthancString s;
 
     if (xml)
@@ -121,6 +121,38 @@ namespace OrthancPlugins
     MemoryBuffer dicom;
     dicom.CreateDicom(value, OrthancPluginCreateDicomFlags_None);
     Apply(target, context, dicom.GetData(), dicom.GetSize(), xml, mode, bulkRoot);
+  }
+
+
+  void DicomWebFormatter::Apply(std::string& target,
+                                OrthancPluginContext* context,
+                                const DicomInstance& instance,
+                                bool xml,
+                                OrthancPluginDicomWebBinaryMode mode,
+                                const std::string& bulkRoot)
+  {
+    DicomWebFormatter payload(mode, bulkRoot);
+
+    OrthancString s;
+
+    if (xml)
+    {
+      s.Assign(OrthancPluginGetInstanceDicomWebXml(context, instance.GetObject(), Callback, &payload));
+    }
+    else
+    {
+      s.Assign(OrthancPluginGetInstanceDicomWebJson(context, instance.GetObject(), Callback, &payload));
+    }
+
+    if (s.GetContent() == NULL)
+    {
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError,
+                                      "Cannot convert DICOM to DICOMweb");
+    }
+    else
+    {
+      s.ToString(target);
+    }
   }
 
 
@@ -295,6 +327,32 @@ namespace OrthancPlugins
       std::string answer;
       jsonBuffer_.Flatten(answer);
       OrthancPluginAnswerBuffer(context_, output_, answer.c_str(), answer.size(), "application/dicom+json");
+    }
+  }
+
+
+  void DicomWebFormatter::HttpWriter::AddInstance(const DicomInstance& instance,
+                                                  const std::string& bulkRoot)
+  {
+    if (!first_ &&
+        !isXml_)
+    {
+      jsonBuffer_.AddChunk(",");
+    }
+
+    first_ = false;
+
+    std::string item;
+
+    DicomWebFormatter::Apply(item, context_, instance, isXml_, OrthancPluginDicomWebBinaryMode_BulkDataUri, bulkRoot);
+   
+    if (isXml_)
+    {
+      OrthancPluginSendMultipartItem(context_, output_, item.c_str(), item.size());
+    }
+    else
+    {
+      jsonBuffer_.AddChunk(item);
     }
   }
 }

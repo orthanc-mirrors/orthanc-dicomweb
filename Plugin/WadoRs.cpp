@@ -822,14 +822,31 @@ static void WriteInstanceMetadata(OrthancPlugins::DicomWebFormatter::HttpWriter&
                                     "/series/" + seriesInstanceUid + 
                                     "/instances/" + dicom.GetStringValue(Orthanc::DICOM_TAG_SOP_INSTANCE_UID, "", false) + "/bulk");
 
+#if ORTHANC_PLUGINS_VERSION_IS_ABOVE(1, 12, 1)
+      std::unique_ptr<OrthancPlugins::DicomInstance> instance;
+
+      try
+      {
+        instance.reset(OrthancPlugins::DicomInstance::Load(orthancId, OrthancPluginLoadDicomInstanceMode_EmptyPixelData));
+      }
+      catch (Orthanc::OrthancException& e)
+      {
+      }
+
+      if (instance.get() != NULL)
+      {
+        writer.AddInstance(*instance, bulkRoot);
+      }
+#else
       // On a SSD drive, this version is twice slower than if using
       // cache (see below)
-    
+
       OrthancPlugins::MemoryBuffer dicomFile;
       if (dicomFile.RestApiGet("/instances/" + orthancId + "/file", false))
       {
         writer.AddDicom(dicomFile.GetData(), dicomFile.GetSize(), bulkRoot);
       }
+#endif
 
       break;
     }
