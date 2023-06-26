@@ -1,8 +1,8 @@
 # Orthanc - A Lightweight, RESTful DICOM Store
 # Copyright (C) 2012-2016 Sebastien Jodogne, Medical Physics
 # Department, University Hospital of Liege, Belgium
-# Copyright (C) 2017-2022 Osimis S.A., Belgium
-# Copyright (C) 2021-2022 Sebastien Jodogne, ICTEAM UCLouvain, Belgium
+# Copyright (C) 2017-2023 Osimis S.A., Belgium
+# Copyright (C) 2021-2023 Sebastien Jodogne, ICTEAM UCLouvain, Belgium
 #
 # This program is free software: you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public License
@@ -237,7 +237,8 @@ endif()
 
 
 if (DEFINED ENABLE_PROFILING AND ENABLE_PROFILING)
-  if (CMAKE_COMPILER_IS_GNUCXX)
+  if (CMAKE_COMPILER_IS_GNUCXX OR
+      CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pg")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pg")
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pg")
