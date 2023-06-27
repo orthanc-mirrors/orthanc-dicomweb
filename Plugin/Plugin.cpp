@@ -537,6 +537,11 @@ extern "C"
                  << "Orthanc SDK <= 1.5.6. STOW and WADO chunked transfers will be entirely stored in RAM.";
 #endif
 
+#if !ORTHANC_PLUGINS_VERSION_IS_ABOVE(1, 12, 1)
+    LOG(WARNING) << "Performance warning in DICOMweb: The plugin was compiled against "
+                 << "Orthanc SDK <= 1.12.0. Retrieving metadata will be slower.";
+#endif
+
     OrthancPluginSetDescription(context, "Implementation of DICOMweb (QIDO-RS, STOW-RS and WADO-RS) and WADO-URI.");
 
     try
