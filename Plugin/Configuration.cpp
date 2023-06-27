@@ -79,7 +79,7 @@ namespace OrthancPlugins
 
     assert(tokens.size() > 0);
     application = tokens[0];
-    Orthanc::Toolbox::StripSpaces(application);
+    application = Orthanc::Toolbox::StripSpaces(application);
     Orthanc::Toolbox::ToLowerCase(application);
 
     boost::regex pattern("\\s*([^=]+)\\s*=\\s*(([^=\"]+)|\"([^=\"]+)\")\\s*");
