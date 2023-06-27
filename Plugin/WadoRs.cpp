@@ -252,7 +252,7 @@ static bool AcceptBulkData(const OrthancPluginHttpRequest* request)
     }
   }
 
-  if (attributes.find("ra,ge") != attributes.end())
+  if (attributes.find("range") != attributes.end())
   {
     throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest,
                                     "This WADO-RS plugin does not support Range retrieval, "
