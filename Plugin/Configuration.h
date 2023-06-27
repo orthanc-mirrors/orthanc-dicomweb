@@ -50,13 +50,7 @@ namespace OrthancPlugins
   {
     MetadataMode_Full,           // Read all the DICOM instances from the storage area
     MetadataMode_MainDicomTags,  // Only use the Orthanc database (main DICOM tags only)
-    MetadataMode_Extrapolate,    // Extrapolate user-specified tags from a few DICOM instances
-
-    MetadataMode_Experimental    // Retrieves all ExtraMainDicomTags from DB or from the storage if required.
-                                 // In terms of performance: This is equivalent to MainDicomTags mode for studies 
-                                 // that have been stored with a correct ExtraMainDicomTags.  This is equivalent
-                                 // to Full mode for older studies that have note been reconstructed.
-
+    MetadataMode_Extrapolate     // Extrapolate user-specified tags from a few DICOM instances
   };
 
 
