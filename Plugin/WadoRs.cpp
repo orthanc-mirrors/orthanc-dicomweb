@@ -28,9 +28,11 @@
 #include <ChunkedBuffer.h>
 #include <Logging.h>
 #include <Toolbox.h>
+#include <MultiThreading/SharedMessageQueue.h>
 
 #include <memory>
 #include <boost/thread/mutex.hpp>
+#include <boost/thread.hpp>
 
 static const char* const MAIN_DICOM_TAGS = "MainDicomTags";
 static const char* const REQUESTED_TAGS = "RequestedTags";
@@ -1006,9 +1008,6 @@ void RetrieveDicomInstance(OrthancPluginRestOutput* output,
 }
 
 
-
-
-
 static void GetChildrenIdentifiers(std::list<std::string>& target,
                                    std::string& resourceDicomUid,
                                    Orthanc::ResourceType level,
@@ -1060,6 +1059,68 @@ static void GetChildrenIdentifiers(std::list<std::string>& target,
 }
 
 
+typedef std::map<std::string, boost::shared_ptr<Orthanc::DicomMap> >  ChildrenMainDicomMaps;
+
+static void GetChildrenMainDicomTags(ChildrenMainDicomMaps& childrenDicomMaps,
+                                     std::string& resourceDicomUid,
+                                     Orthanc::ResourceType level,
+                                     const std::string& orthancId)
+{
+  childrenDicomMaps.clear();
+
+  const char* childrenRoute = NULL;
+  const char* dicomUidTag = NULL;
+  std::string uri;
+
+  switch (level)
+  {
+    case Orthanc::ResourceType_Study:
+      uri = "/studies/" + orthancId;
+      childrenRoute = "series";
+      dicomUidTag = "StudyInstanceUID";
+      break;
+       
+    case Orthanc::ResourceType_Series:
+      uri = "/series/" + orthancId;
+      childrenRoute = "instances";
+      dicomUidTag = "SeriesInstanceUID";
+      break;
+
+    default:
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_ParameterOutOfRange);
+  }
+
+  assert(childrenRoute != NULL && dicomUidTag != NULL);
+  
+  // get the resource itself
+  Json::Value resource;
+  if (OrthancPlugins::RestApiGet(resource, uri, false))
+  {
+    if (resource.type() != Json::objectValue 
+      || !resource.isMember(MAIN_DICOM_TAGS) || !resource[MAIN_DICOM_TAGS].isMember(dicomUidTag))
+    {
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);
+    }
+
+    resourceDicomUid = resource[MAIN_DICOM_TAGS][dicomUidTag].asString();
+
+    // get the children resources
+    Json::Value childResources;
+    if (OrthancPlugins::RestApiGet(childResources, uri + "/" + childrenRoute + "?expand&full", false))
+    {
+      for (Json::Value::ArrayIndex i = 0; i < childResources.size(); i++)
+      {
+        const Json::Value& child = childResources[i];
+        Orthanc::DicomMap dicom;
+        dicom.FromDicomAsJson(child[MAIN_DICOM_TAGS], false /* append */, true /* parseSequences */);
+        childrenDicomMaps[child["ID"].asString()] = boost::shared_ptr<Orthanc::DicomMap>(dicom.Clone());
+      }
+
+    }
+
+  }  
+}
+
 
 void RetrieveStudyMetadata(OrthancPluginRestOutput* output,
                            const char* url,
@@ -1105,12 +1166,124 @@ void RetrieveStudyMetadata(OrthancPluginRestOutput* output,
 }
 
 
+static const char* EXIT_WORKER_MESSAGE = "exit";
+
+class InstanceToLoad : public Orthanc::IDynamicObject
+{
+public:
+  std::string                  orthancId;
+  std::string                  studyInstanceUid;
+  std::string                  seriesInstanceUid;
+  std::string                  bulkRoot;
+  boost::mutex&                writerMutex;
+  OrthancPlugins::DicomWebFormatter::HttpWriter& writer;
+  bool                         isXml;
+  OrthancPluginDicomWebBinaryMode mode;
+
+  explicit InstanceToLoad(const std::string& orthancId, const std::string bulkRoot, boost::mutex& writerMutex, OrthancPlugins::DicomWebFormatter::HttpWriter& writer, bool isXml, OrthancPluginDicomWebBinaryMode mode, const std::string& studyInstanceUid, const std::string& seriesInstanceUid)
+  : orthancId(orthancId),
+    studyInstanceUid(studyInstanceUid),
+    seriesInstanceUid(seriesInstanceUid),
+    bulkRoot(bulkRoot),
+    writerMutex(writerMutex),
+    writer(writer),
+    isXml(isXml),
+    mode(mode)
+  {}
+};
+
+class InstanceWorkerData
+{
+public:
+  std::string id;
+  Orthanc::SharedMessageQueue* instancesQueue;
+  std::string wadoBase;
+
+  InstanceWorkerData(const std::string& id, Orthanc::SharedMessageQueue* instancesQueue, const std::string& wadoBase)
+  : id(id),
+    instancesQueue(instancesQueue),
+    wadoBase(wadoBase)
+  {}
+};
+
+void InstanceWorkerThread(InstanceWorkerData* data)
+{
+  size_t instanceCounter = 0;
+  size_t totalTime1 = 0;
+  size_t totalTime2 = 0;
+  size_t totalTime3 = 0;
+  std::string threadId = data->id;
+
+  while (true)
+  {
+    try
+    {
+      std::unique_ptr<InstanceToLoad> instanceToLoad(dynamic_cast<InstanceToLoad*>(data->instancesQueue->Dequeue(0)));
+
+      if (instanceToLoad->orthancId == EXIT_WORKER_MESSAGE)
+      {
+        if (instanceCounter > 0)
+        {
+          LOG(WARNING) << threadId << " i: " << instanceCounter << " " << totalTime1/instanceCounter << " " << totalTime2/instanceCounter << " " << totalTime3/instanceCounter;
+        }
+        return;
+      }
+      instanceCounter++;
+      boost::posix_time::ptime start2 = boost::posix_time::microsec_clock::universal_time();
+      boost::posix_time::ptime stop2 = boost::posix_time::microsec_clock::universal_time();
+
+      if (instanceToLoad->bulkRoot == "") // we are not in oneLargeQuery mode -> we must load the instance tags to get the SOPInstanceUID
+      {
+        Json::Value instanceResource;
+
+        if (OrthancPlugins::RestApiGet(instanceResource, "/instances/" + instanceToLoad->orthancId, false))
+        {
+          instanceToLoad->bulkRoot = (data->wadoBase +
+                              "studies/" + instanceToLoad->studyInstanceUid +
+                              "/series/" + instanceToLoad->seriesInstanceUid + 
+                              "/instances/" + instanceResource["MainDicomTags"]["SOPInstanceUID"].asString() + "/bulk");
+        }
+      }
+
+      std::string content;
+      std::unique_ptr<OrthancPlugins::DicomInstance> instance;
+
+      try
+      {
+        instance.reset(OrthancPlugins::DicomInstance::Load(instanceToLoad->orthancId, OrthancPluginLoadDicomInstanceMode_EmptyPixelData));
+      }
+      catch (Orthanc::OrthancException& e)
+      {
+      }
+
+      if (instance.get() != NULL)
+      {
+        boost::mutex::scoped_lock lock(instanceToLoad->writerMutex);
+        instanceToLoad->writer.AddInstance(*instance, instanceToLoad->bulkRoot);
+      }
+
+      stop2 = boost::posix_time::microsec_clock::universal_time(); //LOG(WARNING) << data->id << " written one instance " << (stop2-start2).total_microseconds() << "us";
+      totalTime3 += (stop2-start2).total_microseconds();
+    }
+    catch(...)
+    {
+      // ignore errors but don't exit the thread to make sure all workers end correctly
+    }
+  }
+}
+
+
+
 void RetrieveSeriesMetadata(OrthancPluginRestOutput* output,
                             const char* url,
                             const OrthancPluginHttpRequest* request)
 {
   OrthancPluginContext* context = OrthancPlugins::GetGlobalContext();
   
+  boost::posix_time::ptime start = boost::posix_time::microsec_clock::universal_time();
+  boost::posix_time::ptime stop = boost::posix_time::microsec_clock::universal_time();
+  // stop = boost::posix_time::microsec_clock::universal_time(); LOG(WARNING) << "start " << (stop-start).total_milliseconds();
+
   bool isXml;
   if (!AcceptMetadata(request, isXml))
   {
@@ -1128,16 +1301,94 @@ void RetrieveSeriesMetadata(OrthancPluginRestOutput* output,
     if (LocateSeries(output, seriesOrthancId, studyInstanceUid, seriesInstanceUid, request))
     {
       OrthancPlugins::DicomWebFormatter::HttpWriter writer(output, isXml);
-      std::list<std::string> instances;
-      std::string seriesDicomUid;  // not used
 
-      GetChildrenIdentifiers(instances, seriesDicomUid, Orthanc::ResourceType_Series, seriesOrthancId);
+      ChildrenMainDicomMaps instancesDicomMaps;
+      std::list<std::string> instancesIds;
+      std::string seriesDicomUid;
 
-      for (std::list<std::string>::const_iterator i = instances.begin(); i != instances.end(); ++i)
+      size_t threadCount = 4;
+      bool oneLargeQuery = false;  // we keep this code here for future use once we'll have optimized Orthanc API /series/.../instances?full to minimize the SQL queries
+                                   // right now, it is faster to call /instances/..?full in each worker but, later, it should be more efficient with a large SQL query in Orthanc
+
+      if (oneLargeQuery)
       {
-        WriteInstanceMetadata(writer, mode, cache, *i, studyInstanceUid, seriesInstanceUid,
-                              OrthancPlugins::Configuration::GetBasePublicUrl(request));
+        GetChildrenMainDicomTags(instancesDicomMaps, seriesDicomUid, Orthanc::ResourceType_Series, seriesOrthancId);
       }
+      else
+      {
+        GetChildrenIdentifiers(instancesIds, seriesDicomUid, Orthanc::ResourceType_Series, seriesOrthancId);
+      }
+
+      if (threadCount > 1)
+      {
+        // span a few workers to get the tags from the core and serialize them
+        Orthanc::SharedMessageQueue instancesQueue;
+        std::vector<boost::shared_ptr<boost::thread> > instancesWorkers;
+        boost::mutex writerMutex;
+        std::vector<boost::shared_ptr<InstanceWorkerData> > instancesWorkersData;
+        std::string wadoBase = OrthancPlugins::Configuration::GetBasePublicUrl(request);
+
+        for (size_t t; t < threadCount; t++)
+        {
+          InstanceWorkerData* threadData = new InstanceWorkerData(boost::lexical_cast<std::string>(t), &instancesQueue, wadoBase);
+          instancesWorkersData.push_back(boost::shared_ptr<InstanceWorkerData>(threadData));
+          instancesWorkers.push_back(boost::shared_ptr<boost::thread>(new boost::thread(InstanceWorkerThread, threadData)));
+        }
+
+        if (oneLargeQuery)
+        {
+          for (ChildrenMainDicomMaps::const_iterator i = instancesDicomMaps.begin(); i != instancesDicomMaps.end(); ++i)
+          {
+            std::string bulkRoot = (wadoBase +
+                                    "studies/" + studyInstanceUid +
+                                    "/series/" + seriesInstanceUid + 
+                                    "/instances/" + i->second->GetStringValue(Orthanc::DICOM_TAG_SOP_INSTANCE_UID, "", false) + "/bulk");
+
+            instancesQueue.Enqueue(new InstanceToLoad(i->first, bulkRoot, writerMutex, writer, isXml, OrthancPluginDicomWebBinaryMode_BulkDataUri, studyInstanceUid, seriesInstanceUid));
+          }
+        }
+        else
+        {
+          for (std::list<std::string>::const_iterator i = instancesIds.begin(); i != instancesIds.end(); ++i)
+          {
+            instancesQueue.Enqueue(new InstanceToLoad(*i, "", writerMutex, writer, isXml, OrthancPluginDicomWebBinaryMode_BulkDataUri, studyInstanceUid, seriesInstanceUid));
+          }
+        }
+
+        stop = boost::posix_time::microsec_clock::universal_time(); LOG(WARNING) << "enqueued " << (stop-start).total_milliseconds();
+
+        // send a dummy "exit" message to all workers such that they stop waiting for messages on the queue
+        for (size_t i = 0; i < instancesWorkers.size(); i++)
+        {
+          instancesQueue.Enqueue(new InstanceToLoad(EXIT_WORKER_MESSAGE, "", writerMutex, writer, isXml, OrthancPluginDicomWebBinaryMode_BulkDataUri, studyInstanceUid, seriesInstanceUid));
+        }
+
+        stop = boost::posix_time::microsec_clock::universal_time(); LOG(WARNING) << "waiting " << (stop-start).total_milliseconds();
+
+        for (size_t i = 0; i < instancesWorkers.size(); i++)
+        {
+          if (instancesWorkers[i]->joinable())
+          {
+            instancesWorkers[i]->join();
+          }
+        }
+
+        instancesWorkers.clear();
+      }
+      else
+      { // old single threaded code
+        std::list<std::string> instances;
+        std::string seriesDicomUid;  // not used
+
+        GetChildrenIdentifiers(instances, seriesDicomUid, Orthanc::ResourceType_Series, seriesOrthancId);
+
+        for (std::list<std::string>::const_iterator i = instances.begin(); i != instances.end(); ++i)
+        {
+          WriteInstanceMetadata(writer, mode, cache, *i, studyInstanceUid, seriesInstanceUid,
+                                OrthancPlugins::Configuration::GetBasePublicUrl(request));
+        }
+      }
+
 
       writer.Send();
     }

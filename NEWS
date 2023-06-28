@@ -4,9 +4,6 @@ Pending changes in the mainline
 * Speeded up instance metadata retrieval using OrthancPluginLoadDicomInstance() from SDK 1.12.1
 * Support "X-Forwarded-Host" and "X-Forwarded-Proto" headers to compute BulkDataURI.
 * Small speed-up the studies/../series/../metadata route when in "MainDicomTags" mode.
-* New "Experimental" mode for "SeriesMetadata" that is fetching tags from the DB or
-  from the storage if they are missing (useful if you recently changed the "ExtraMainDicomTags"
-  configuration)
 
 
 Version 1.13 (2023-02-03)
