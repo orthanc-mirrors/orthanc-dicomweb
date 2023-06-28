@@ -24,8 +24,9 @@
 #include "Configuration.h"
 #include "DicomWebFormatter.h"
 
-#include <Compatibility.h>
 #include <ChunkedBuffer.h>
+#include <Compatibility.h>
+#include <HttpServer/HttpContentNegociation.h>
 #include <Logging.h>
 #include <Toolbox.h>
 #include <MultiThreading/SharedMessageQueue.h>
@@ -64,6 +65,71 @@ static std::string GetResourceUri(Orthanc::ResourceType level,
 
 
 
+namespace
+{
+  class MultipartDicomNegotiation : public Orthanc::HttpContentNegociation::IHandler
+  {
+  private:
+    bool&                         transcode_;
+    Orthanc::DicomTransferSyntax& targetSyntax_;
+
+  public:
+    MultipartDicomNegotiation(
+      bool& transcode,
+      Orthanc::DicomTransferSyntax& targetSyntax /* set only if transcoding */) :
+      transcode_(transcode),
+      targetSyntax_(targetSyntax)
+    {
+    }
+
+    virtual void Handle(const std::string& type,
+                        const std::string& subtype,
+                        const Orthanc::HttpContentNegociation::Dictionary& parameters) ORTHANC_OVERRIDE
+    {
+      assert(type == "multipart" &&
+             subtype == "related");
+
+      Orthanc::HttpContentNegociation::Dictionary::const_iterator found = parameters.find("type");
+
+      if (found != parameters.end())
+      {
+        std::string s = found->second;
+        Orthanc::Toolbox::ToLowerCase(s);
+        if (s != "application/dicom")
+        {
+          throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest,
+                                          "This WADO-RS plugin only supports application/dicom "
+                                          "return type for DICOM retrieval (" + found->second + ")");
+        }
+      }
+
+      found = parameters.find("transfer-syntax");
+      if (found != parameters.end())
+      {
+        /**
+         * The "*" case below is related to Google Healthcare API:
+         * https://groups.google.com/d/msg/orthanc-users/w1Ekrsc6-U8/T2a_DoQ5CwAJ
+         **/
+        if (found->second == "*")
+        {
+          transcode_ = false;
+        }
+        else
+        {
+          transcode_ = true;
+
+          if (!Orthanc::LookupTransferSyntax(targetSyntax_, found->second))
+          {
+            throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest,
+                                            "Unsupported transfer syntax in WADO-RS: " + found->second);
+          }
+        }
+      }
+    }
+  };
+}
+
+
 static void AcceptMultipartDicom(bool& transcode,
                                  Orthanc::DicomTransferSyntax& targetSyntax /* only if transcoding */,
                                  const OrthancPluginHttpRequest* request)
@@ -91,177 +157,177 @@ static void AcceptMultipartDicom(bool& transcode,
    * convention is used by the Google Cloud Platform:
    * https://cloud.google.com/healthcare/docs/dicom
    **/
+
+  // By default, return "multipart/related; type=application/dicom; transfer-syntax=1.2.840.10008.1.2.1"
   transcode = true;
   targetSyntax = Orthanc::DicomTransferSyntax_LittleEndianExplicit;
   
   std::string accept;
-
-  if (!OrthancPlugins::LookupHttpHeader(accept, request, "accept"))
+  if (OrthancPlugins::LookupHttpHeader(accept, request, "accept"))
   {
-    return;   // By default, return "multipart/related; type=application/dicom;"
-  }
+    Orthanc::HttpContentNegociation negotiation;
 
-  std::string application;
-  std::map<std::string, std::string> attributes;
-  OrthancPlugins::ParseContentType(application, attributes, accept);
+    MultipartDicomNegotiation dicom(transcode, targetSyntax);
+    negotiation.Register("multipart/related", dicom);
 
-  if (application != "multipart/related" &&
-      application != "*/*")
-  {
-    throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest,
-                                    "This WADO-RS plugin cannot generate the following content type: " + accept);
-  }
-
-  if (attributes.find("type") != attributes.end())
-  {
-    std::string s = attributes["type"];
-    Orthanc::Toolbox::ToLowerCase(s);
-    if (s != "application/dicom")
+    if (!negotiation.Apply(accept))
     {
       throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest,
-                                      "This WADO-RS plugin only supports application/dicom "
-                                      "return type for DICOM retrieval (" + accept + ")");
-    }
-  }
-
-  static const char* const TRANSFER_SYNTAX = "transfer-syntax";
-
-  std::map<std::string, std::string>::const_iterator found = attributes.find(TRANSFER_SYNTAX);
-  if (found != attributes.end())
-  {
-    /**
-     * The "*" case below is related to Google Healthcare API:
-     * https://groups.google.com/d/msg/orthanc-users/w1Ekrsc6-U8/T2a_DoQ5CwAJ
-     **/
-    if (found->second == "*")
-    {
-      transcode = false;
-    }
-    else
-    {
-      transcode = true;
-
-      if (!Orthanc::LookupTransferSyntax(targetSyntax, found->second))
-      {
-        throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest,
-                                        "Unsupported transfer syntax in WADO-RS: " + found->second);
-      }
+                                      "This WADO-RS plugin cannot generate the following content type: " + accept);
     }
   }
 }
 
 
+namespace
+{
+  class AcceptMetadataJson : public Orthanc::HttpContentNegociation::IHandler
+  {
+  public:
+    virtual void Handle(const std::string& type,
+                        const std::string& subtype,
+                        const Orthanc::HttpContentNegociation::Dictionary& parameters) ORTHANC_OVERRIDE
+    {
+      assert(type == "application");
+      assert(subtype == "json" || subtype == "dicom+json");
+    }
+  };
 
-static bool AcceptMetadata(const OrthancPluginHttpRequest* request,
+  class AcceptMetadataMultipart : public Orthanc::HttpContentNegociation::IHandler
+  {
+  private:
+    bool& isXml_;
+
+  public:
+    AcceptMetadataMultipart(bool& isXml /* out */) :
+      isXml_(isXml)
+    {
+    }
+
+    virtual void Handle(const std::string& type,
+                        const std::string& subtype,
+                        const Orthanc::HttpContentNegociation::Dictionary& parameters) ORTHANC_OVERRIDE
+    {
+      assert(type == "multipart" &&
+             subtype == "related");
+
+      Orthanc::HttpContentNegociation::Dictionary::const_iterator found = parameters.find("type");
+
+      if (found != parameters.end())
+      {
+        if (found->second == "application/dicom+xml")
+        {
+          isXml_ = true;
+        }
+        else
+        {
+          throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest,
+                                          "This WADO-RS plugin only supports application/dicom+xml "
+                                          "type for multipart/related accept (" + found->second + ")");
+        }
+      }
+      else
+      {
+        throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest,
+                                        "Missing \"type\" in multipart/related accept type");
+      }
+
+      found = parameters.find("transfer-syntax");
+      if (found != parameters.end())
+      {
+        throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest,
+                                        "This WADO-RS plugin cannot change the transfer syntax to " +
+                                        found->second);
+      }
+    }
+  };
+}
+
+
+static void AcceptMetadata(const OrthancPluginHttpRequest* request,
                            bool& isXml)
 {
   isXml = false;    // By default, return application/dicom+json
 
   std::string accept;
-  if (!OrthancPlugins::LookupHttpHeader(accept, request, "accept"))
+  if (OrthancPlugins::LookupHttpHeader(accept, request, "accept"))
   {
-    return true;
-  }
+    Orthanc::HttpContentNegociation negotiation;
 
-  std::string application;
-  std::map<std::string, std::string> attributes;
-  OrthancPlugins::ParseContentType(application, attributes, accept);
+    AcceptMetadataJson json;
+    negotiation.Register("application/json", json);
+    negotiation.Register("application/dicom+json", json);
 
-  std::vector<std::string> applicationTokens;
-  Orthanc::Toolbox::TokenizeString(applicationTokens, application, ',');
+    AcceptMetadataMultipart multipart(isXml);
+    negotiation.Register("multipart/related", multipart);
 
-  for (size_t i = 0; i < applicationTokens.size(); i++)
-  {
-    std::string token = Orthanc::Toolbox::StripSpaces(applicationTokens[i]);
-    
-    if (token == "application/json" ||
-        token == "application/dicom+json" ||
-        token == "*/*")
-    {
-      return true;
-    }
-  }
-
-  if (application != "multipart/related")
-  {
-    throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest,
-                                    "This WADO-RS plugin cannot generate the following content type: " + accept);
-  }
-
-  if (attributes.find("type") != attributes.end())
-  {
-    std::string s = attributes["type"];
-    Orthanc::Toolbox::ToLowerCase(s);
-    if (s == "application/dicom+xml")
-    {
-      isXml = true;
-    }
-    else
+    if (!negotiation.Apply(accept))
     {
       throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest,
-                                      "This WADO-RS plugin only supports application/dicom+xml "
-                                      "type for multipart/related accept (" + accept + ")");
+                                      "This WADO-RS plugin cannot generate the following content type: " + accept);
     }
   }
-  else
-  {
-    throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest,
-                                    "Missing \"type\" in multipart/related accept type (" + accept + ")");
-  }
-
-  if (attributes.find("transfer-syntax") != attributes.end())
-  {
-    throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest,
-                                    "This WADO-RS plugin cannot change the transfer syntax to " + 
-                                    attributes["transfer-syntax"]);
-  }
-
-  return true;
 }
 
 
 
-static bool AcceptBulkData(const OrthancPluginHttpRequest* request)
+namespace
 {
+  class BulkDataNegotiation : public Orthanc::HttpContentNegociation::IHandler
+  {
+  public:
+    virtual void Handle(const std::string& type,
+                        const std::string& subtype,
+                        const Orthanc::HttpContentNegociation::Dictionary& parameters) ORTHANC_OVERRIDE
+    {
+      assert(type == "multipart" &&
+             subtype == "related");
+
+      Orthanc::HttpContentNegociation::Dictionary::const_iterator found = parameters.find("type");
+
+      if (found != parameters.end())
+      {
+        std::string s = found->second;
+        Orthanc::Toolbox::ToLowerCase(s);
+        if (s != "application/octet-stream")
+        {
+          throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest,
+                                          "This WADO-RS plugin only supports application/octet-stream "
+                                          "return type for bulk data retrieval (" + found->second + ")");
+        }
+      }
+
+      if (parameters.find("range") != parameters.end())
+      {
+        throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest,
+                                        "This WADO-RS plugin does not support Range retrieval, "
+                                        "it can only return entire bulk data object");
+      }
+    }
+  };
+}
+
+
+static void AcceptBulkData(const OrthancPluginHttpRequest* request)
+{
+  // By default, return "multipart/related; type=application/octet-stream;"
+
   std::string accept;
 
-  if (!OrthancPlugins::LookupHttpHeader(accept, request, "accept"))
+  if (OrthancPlugins::LookupHttpHeader(accept, request, "accept"))
   {
-    return true;   // By default, return "multipart/related; type=application/octet-stream;"
-  }
+    Orthanc::HttpContentNegociation negotiation;
 
-  std::string application;
-  std::map<std::string, std::string> attributes;
-  OrthancPlugins::ParseContentType(application, attributes, accept);
+    BulkDataNegotiation bulk;
+    negotiation.Register("multipart/related", bulk);
 
-  if (application != "multipart/related" &&
-      application != "*/*")
-  {
-    throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest,
-                                    "This WADO-RS plugin cannot generate the following "
-                                    "bulk data type: " + accept);
-  }
-
-  if (attributes.find("type") != attributes.end())
-  {
-    std::string s = attributes["type"];
-    Orthanc::Toolbox::ToLowerCase(s);
-    if (s != "application/octet-stream")
+    if (!negotiation.Apply(accept))
     {
       throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest,
-                                      "This WADO-RS plugin only supports application/octet-stream "
-                                      "return type for bulk data retrieval (" + accept + ")");
+                                    "This WADO-RS plugin cannot generate the following "
+                                    "bulk data type: " + accept);
     }
   }
-
-  if (attributes.find("ra,ge") != attributes.end())
-  {
-    throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest,
-                                    "This WADO-RS plugin does not support Range retrieval, "
-                                    "it can only return entire bulk data object");
-  }
-
-  return true;
 }
 
 
@@ -1127,41 +1193,36 @@ void RetrieveStudyMetadata(OrthancPluginRestOutput* output,
                            const OrthancPluginHttpRequest* request)
 {
   bool isXml;
-  if (!AcceptMetadata(request, isXml))
-  {
-    OrthancPluginSendHttpStatusCode(OrthancPlugins::GetGlobalContext(), output, 400 /* Bad request */);
-  }
-  else
-  {
-    const OrthancPlugins::MetadataMode mode =
-      OrthancPlugins::Configuration::GetMetadataMode(Orthanc::ResourceType_Study);
-    
-    MainDicomTagsCache cache;
+  AcceptMetadata(request, isXml);
 
-    std::string studyOrthancId, studyInstanceUid;
-    if (LocateStudy(output, studyOrthancId, studyInstanceUid, request))
+  const OrthancPlugins::MetadataMode mode =
+    OrthancPlugins::Configuration::GetMetadataMode(Orthanc::ResourceType_Study);
+
+  MainDicomTagsCache cache;
+
+  std::string studyOrthancId, studyInstanceUid;
+  if (LocateStudy(output, studyOrthancId, studyInstanceUid, request))
+  {
+    OrthancPlugins::DicomWebFormatter::HttpWriter writer(output, isXml);
+
+    std::list<std::string> series;
+    std::string studyDicomUid;
+    GetChildrenIdentifiers(series, studyDicomUid, Orthanc::ResourceType_Study, studyOrthancId);
+
+    for (std::list<std::string>::const_iterator s = series.begin(); s != series.end(); ++s)
     {
-      OrthancPlugins::DicomWebFormatter::HttpWriter writer(output, isXml);
+      std::list<std::string> instances;
+      std::string seriesDicomUid;
+      GetChildrenIdentifiers(instances, seriesDicomUid, Orthanc::ResourceType_Series, *s);
 
-      std::list<std::string> series;
-      std::string studyDicomUid;
-      GetChildrenIdentifiers(series, studyDicomUid, Orthanc::ResourceType_Study, studyOrthancId);
-
-      for (std::list<std::string>::const_iterator s = series.begin(); s != series.end(); ++s)
+      for (std::list<std::string>::const_iterator i = instances.begin(); i != instances.end(); ++i)
       {
-        std::list<std::string> instances;
-        std::string seriesDicomUid;
-        GetChildrenIdentifiers(instances, seriesDicomUid, Orthanc::ResourceType_Series, *s);
-
-        for (std::list<std::string>::const_iterator i = instances.begin(); i != instances.end(); ++i)
-        {
-          WriteInstanceMetadata(writer, mode, cache, *i, studyInstanceUid, seriesDicomUid,
-                                OrthancPlugins::Configuration::GetBasePublicUrl(request));
-        }
+        WriteInstanceMetadata(writer, mode, cache, *i, studyInstanceUid, seriesDicomUid,
+                              OrthancPlugins::Configuration::GetBasePublicUrl(request));
       }
-
-      writer.Send();
     }
+
+    writer.Send();
   }
 }
 
@@ -1278,120 +1339,112 @@ void RetrieveSeriesMetadata(OrthancPluginRestOutput* output,
                             const char* url,
                             const OrthancPluginHttpRequest* request)
 {
-  OrthancPluginContext* context = OrthancPlugins::GetGlobalContext();
-  
   boost::posix_time::ptime start = boost::posix_time::microsec_clock::universal_time();
   boost::posix_time::ptime stop = boost::posix_time::microsec_clock::universal_time();
   // stop = boost::posix_time::microsec_clock::universal_time(); LOG(WARNING) << "start " << (stop-start).total_milliseconds();
 
   bool isXml;
-  if (!AcceptMetadata(request, isXml))
-  {
-    OrthancPluginSendHttpStatusCode(context, output, 400 /* Bad request */);
-  }
-  else
-  {
-    const OrthancPlugins::MetadataMode mode =
-      OrthancPlugins::Configuration::GetMetadataMode(Orthanc::ResourceType_Series);
+  AcceptMetadata(request, isXml);
+
+  const OrthancPlugins::MetadataMode mode =
+    OrthancPlugins::Configuration::GetMetadataMode(Orthanc::ResourceType_Series);
     
-    MainDicomTagsCache cache;
+  MainDicomTagsCache cache;
 
-    std::string seriesOrthancId, studyInstanceUid, seriesInstanceUid;
+  std::string seriesOrthancId, studyInstanceUid, seriesInstanceUid;
 
-    if (LocateSeries(output, seriesOrthancId, studyInstanceUid, seriesInstanceUid, request))
+  if (LocateSeries(output, seriesOrthancId, studyInstanceUid, seriesInstanceUid, request))
+  {
+    OrthancPlugins::DicomWebFormatter::HttpWriter writer(output, isXml);
+
+    ChildrenMainDicomMaps instancesDicomMaps;
+    std::list<std::string> instancesIds;
+    std::string seriesDicomUid;
+
+    size_t threadCount = 4;
+    bool oneLargeQuery = false;  // we keep this code here for future use once we'll have optimized Orthanc API /series/.../instances?full to minimize the SQL queries
+                                  // right now, it is faster to call /instances/..?full in each worker but, later, it should be more efficient with a large SQL query in Orthanc
+
+    if (oneLargeQuery)
     {
-      OrthancPlugins::DicomWebFormatter::HttpWriter writer(output, isXml);
+      GetChildrenMainDicomTags(instancesDicomMaps, seriesDicomUid, Orthanc::ResourceType_Series, seriesOrthancId);
+    }
+    else
+    {
+      GetChildrenIdentifiers(instancesIds, seriesDicomUid, Orthanc::ResourceType_Series, seriesOrthancId);
+    }
 
-      ChildrenMainDicomMaps instancesDicomMaps;
-      std::list<std::string> instancesIds;
-      std::string seriesDicomUid;
+    if (threadCount > 1)
+    {
+      // span a few workers to get the tags from the core and serialize them
+      Orthanc::SharedMessageQueue instancesQueue;
+      std::vector<boost::shared_ptr<boost::thread> > instancesWorkers;
+      boost::mutex writerMutex;
+      std::vector<boost::shared_ptr<InstanceWorkerData> > instancesWorkersData;
+      std::string wadoBase = OrthancPlugins::Configuration::GetBasePublicUrl(request);
 
-      size_t threadCount = 4;
-      bool oneLargeQuery = false;  // we keep this code here for future use once we'll have optimized Orthanc API /series/.../instances?full to minimize the SQL queries
-                                   // right now, it is faster to call /instances/..?full in each worker but, later, it should be more efficient with a large SQL query in Orthanc
+      for (size_t t; t < threadCount; t++)
+      {
+        InstanceWorkerData* threadData = new InstanceWorkerData(boost::lexical_cast<std::string>(t), &instancesQueue, wadoBase);
+        instancesWorkersData.push_back(boost::shared_ptr<InstanceWorkerData>(threadData));
+        instancesWorkers.push_back(boost::shared_ptr<boost::thread>(new boost::thread(InstanceWorkerThread, threadData)));
+      }
 
       if (oneLargeQuery)
       {
-        GetChildrenMainDicomTags(instancesDicomMaps, seriesDicomUid, Orthanc::ResourceType_Series, seriesOrthancId);
+        for (ChildrenMainDicomMaps::const_iterator i = instancesDicomMaps.begin(); i != instancesDicomMaps.end(); ++i)
+        {
+          std::string bulkRoot = (wadoBase +
+                                  "studies/" + studyInstanceUid +
+                                  "/series/" + seriesInstanceUid + 
+                                  "/instances/" + i->second->GetStringValue(Orthanc::DICOM_TAG_SOP_INSTANCE_UID, "", false) + "/bulk");
+
+          instancesQueue.Enqueue(new InstanceToLoad(i->first, bulkRoot, writerMutex, writer, isXml, OrthancPluginDicomWebBinaryMode_BulkDataUri, studyInstanceUid, seriesInstanceUid));
+        }
       }
       else
       {
-        GetChildrenIdentifiers(instancesIds, seriesDicomUid, Orthanc::ResourceType_Series, seriesOrthancId);
+        for (std::list<std::string>::const_iterator i = instancesIds.begin(); i != instancesIds.end(); ++i)
+        {
+          instancesQueue.Enqueue(new InstanceToLoad(*i, "", writerMutex, writer, isXml, OrthancPluginDicomWebBinaryMode_BulkDataUri, studyInstanceUid, seriesInstanceUid));
+        }
       }
 
-      if (threadCount > 1)
+      stop = boost::posix_time::microsec_clock::universal_time(); LOG(WARNING) << "enqueued " << (stop-start).total_milliseconds();
+
+      // send a dummy "exit" message to all workers such that they stop waiting for messages on the queue
+      for (size_t i = 0; i < instancesWorkers.size(); i++)
       {
-        // span a few workers to get the tags from the core and serialize them
-        Orthanc::SharedMessageQueue instancesQueue;
-        std::vector<boost::shared_ptr<boost::thread> > instancesWorkers;
-        boost::mutex writerMutex;
-        std::vector<boost::shared_ptr<InstanceWorkerData> > instancesWorkersData;
-        std::string wadoBase = OrthancPlugins::Configuration::GetBasePublicUrl(request);
-
-        for (size_t t; t < threadCount; t++)
-        {
-          InstanceWorkerData* threadData = new InstanceWorkerData(boost::lexical_cast<std::string>(t), &instancesQueue, wadoBase);
-          instancesWorkersData.push_back(boost::shared_ptr<InstanceWorkerData>(threadData));
-          instancesWorkers.push_back(boost::shared_ptr<boost::thread>(new boost::thread(InstanceWorkerThread, threadData)));
-        }
-
-        if (oneLargeQuery)
-        {
-          for (ChildrenMainDicomMaps::const_iterator i = instancesDicomMaps.begin(); i != instancesDicomMaps.end(); ++i)
-          {
-            std::string bulkRoot = (wadoBase +
-                                    "studies/" + studyInstanceUid +
-                                    "/series/" + seriesInstanceUid + 
-                                    "/instances/" + i->second->GetStringValue(Orthanc::DICOM_TAG_SOP_INSTANCE_UID, "", false) + "/bulk");
-
-            instancesQueue.Enqueue(new InstanceToLoad(i->first, bulkRoot, writerMutex, writer, isXml, OrthancPluginDicomWebBinaryMode_BulkDataUri, studyInstanceUid, seriesInstanceUid));
-          }
-        }
-        else
-        {
-          for (std::list<std::string>::const_iterator i = instancesIds.begin(); i != instancesIds.end(); ++i)
-          {
-            instancesQueue.Enqueue(new InstanceToLoad(*i, "", writerMutex, writer, isXml, OrthancPluginDicomWebBinaryMode_BulkDataUri, studyInstanceUid, seriesInstanceUid));
-          }
-        }
-
-        stop = boost::posix_time::microsec_clock::universal_time(); LOG(WARNING) << "enqueued " << (stop-start).total_milliseconds();
-
-        // send a dummy "exit" message to all workers such that they stop waiting for messages on the queue
-        for (size_t i = 0; i < instancesWorkers.size(); i++)
-        {
-          instancesQueue.Enqueue(new InstanceToLoad(EXIT_WORKER_MESSAGE, "", writerMutex, writer, isXml, OrthancPluginDicomWebBinaryMode_BulkDataUri, studyInstanceUid, seriesInstanceUid));
-        }
-
-        stop = boost::posix_time::microsec_clock::universal_time(); LOG(WARNING) << "waiting " << (stop-start).total_milliseconds();
-
-        for (size_t i = 0; i < instancesWorkers.size(); i++)
-        {
-          if (instancesWorkers[i]->joinable())
-          {
-            instancesWorkers[i]->join();
-          }
-        }
-
-        instancesWorkers.clear();
+        instancesQueue.Enqueue(new InstanceToLoad(EXIT_WORKER_MESSAGE, "", writerMutex, writer, isXml, OrthancPluginDicomWebBinaryMode_BulkDataUri, studyInstanceUid, seriesInstanceUid));
       }
-      else
-      { // old single threaded code
-        std::list<std::string> instances;
-        std::string seriesDicomUid;  // not used
 
-        GetChildrenIdentifiers(instances, seriesDicomUid, Orthanc::ResourceType_Series, seriesOrthancId);
+      stop = boost::posix_time::microsec_clock::universal_time(); LOG(WARNING) << "waiting " << (stop-start).total_milliseconds();
 
-        for (std::list<std::string>::const_iterator i = instances.begin(); i != instances.end(); ++i)
+      for (size_t i = 0; i < instancesWorkers.size(); i++)
+      {
+        if (instancesWorkers[i]->joinable())
         {
-          WriteInstanceMetadata(writer, mode, cache, *i, studyInstanceUid, seriesInstanceUid,
-                                OrthancPlugins::Configuration::GetBasePublicUrl(request));
+          instancesWorkers[i]->join();
         }
       }
 
-
-      writer.Send();
+      instancesWorkers.clear();
     }
+    else
+    { // old single threaded code
+      std::list<std::string> instances;
+      std::string seriesDicomUid;  // not used
+
+      GetChildrenIdentifiers(instances, seriesDicomUid, Orthanc::ResourceType_Series, seriesOrthancId);
+
+      for (std::list<std::string>::const_iterator i = instances.begin(); i != instances.end(); ++i)
+      {
+        WriteInstanceMetadata(writer, mode, cache, *i, studyInstanceUid, seriesInstanceUid,
+                              OrthancPlugins::Configuration::GetBasePublicUrl(request));
+      }
+    }
+
+    writer.Send();
   }
 }
 
@@ -1401,22 +1454,17 @@ void RetrieveInstanceMetadata(OrthancPluginRestOutput* output,
                               const OrthancPluginHttpRequest* request)
 {
   bool isXml;
-  if (!AcceptMetadata(request, isXml))
-  {
-    OrthancPluginSendHttpStatusCode(OrthancPlugins::GetGlobalContext(), output, 400 /* Bad request */);
-  }
-  else
-  {
-    MainDicomTagsCache cache;
+  AcceptMetadata(request, isXml);
 
-    std::string orthancId, studyInstanceUid, seriesInstanceUid, sopInstanceUid;
-    if (LocateInstance(output, orthancId, studyInstanceUid, seriesInstanceUid, sopInstanceUid, request))
-    {
-      OrthancPlugins::DicomWebFormatter::HttpWriter writer(output, isXml);
-      WriteInstanceMetadata(writer, OrthancPlugins::MetadataMode_Full, cache, orthancId, studyInstanceUid,
-                            seriesInstanceUid, OrthancPlugins::Configuration::GetBasePublicUrl(request));
-      writer.Send();      
-    }
+  MainDicomTagsCache cache;
+
+  std::string orthancId, studyInstanceUid, seriesInstanceUid, sopInstanceUid;
+  if (LocateInstance(output, orthancId, studyInstanceUid, seriesInstanceUid, sopInstanceUid, request))
+  {
+    OrthancPlugins::DicomWebFormatter::HttpWriter writer(output, isXml);
+    WriteInstanceMetadata(writer, OrthancPlugins::MetadataMode_Full, cache, orthancId, studyInstanceUid,
+                          seriesInstanceUid, OrthancPlugins::Configuration::GetBasePublicUrl(request));
+    writer.Send();
   }
 }
 
@@ -1427,11 +1475,7 @@ void RetrieveBulkData(OrthancPluginRestOutput* output,
 {
   OrthancPluginContext* context = OrthancPlugins::GetGlobalContext();
 
-  if (!AcceptBulkData(request))
-  {
-    OrthancPluginSendHttpStatusCode(context, output, 400 /* Bad request */);
-    return;
-  }
+  AcceptBulkData(request);
 
   std::string orthancId, studyInstanceUid, seriesInstanceUid, sopInstanceUid;
   OrthancPlugins::MemoryBuffer content;

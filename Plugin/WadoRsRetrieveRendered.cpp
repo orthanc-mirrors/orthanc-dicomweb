@@ -935,7 +935,7 @@ static void AnswerFrameRendered(OrthancPluginRestOutput* output,
         tags[PHOTOMETRIC_INTERPRETATION].type() == Json::stringValue)
     {
       std::string s = tags[PHOTOMETRIC_INTERPRETATION].asString();
-      Orthanc::Toolbox::StripSpaces(s);
+      s = Orthanc::Toolbox::StripSpaces(s);
       if (s == "MONOCHROME1")
       {
         invert = true;

@@ -32,37 +32,6 @@ using namespace OrthancPlugins;
 OrthancPluginContext* context_ = NULL;
 
 
-// TODO => Remove this test (now in Orthanc core)
-TEST(ContentType, Parse)
-{
-  std::string c;
-  std::map<std::string, std::string> a;
-
-  ParseContentType(c, a, "Multipart/Related; TYPE=Application/Dicom; Boundary=heLLO");
-  ASSERT_EQ(c, "multipart/related");
-  ASSERT_EQ(2u, a.size());
-  ASSERT_EQ(a["type"], "Application/Dicom");
-  ASSERT_EQ(a["boundary"], "heLLO");
-
-  // The WADO-RS client must support the case where the WADO-RS server
-  // escapes the "type" subfield in the Content-Type header
-  // cf. https://tools.ietf.org/html/rfc7231#section-3.1.1.1
-  ParseContentType(c, a, "Multipart/Related; TYPE=\"Application/Dicom\"  ;  Boundary=heLLO");
-  ASSERT_EQ(c, "multipart/related");
-  ASSERT_EQ(2u, a.size());
-  ASSERT_EQ(a["type"], "Application/Dicom");
-  ASSERT_EQ(a["boundary"], "heLLO");
-  
-  ParseContentType(c, a, "");
-  ASSERT_TRUE(c.empty());
-  ASSERT_EQ(0u, a.size());  
-
-  ParseContentType(c, a, "multipart/related");
-  ASSERT_EQ(c, "multipart/related");
-  ASSERT_EQ(0u, a.size());
-}
-
-
 TEST(DicomWebServers, Serialization)
 {
   std::list<std::string> servers;
