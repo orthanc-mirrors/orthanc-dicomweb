@@ -63,6 +63,71 @@ static std::string GetResourceUri(Orthanc::ResourceType level,
 
 
 
+namespace
+{
+  class MultipartDicomNegotiation : public Orthanc::HttpContentNegociation::IHandler
+  {
+  private:
+    bool&                         transcode_;
+    Orthanc::DicomTransferSyntax& targetSyntax_;
+
+  public:
+    MultipartDicomNegotiation(
+      bool& transcode,
+      Orthanc::DicomTransferSyntax& targetSyntax /* set only if transcoding */) :
+      transcode_(transcode),
+      targetSyntax_(targetSyntax)
+    {
+    }
+
+    virtual void Handle(const std::string& type,
+                        const std::string& subtype,
+                        const Orthanc::HttpContentNegociation::Dictionary& parameters) ORTHANC_OVERRIDE
+    {
+      assert(type == "multipart" &&
+             subtype == "related");
+
+      Orthanc::HttpContentNegociation::Dictionary::const_iterator found = parameters.find("type");
+
+      if (found != parameters.end())
+      {
+        std::string s = found->second;
+        Orthanc::Toolbox::ToLowerCase(s);
+        if (s != "application/dicom")
+        {
+          throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest,
+                                          "This WADO-RS plugin only supports application/dicom "
+                                          "return type for DICOM retrieval (" + found->second + ")");
+        }
+      }
+
+      found = parameters.find("transfer-syntax");
+      if (found != parameters.end())
+      {
+        /**
+         * The "*" case below is related to Google Healthcare API:
+         * https://groups.google.com/d/msg/orthanc-users/w1Ekrsc6-U8/T2a_DoQ5CwAJ
+         **/
+        if (found->second == "*")
+        {
+          transcode_ = false;
+        }
+        else
+        {
+          transcode_ = true;
+
+          if (!Orthanc::LookupTransferSyntax(targetSyntax_, found->second))
+          {
+            throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest,
+                                            "Unsupported transfer syntax in WADO-RS: " + found->second);
+          }
+        }
+      }
+    }
+  };
+}
+
+
 static void AcceptMultipartDicom(bool& transcode,
                                  Orthanc::DicomTransferSyntax& targetSyntax /* only if transcoding */,
                                  const OrthancPluginHttpRequest* request)
@@ -99,52 +164,17 @@ static void AcceptMultipartDicom(bool& transcode,
   {
     return;   // By default, return "multipart/related; type=application/dicom;"
   }
-
-  std::string application;
-  std::map<std::string, std::string> attributes;
-  OrthancPlugins::ParseContentType(application, attributes, accept);
-
-  if (application != "multipart/related" &&
-      application != "*/*")
+  else
   {
-    throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest,
-                                    "This WADO-RS plugin cannot generate the following content type: " + accept);
-  }
+    Orthanc::HttpContentNegociation negotiation;
 
-  if (attributes.find("type") != attributes.end())
-  {
-    std::string s = attributes["type"];
-    Orthanc::Toolbox::ToLowerCase(s);
-    if (s != "application/dicom")
+    MultipartDicomNegotiation dicom(transcode, targetSyntax);
+    negotiation.Register("multipart/related", dicom);
+
+    if (!negotiation.Apply(accept))
     {
       throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest,
-                                      "This WADO-RS plugin only supports application/dicom "
-                                      "return type for DICOM retrieval (" + accept + ")");
-    }
-  }
-
-  static const char* const TRANSFER_SYNTAX = "transfer-syntax";
-
-  std::map<std::string, std::string>::const_iterator found = attributes.find(TRANSFER_SYNTAX);
-  if (found != attributes.end())
-  {
-    /**
-     * The "*" case below is related to Google Healthcare API:
-     * https://groups.google.com/d/msg/orthanc-users/w1Ekrsc6-U8/T2a_DoQ5CwAJ
-     **/
-    if (found->second == "*")
-    {
-      transcode = false;
-    }
-    else
-    {
-      transcode = true;
-
-      if (!Orthanc::LookupTransferSyntax(targetSyntax, found->second))
-      {
-        throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest,
-                                        "Unsupported transfer syntax in WADO-RS: " + found->second);
-      }
+                                      "This WADO-RS plugin cannot generate the following content type: " + accept);
     }
   }
 }
@@ -227,16 +257,16 @@ static bool AcceptMetadata(const OrthancPluginHttpRequest* request,
   }
   else
   {
-    Orthanc::HttpContentNegociation negociation;
+    Orthanc::HttpContentNegociation negotiation;
 
     AcceptMetadataJson json;
-    negociation.Register("application/json", json);
-    negociation.Register("application/dicom+json", json);
+    negotiation.Register("application/json", json);
+    negotiation.Register("application/dicom+json", json);
 
     AcceptMetadataMultipart multipart(isXml);
-    negociation.Register("multipart/related", multipart);
+    negotiation.Register("multipart/related", multipart);
 
-    return negociation.Apply(accept);
+    return negotiation.Apply(accept);
   }
 }
 
