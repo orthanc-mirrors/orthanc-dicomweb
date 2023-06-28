@@ -67,37 +67,6 @@ namespace OrthancPlugins
   }
 
 
-  void ParseContentType(std::string& application,
-                        std::map<std::string, std::string>& attributes,
-                        const std::string& header)
-  {
-    application.clear();
-    attributes.clear();
-
-    std::vector<std::string> tokens;
-    Orthanc::Toolbox::TokenizeString(tokens, header, ';');
-
-    assert(tokens.size() > 0);
-    application = tokens[0];
-    application = Orthanc::Toolbox::StripSpaces(application);
-    Orthanc::Toolbox::ToLowerCase(application);
-
-    boost::regex pattern("\\s*([^=]+)\\s*=\\s*(([^=\"]+)|\"([^=\"]+)\")\\s*");
-    
-    for (size_t i = 1; i < tokens.size(); i++)
-    {
-      boost::cmatch what;
-      if (boost::regex_match(tokens[i].c_str(), what, pattern))
-      {
-        std::string key(what[1]);
-        std::string value(what.length(3) != 0 ? what[3] : what[4]);
-        Orthanc::Toolbox::ToLowerCase(key);
-        attributes[key] = value;
-      }
-    }
-  }
-
-
   void ParseAssociativeArray(std::map<std::string, std::string>& target,
                              const Json::Value& value)
   {

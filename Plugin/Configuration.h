@@ -58,10 +58,6 @@ namespace OrthancPlugins
                         const OrthancPluginHttpRequest* request,
                         const std::string& header);
 
-  void ParseContentType(std::string& application,
-                        std::map<std::string, std::string>& attributes,
-                        const std::string& header);
-
   void ParseAssociativeArray(std::map<std::string, std::string>& target,
                              const Json::Value& value,
                              const std::string& key);
