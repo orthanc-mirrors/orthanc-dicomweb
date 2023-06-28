@@ -155,16 +155,13 @@ static void AcceptMultipartDicom(bool& transcode,
    * convention is used by the Google Cloud Platform:
    * https://cloud.google.com/healthcare/docs/dicom
    **/
+
+  // By default, return "multipart/related; type=application/dicom; transfer-syntax=1.2.840.10008.1.2.1"
   transcode = true;
   targetSyntax = Orthanc::DicomTransferSyntax_LittleEndianExplicit;
   
   std::string accept;
-
-  if (!OrthancPlugins::LookupHttpHeader(accept, request, "accept"))
-  {
-    return;   // By default, return "multipart/related; type=application/dicom;"
-  }
-  else
+  if (OrthancPlugins::LookupHttpHeader(accept, request, "accept"))
   {
     Orthanc::HttpContentNegociation negotiation;
 
@@ -245,17 +242,13 @@ namespace
 }
 
 
-static bool AcceptMetadata(const OrthancPluginHttpRequest* request,
+static void AcceptMetadata(const OrthancPluginHttpRequest* request,
                            bool& isXml)
 {
   isXml = false;    // By default, return application/dicom+json
 
   std::string accept;
-  if (!OrthancPlugins::LookupHttpHeader(accept, request, "accept"))
-  {
-    return true;
-  }
-  else
+  if (OrthancPlugins::LookupHttpHeader(accept, request, "accept"))
   {
     Orthanc::HttpContentNegociation negotiation;
 
@@ -266,7 +259,11 @@ static bool AcceptMetadata(const OrthancPluginHttpRequest* request,
     AcceptMetadataMultipart multipart(isXml);
     negotiation.Register("multipart/related", multipart);
 
-    return negotiation.Apply(accept);
+    if (!negotiation.Apply(accept))
+    {
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest,
+                                      "This WADO-RS plugin cannot generate the following content type: " + accept);
+    }
   }
 }
 
@@ -1119,41 +1116,36 @@ void RetrieveStudyMetadata(OrthancPluginRestOutput* output,
                            const OrthancPluginHttpRequest* request)
 {
   bool isXml;
-  if (!AcceptMetadata(request, isXml))
-  {
-    OrthancPluginSendHttpStatusCode(OrthancPlugins::GetGlobalContext(), output, 400 /* Bad request */);
-  }
-  else
-  {
-    const OrthancPlugins::MetadataMode mode =
-      OrthancPlugins::Configuration::GetMetadataMode(Orthanc::ResourceType_Study);
-    
-    MainDicomTagsCache cache;
+  AcceptMetadata(request, isXml);
 
-    std::string studyOrthancId, studyInstanceUid;
-    if (LocateStudy(output, studyOrthancId, studyInstanceUid, request))
+  const OrthancPlugins::MetadataMode mode =
+    OrthancPlugins::Configuration::GetMetadataMode(Orthanc::ResourceType_Study);
+
+  MainDicomTagsCache cache;
+
+  std::string studyOrthancId, studyInstanceUid;
+  if (LocateStudy(output, studyOrthancId, studyInstanceUid, request))
+  {
+    OrthancPlugins::DicomWebFormatter::HttpWriter writer(output, isXml);
+
+    std::list<std::string> series;
+    std::string studyDicomUid;
+    GetChildrenIdentifiers(series, studyDicomUid, Orthanc::ResourceType_Study, studyOrthancId);
+
+    for (std::list<std::string>::const_iterator s = series.begin(); s != series.end(); ++s)
     {
-      OrthancPlugins::DicomWebFormatter::HttpWriter writer(output, isXml);
+      std::list<std::string> instances;
+      std::string seriesDicomUid;
+      GetChildrenIdentifiers(instances, seriesDicomUid, Orthanc::ResourceType_Series, *s);
 
-      std::list<std::string> series;
-      std::string studyDicomUid;
-      GetChildrenIdentifiers(series, studyDicomUid, Orthanc::ResourceType_Study, studyOrthancId);
-
-      for (std::list<std::string>::const_iterator s = series.begin(); s != series.end(); ++s)
+      for (std::list<std::string>::const_iterator i = instances.begin(); i != instances.end(); ++i)
       {
-        std::list<std::string> instances;
-        std::string seriesDicomUid;
-        GetChildrenIdentifiers(instances, seriesDicomUid, Orthanc::ResourceType_Series, *s);
-
-        for (std::list<std::string>::const_iterator i = instances.begin(); i != instances.end(); ++i)
-        {
-          WriteInstanceMetadata(writer, mode, cache, *i, studyInstanceUid, seriesDicomUid,
-                                OrthancPlugins::Configuration::GetBasePublicUrl(request));
-        }
+        WriteInstanceMetadata(writer, mode, cache, *i, studyInstanceUid, seriesDicomUid,
+                              OrthancPlugins::Configuration::GetBasePublicUrl(request));
       }
-
-      writer.Send();
     }
+
+    writer.Send();
   }
 }
 
@@ -1162,38 +1154,31 @@ void RetrieveSeriesMetadata(OrthancPluginRestOutput* output,
                             const char* url,
                             const OrthancPluginHttpRequest* request)
 {
-  OrthancPluginContext* context = OrthancPlugins::GetGlobalContext();
-  
   bool isXml;
-  if (!AcceptMetadata(request, isXml))
-  {
-    OrthancPluginSendHttpStatusCode(context, output, 400 /* Bad request */);
-  }
-  else
-  {
-    const OrthancPlugins::MetadataMode mode =
-      OrthancPlugins::Configuration::GetMetadataMode(Orthanc::ResourceType_Series);
+  AcceptMetadata(request, isXml);
+
+  const OrthancPlugins::MetadataMode mode =
+    OrthancPlugins::Configuration::GetMetadataMode(Orthanc::ResourceType_Series);
     
-    MainDicomTagsCache cache;
+  MainDicomTagsCache cache;
 
-    std::string seriesOrthancId, studyInstanceUid, seriesInstanceUid;
+  std::string seriesOrthancId, studyInstanceUid, seriesInstanceUid;
 
-    if (LocateSeries(output, seriesOrthancId, studyInstanceUid, seriesInstanceUid, request))
+  if (LocateSeries(output, seriesOrthancId, studyInstanceUid, seriesInstanceUid, request))
+  {
+    OrthancPlugins::DicomWebFormatter::HttpWriter writer(output, isXml);
+    std::list<std::string> instances;
+    std::string seriesDicomUid;  // not used
+
+    GetChildrenIdentifiers(instances, seriesDicomUid, Orthanc::ResourceType_Series, seriesOrthancId);
+
+    for (std::list<std::string>::const_iterator i = instances.begin(); i != instances.end(); ++i)
     {
-      OrthancPlugins::DicomWebFormatter::HttpWriter writer(output, isXml);
-      std::list<std::string> instances;
-      std::string seriesDicomUid;  // not used
-
-      GetChildrenIdentifiers(instances, seriesDicomUid, Orthanc::ResourceType_Series, seriesOrthancId);
-
-      for (std::list<std::string>::const_iterator i = instances.begin(); i != instances.end(); ++i)
-      {
-        WriteInstanceMetadata(writer, mode, cache, *i, studyInstanceUid, seriesInstanceUid,
-                              OrthancPlugins::Configuration::GetBasePublicUrl(request));
-      }
-
-      writer.Send();
+      WriteInstanceMetadata(writer, mode, cache, *i, studyInstanceUid, seriesInstanceUid,
+                            OrthancPlugins::Configuration::GetBasePublicUrl(request));
     }
+
+    writer.Send();
   }
 }
 
@@ -1203,22 +1188,17 @@ void RetrieveInstanceMetadata(OrthancPluginRestOutput* output,
                               const OrthancPluginHttpRequest* request)
 {
   bool isXml;
-  if (!AcceptMetadata(request, isXml))
-  {
-    OrthancPluginSendHttpStatusCode(OrthancPlugins::GetGlobalContext(), output, 400 /* Bad request */);
-  }
-  else
-  {
-    MainDicomTagsCache cache;
+  AcceptMetadata(request, isXml);
 
-    std::string orthancId, studyInstanceUid, seriesInstanceUid, sopInstanceUid;
-    if (LocateInstance(output, orthancId, studyInstanceUid, seriesInstanceUid, sopInstanceUid, request))
-    {
-      OrthancPlugins::DicomWebFormatter::HttpWriter writer(output, isXml);
-      WriteInstanceMetadata(writer, OrthancPlugins::MetadataMode_Full, cache, orthancId, studyInstanceUid,
-                            seriesInstanceUid, OrthancPlugins::Configuration::GetBasePublicUrl(request));
-      writer.Send();      
-    }
+  MainDicomTagsCache cache;
+
+  std::string orthancId, studyInstanceUid, seriesInstanceUid, sopInstanceUid;
+  if (LocateInstance(output, orthancId, studyInstanceUid, seriesInstanceUid, sopInstanceUid, request))
+  {
+    OrthancPlugins::DicomWebFormatter::HttpWriter writer(output, isXml);
+    WriteInstanceMetadata(writer, OrthancPlugins::MetadataMode_Full, cache, orthancId, studyInstanceUid,
+                          seriesInstanceUid, OrthancPlugins::Configuration::GetBasePublicUrl(request));
+    writer.Send();
   }
 }
 
