@@ -1188,45 +1188,6 @@ static void GetChildrenMainDicomTags(ChildrenMainDicomMaps& childrenDicomMaps,
 }
 
 
-void RetrieveStudyMetadata(OrthancPluginRestOutput* output,
-                           const char* url,
-                           const OrthancPluginHttpRequest* request)
-{
-  bool isXml;
-  AcceptMetadata(request, isXml);
-
-  const OrthancPlugins::MetadataMode mode =
-    OrthancPlugins::Configuration::GetMetadataMode(Orthanc::ResourceType_Study);
-
-  MainDicomTagsCache cache;
-
-  std::string studyOrthancId, studyInstanceUid;
-  if (LocateStudy(output, studyOrthancId, studyInstanceUid, request))
-  {
-    OrthancPlugins::DicomWebFormatter::HttpWriter writer(output, isXml);
-
-    std::list<std::string> series;
-    std::string studyDicomUid;
-    GetChildrenIdentifiers(series, studyDicomUid, Orthanc::ResourceType_Study, studyOrthancId);
-
-    for (std::list<std::string>::const_iterator s = series.begin(); s != series.end(); ++s)
-    {
-      std::list<std::string> instances;
-      std::string seriesDicomUid;
-      GetChildrenIdentifiers(instances, seriesDicomUid, Orthanc::ResourceType_Series, *s);
-
-      for (std::list<std::string>::const_iterator i = instances.begin(); i != instances.end(); ++i)
-      {
-        WriteInstanceMetadata(writer, mode, cache, *i, studyInstanceUid, seriesDicomUid,
-                              OrthancPlugins::Configuration::GetBasePublicUrl(request));
-      }
-    }
-
-    writer.Send();
-  }
-}
-
-
 static const char* EXIT_WORKER_MESSAGE = "exit";
 
 class InstanceToLoad : public Orthanc::IDynamicObject
@@ -1317,10 +1278,101 @@ void InstanceWorkerThread(InstanceWorkerData* data)
   }
 }
 
+void RetrieveSeriesMetadataInternal(OrthancPluginRestOutput* output,
+                                    OrthancPlugins::DicomWebFormatter::HttpWriter& writer,
+                                    MainDicomTagsCache& cache,
+                                    const OrthancPlugins::MetadataMode& mode,
+                                    bool isXml,
+                                    const std::string& seriesOrthancId,
+                                    const std::string& studyInstanceUid,
+                                    const std::string& seriesInstanceUid,
+                                    const std::string& wadoBase)
+{
+  ChildrenMainDicomMaps instancesDicomMaps;
+  std::list<std::string> instancesIds;
+  std::string seriesDicomUid;
+
+  size_t threadCount = 4;
+  bool oneLargeQuery = false;  // we keep this code here for future use once we'll have optimized Orthanc API /series/.../instances?full to minimize the SQL queries
+                                // right now, it is faster to call /instances/..?full in each worker but, later, it should be more efficient with a large SQL query in Orthanc
+
+  if (oneLargeQuery)
+  {
+    GetChildrenMainDicomTags(instancesDicomMaps, seriesDicomUid, Orthanc::ResourceType_Series, seriesOrthancId);
+  }
+  else
+  {
+    GetChildrenIdentifiers(instancesIds, seriesDicomUid, Orthanc::ResourceType_Series, seriesOrthancId);
+  }
+
+  if (threadCount > 1)
+  {
+    // span a few workers to get the tags from the core and serialize them
+    Orthanc::SharedMessageQueue instancesQueue;
+    std::vector<boost::shared_ptr<boost::thread> > instancesWorkers;
+    boost::mutex writerMutex;
+    std::vector<boost::shared_ptr<InstanceWorkerData> > instancesWorkersData;
+
+    for (size_t t = 0; t < threadCount; t++)
+    {
+      InstanceWorkerData* threadData = new InstanceWorkerData(boost::lexical_cast<std::string>(t), &instancesQueue, wadoBase);
+      instancesWorkersData.push_back(boost::shared_ptr<InstanceWorkerData>(threadData));
+      instancesWorkers.push_back(boost::shared_ptr<boost::thread>(new boost::thread(InstanceWorkerThread, threadData)));
+    }
+
+    if (oneLargeQuery)
+    {
+      for (ChildrenMainDicomMaps::const_iterator i = instancesDicomMaps.begin(); i != instancesDicomMaps.end(); ++i)
+      {
+        std::string bulkRoot = (wadoBase +
+                                "studies/" + studyInstanceUid +
+                                "/series/" + seriesInstanceUid + 
+                                "/instances/" + i->second->GetStringValue(Orthanc::DICOM_TAG_SOP_INSTANCE_UID, "", false) + "/bulk");
+
+        instancesQueue.Enqueue(new InstanceToLoad(i->first, bulkRoot, writerMutex, writer, isXml, OrthancPluginDicomWebBinaryMode_BulkDataUri, studyInstanceUid, seriesInstanceUid));
+      }
+    }
+    else
+    {
+      for (std::list<std::string>::const_iterator i = instancesIds.begin(); i != instancesIds.end(); ++i)
+      {
+        instancesQueue.Enqueue(new InstanceToLoad(*i, "", writerMutex, writer, isXml, OrthancPluginDicomWebBinaryMode_BulkDataUri, studyInstanceUid, seriesInstanceUid));
+      }
+    }
+
+    // send a dummy "exit" message to all workers such that they stop waiting for messages on the queue
+    for (size_t i = 0; i < instancesWorkers.size(); i++)
+    {
+      instancesQueue.Enqueue(new InstanceToLoad(EXIT_WORKER_MESSAGE, "", writerMutex, writer, isXml, OrthancPluginDicomWebBinaryMode_BulkDataUri, studyInstanceUid, seriesInstanceUid));
+    }
+
+    for (size_t i = 0; i < instancesWorkers.size(); i++)
+    {
+      if (instancesWorkers[i]->joinable())
+      {
+        instancesWorkers[i]->join();
+      }
+    }
+
+    instancesWorkers.clear();
+  }
+  else
+  { // old single threaded code
+    std::list<std::string> instances;
+    std::string seriesDicomUid;  // not used
+
+    GetChildrenIdentifiers(instances, seriesDicomUid, Orthanc::ResourceType_Series, seriesOrthancId);
+
+    for (std::list<std::string>::const_iterator i = instances.begin(); i != instances.end(); ++i)
+    {
+      WriteInstanceMetadata(writer, mode, cache, *i, studyInstanceUid, seriesInstanceUid, wadoBase);
+    }
+  }
+}
 
 
 void RetrieveSeriesMetadata(OrthancPluginRestOutput* output,
-                            const char* url,
+                            const char* /*url*/,
                             const OrthancPluginHttpRequest* request)
 {
   bool isXml;
@@ -1330,94 +1382,50 @@ void RetrieveSeriesMetadata(OrthancPluginRestOutput* output,
     OrthancPlugins::Configuration::GetMetadataMode(Orthanc::ResourceType_Series);
     
   MainDicomTagsCache cache;
+  OrthancPlugins::DicomWebFormatter::HttpWriter writer(output, isXml);
 
   std::string seriesOrthancId, studyInstanceUid, seriesInstanceUid;
 
   if (LocateSeries(output, seriesOrthancId, studyInstanceUid, seriesInstanceUid, request))
   {
+    std::string wadoBase = OrthancPlugins::Configuration::GetBasePublicUrl(request);
+    RetrieveSeriesMetadataInternal(output, writer, cache, mode, isXml, seriesOrthancId, studyInstanceUid, seriesInstanceUid, wadoBase);
+  }
+
+  writer.Send();
+}
+
+
+void RetrieveStudyMetadata(OrthancPluginRestOutput* output,
+                           const char* url,
+                           const OrthancPluginHttpRequest* request)
+{
+  bool isXml;
+  AcceptMetadata(request, isXml);
+
+  const OrthancPlugins::MetadataMode mode =
+    OrthancPlugins::Configuration::GetMetadataMode(Orthanc::ResourceType_Study);
+
+  MainDicomTagsCache cache;
+
+  std::string studyOrthancId, studyInstanceUid;
+  if (LocateStudy(output, studyOrthancId, studyInstanceUid, request))
+  {
     OrthancPlugins::DicomWebFormatter::HttpWriter writer(output, isXml);
 
-    ChildrenMainDicomMaps instancesDicomMaps;
-    std::list<std::string> instancesIds;
-    std::string seriesDicomUid;
+    std::string wadoBase = OrthancPlugins::Configuration::GetBasePublicUrl(request);
+    
+    std::list<std::string> series;
+    std::string studyDicomUid;
+    GetChildrenIdentifiers(series, studyDicomUid, Orthanc::ResourceType_Study, studyOrthancId);
 
-    size_t threadCount = 4;
-    bool oneLargeQuery = false;  // we keep this code here for future use once we'll have optimized Orthanc API /series/.../instances?full to minimize the SQL queries
-                                  // right now, it is faster to call /instances/..?full in each worker but, later, it should be more efficient with a large SQL query in Orthanc
-
-    if (oneLargeQuery)
+    for (std::list<std::string>::const_iterator s = series.begin(); s != series.end(); ++s)
     {
-      GetChildrenMainDicomTags(instancesDicomMaps, seriesDicomUid, Orthanc::ResourceType_Series, seriesOrthancId);
-    }
-    else
-    {
-      GetChildrenIdentifiers(instancesIds, seriesDicomUid, Orthanc::ResourceType_Series, seriesOrthancId);
-    }
-
-    if (threadCount > 1)
-    {
-      // span a few workers to get the tags from the core and serialize them
-      Orthanc::SharedMessageQueue instancesQueue;
-      std::vector<boost::shared_ptr<boost::thread> > instancesWorkers;
-      boost::mutex writerMutex;
-      std::vector<boost::shared_ptr<InstanceWorkerData> > instancesWorkersData;
-      std::string wadoBase = OrthancPlugins::Configuration::GetBasePublicUrl(request);
-
-      for (size_t t; t < threadCount; t++)
-      {
-        InstanceWorkerData* threadData = new InstanceWorkerData(boost::lexical_cast<std::string>(t), &instancesQueue, wadoBase);
-        instancesWorkersData.push_back(boost::shared_ptr<InstanceWorkerData>(threadData));
-        instancesWorkers.push_back(boost::shared_ptr<boost::thread>(new boost::thread(InstanceWorkerThread, threadData)));
-      }
-
-      if (oneLargeQuery)
-      {
-        for (ChildrenMainDicomMaps::const_iterator i = instancesDicomMaps.begin(); i != instancesDicomMaps.end(); ++i)
-        {
-          std::string bulkRoot = (wadoBase +
-                                  "studies/" + studyInstanceUid +
-                                  "/series/" + seriesInstanceUid + 
-                                  "/instances/" + i->second->GetStringValue(Orthanc::DICOM_TAG_SOP_INSTANCE_UID, "", false) + "/bulk");
-
-          instancesQueue.Enqueue(new InstanceToLoad(i->first, bulkRoot, writerMutex, writer, isXml, OrthancPluginDicomWebBinaryMode_BulkDataUri, studyInstanceUid, seriesInstanceUid));
-        }
-      }
-      else
-      {
-        for (std::list<std::string>::const_iterator i = instancesIds.begin(); i != instancesIds.end(); ++i)
-        {
-          instancesQueue.Enqueue(new InstanceToLoad(*i, "", writerMutex, writer, isXml, OrthancPluginDicomWebBinaryMode_BulkDataUri, studyInstanceUid, seriesInstanceUid));
-        }
-      }
-
-      // send a dummy "exit" message to all workers such that they stop waiting for messages on the queue
-      for (size_t i = 0; i < instancesWorkers.size(); i++)
-      {
-        instancesQueue.Enqueue(new InstanceToLoad(EXIT_WORKER_MESSAGE, "", writerMutex, writer, isXml, OrthancPluginDicomWebBinaryMode_BulkDataUri, studyInstanceUid, seriesInstanceUid));
-      }
-
-      for (size_t i = 0; i < instancesWorkers.size(); i++)
-      {
-        if (instancesWorkers[i]->joinable())
-        {
-          instancesWorkers[i]->join();
-        }
-      }
-
-      instancesWorkers.clear();
-    }
-    else
-    { // old single threaded code
       std::list<std::string> instances;
-      std::string seriesDicomUid;  // not used
+      std::string seriesDicomUid;
+      GetChildrenIdentifiers(instances, seriesDicomUid, Orthanc::ResourceType_Series, *s);
 
-      GetChildrenIdentifiers(instances, seriesDicomUid, Orthanc::ResourceType_Series, seriesOrthancId);
-
-      for (std::list<std::string>::const_iterator i = instances.begin(); i != instances.end(); ++i)
-      {
-        WriteInstanceMetadata(writer, mode, cache, *i, studyInstanceUid, seriesInstanceUid,
-                              OrthancPlugins::Configuration::GetBasePublicUrl(request));
-      }
+      RetrieveSeriesMetadataInternal(output, writer, cache, mode, isXml, *s, studyDicomUid, seriesDicomUid, wadoBase);
     }
 
     writer.Send();

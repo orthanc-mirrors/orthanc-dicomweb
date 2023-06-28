@@ -27,3 +27,8 @@
 
   - note that all measurements have been performed on a DB with a single series !  We should repeat 
     that with a more realistic DB
+
+  with a 3 series study (11 + 1233 + 598 instances)
+  time curl http://localhost:8043/dicom-web/studies/1.2.276.0.7230010.3.1.2.1215942821.4756.1664826045.3529/metadata > /dev/null 
+    -> 1.355ms in Full mode before using worker threads
+    ->   700ms in Full mode with 4 workers
