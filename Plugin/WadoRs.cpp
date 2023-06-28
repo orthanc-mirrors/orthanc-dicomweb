@@ -269,47 +269,63 @@ static void AcceptMetadata(const OrthancPluginHttpRequest* request,
 
 
 
-static bool AcceptBulkData(const OrthancPluginHttpRequest* request)
+namespace
 {
+  class BulkDataNegotiation : public Orthanc::HttpContentNegociation::IHandler
+  {
+  public:
+    virtual void Handle(const std::string& type,
+                        const std::string& subtype,
+                        const Orthanc::HttpContentNegociation::Dictionary& parameters) ORTHANC_OVERRIDE
+    {
+      assert(type == "multipart" &&
+             subtype == "related");
+
+      Orthanc::HttpContentNegociation::Dictionary::const_iterator found = parameters.find("type");
+
+      if (found != parameters.end())
+      {
+        std::string s = found->second;
+        Orthanc::Toolbox::ToLowerCase(s);
+        if (s != "application/octet-stream")
+        {
+          throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest,
+                                          "This WADO-RS plugin only supports application/octet-stream "
+                                          "return type for bulk data retrieval (" + found->second + ")");
+        }
+      }
+
+      if (parameters.find("range") != parameters.end())
+      {
+        throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest,
+                                        "This WADO-RS plugin does not support Range retrieval, "
+                                        "it can only return entire bulk data object");
+      }
+    }
+  };
+}
+
+
+static void AcceptBulkData(const OrthancPluginHttpRequest* request)
+{
+  // By default, return "multipart/related; type=application/octet-stream;"
+
   std::string accept;
 
-  if (!OrthancPlugins::LookupHttpHeader(accept, request, "accept"))
+  if (OrthancPlugins::LookupHttpHeader(accept, request, "accept"))
   {
-    return true;   // By default, return "multipart/related; type=application/octet-stream;"
-  }
+    Orthanc::HttpContentNegociation negotiation;
 
-  std::string application;
-  std::map<std::string, std::string> attributes;
-  OrthancPlugins::ParseContentType(application, attributes, accept);
+    BulkDataNegotiation bulk;
+    negotiation.Register("multipart/related", bulk);
 
-  if (application != "multipart/related" &&
-      application != "*/*")
-  {
-    throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest,
-                                    "This WADO-RS plugin cannot generate the following "
-                                    "bulk data type: " + accept);
-  }
-
-  if (attributes.find("type") != attributes.end())
-  {
-    std::string s = attributes["type"];
-    Orthanc::Toolbox::ToLowerCase(s);
-    if (s != "application/octet-stream")
+    if (!negotiation.Apply(accept))
     {
       throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest,
-                                      "This WADO-RS plugin only supports application/octet-stream "
-                                      "return type for bulk data retrieval (" + accept + ")");
+                                    "This WADO-RS plugin cannot generate the following "
+                                    "bulk data type: " + accept);
     }
   }
-
-  if (attributes.find("range") != attributes.end())
-  {
-    throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest,
-                                    "This WADO-RS plugin does not support Range retrieval, "
-                                    "it can only return entire bulk data object");
-  }
-
-  return true;
 }
 
 
@@ -1209,11 +1225,7 @@ void RetrieveBulkData(OrthancPluginRestOutput* output,
 {
   OrthancPluginContext* context = OrthancPlugins::GetGlobalContext();
 
-  if (!AcceptBulkData(request))
-  {
-    OrthancPluginSendHttpStatusCode(context, output, 400 /* Bad request */);
-    return;
-  }
+  AcceptBulkData(request);
 
   std::string orthancId, studyInstanceUid, seriesInstanceUid, sopInstanceUid;
   OrthancPlugins::MemoryBuffer content;
