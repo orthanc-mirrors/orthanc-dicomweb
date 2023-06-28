@@ -1269,12 +1269,6 @@ public:
 
 void InstanceWorkerThread(InstanceWorkerData* data)
 {
-  size_t instanceCounter = 0;
-  size_t totalTime1 = 0;
-  size_t totalTime2 = 0;
-  size_t totalTime3 = 0;
-  std::string threadId = data->id;
-
   while (true)
   {
     try
@@ -1283,15 +1277,8 @@ void InstanceWorkerThread(InstanceWorkerData* data)
 
       if (instanceToLoad->orthancId == EXIT_WORKER_MESSAGE)
       {
-        if (instanceCounter > 0)
-        {
-          LOG(WARNING) << threadId << " i: " << instanceCounter << " " << totalTime1/instanceCounter << " " << totalTime2/instanceCounter << " " << totalTime3/instanceCounter;
-        }
         return;
       }
-      instanceCounter++;
-      boost::posix_time::ptime start2 = boost::posix_time::microsec_clock::universal_time();
-      boost::posix_time::ptime stop2 = boost::posix_time::microsec_clock::universal_time();
 
       if (instanceToLoad->bulkRoot == "") // we are not in oneLargeQuery mode -> we must load the instance tags to get the SOPInstanceUID
       {
@@ -1322,9 +1309,6 @@ void InstanceWorkerThread(InstanceWorkerData* data)
         boost::mutex::scoped_lock lock(instanceToLoad->writerMutex);
         instanceToLoad->writer.AddInstance(*instance, instanceToLoad->bulkRoot);
       }
-
-      stop2 = boost::posix_time::microsec_clock::universal_time(); //LOG(WARNING) << data->id << " written one instance " << (stop2-start2).total_microseconds() << "us";
-      totalTime3 += (stop2-start2).total_microseconds();
     }
     catch(...)
     {
@@ -1339,10 +1323,6 @@ void RetrieveSeriesMetadata(OrthancPluginRestOutput* output,
                             const char* url,
                             const OrthancPluginHttpRequest* request)
 {
-  boost::posix_time::ptime start = boost::posix_time::microsec_clock::universal_time();
-  boost::posix_time::ptime stop = boost::posix_time::microsec_clock::universal_time();
-  // stop = boost::posix_time::microsec_clock::universal_time(); LOG(WARNING) << "start " << (stop-start).total_milliseconds();
-
   bool isXml;
   AcceptMetadata(request, isXml);
 
@@ -1410,15 +1390,11 @@ void RetrieveSeriesMetadata(OrthancPluginRestOutput* output,
         }
       }
 
-      stop = boost::posix_time::microsec_clock::universal_time(); LOG(WARNING) << "enqueued " << (stop-start).total_milliseconds();
-
       // send a dummy "exit" message to all workers such that they stop waiting for messages on the queue
       for (size_t i = 0; i < instancesWorkers.size(); i++)
       {
         instancesQueue.Enqueue(new InstanceToLoad(EXIT_WORKER_MESSAGE, "", writerMutex, writer, isXml, OrthancPluginDicomWebBinaryMode_BulkDataUri, studyInstanceUid, seriesInstanceUid));
       }
-
-      stop = boost::posix_time::microsec_clock::universal_time(); LOG(WARNING) << "waiting " << (stop-start).total_milliseconds();
 
       for (size_t i = 0; i < instancesWorkers.size(); i++)
       {
