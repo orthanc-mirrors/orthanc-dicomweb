@@ -24,8 +24,9 @@
 #include "Configuration.h"
 #include "DicomWebFormatter.h"
 
-#include <Compatibility.h>
 #include <ChunkedBuffer.h>
+#include <Compatibility.h>
+#include <HttpServer/HttpContentNegociation.h>
 #include <Logging.h>
 #include <Toolbox.h>
 
@@ -149,6 +150,70 @@ static void AcceptMultipartDicom(bool& transcode,
 }
 
 
+namespace
+{
+  class AcceptMetadataJson : public Orthanc::HttpContentNegociation::IHandler
+  {
+  public:
+    virtual void Handle(const std::string& type,
+                        const std::string& subtype,
+                        const Orthanc::HttpContentNegociation::Dictionary& parameters) ORTHANC_OVERRIDE
+    {
+      assert(type == "application");
+      assert(subtype == "json" || subtype == "dicom+json");
+    }
+  };
+
+  class AcceptMetadataMultipart : public Orthanc::HttpContentNegociation::IHandler
+  {
+  private:
+    bool& isXml_;
+
+  public:
+    AcceptMetadataMultipart(bool& isXml /* out */) :
+      isXml_(isXml)
+    {
+    }
+
+    virtual void Handle(const std::string& type,
+                        const std::string& subtype,
+                        const Orthanc::HttpContentNegociation::Dictionary& parameters) ORTHANC_OVERRIDE
+    {
+      assert(type == "multipart" &&
+             subtype == "related");
+
+      Orthanc::HttpContentNegociation::Dictionary::const_iterator found = parameters.find("type");
+
+      if (found != parameters.end())
+      {
+        if (found->second == "application/dicom+xml")
+        {
+          isXml_ = true;
+        }
+        else
+        {
+          throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest,
+                                          "This WADO-RS plugin only supports application/dicom+xml "
+                                          "type for multipart/related accept (" + found->second + ")");
+        }
+      }
+      else
+      {
+        throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest,
+                                        "Missing \"type\" in multipart/related accept type");
+      }
+
+      found = parameters.find("transfer-syntax");
+      if (found != parameters.end())
+      {
+        throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest,
+                                        "This WADO-RS plugin cannot change the transfer syntax to " +
+                                        found->second);
+      }
+    }
+  };
+}
+
 
 static bool AcceptMetadata(const OrthancPluginHttpRequest* request,
                            bool& isXml)
@@ -160,61 +225,19 @@ static bool AcceptMetadata(const OrthancPluginHttpRequest* request,
   {
     return true;
   }
-
-  std::string application;
-  std::map<std::string, std::string> attributes;
-  OrthancPlugins::ParseContentType(application, attributes, accept);
-
-  std::vector<std::string> applicationTokens;
-  Orthanc::Toolbox::TokenizeString(applicationTokens, application, ',');
-
-  for (size_t i = 0; i < applicationTokens.size(); i++)
-  {
-    std::string token = Orthanc::Toolbox::StripSpaces(applicationTokens[i]);
-    
-    if (token == "application/json" ||
-        token == "application/dicom+json" ||
-        token == "*/*")
-    {
-      return true;
-    }
-  }
-
-  if (application != "multipart/related")
-  {
-    throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest,
-                                    "This WADO-RS plugin cannot generate the following content type: " + accept);
-  }
-
-  if (attributes.find("type") != attributes.end())
-  {
-    std::string s = attributes["type"];
-    Orthanc::Toolbox::ToLowerCase(s);
-    if (s == "application/dicom+xml")
-    {
-      isXml = true;
-    }
-    else
-    {
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest,
-                                      "This WADO-RS plugin only supports application/dicom+xml "
-                                      "type for multipart/related accept (" + accept + ")");
-    }
-  }
   else
   {
-    throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest,
-                                    "Missing \"type\" in multipart/related accept type (" + accept + ")");
-  }
+    Orthanc::HttpContentNegociation negociation;
 
-  if (attributes.find("transfer-syntax") != attributes.end())
-  {
-    throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest,
-                                    "This WADO-RS plugin cannot change the transfer syntax to " + 
-                                    attributes["transfer-syntax"]);
-  }
+    AcceptMetadataJson json;
+    negociation.Register("application/json", json);
+    negociation.Register("application/dicom+json", json);
 
-  return true;
+    AcceptMetadataMultipart multipart(isXml);
+    negociation.Register("multipart/related", multipart);
+
+    return negociation.Apply(accept);
+  }
 }
 
 
