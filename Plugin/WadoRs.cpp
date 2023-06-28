@@ -1292,7 +1292,7 @@ void RetrieveSeriesMetadataInternal(OrthancPluginRestOutput* output,
   std::list<std::string> instancesIds;
   std::string seriesDicomUid;
 
-  size_t threadCount = 4;
+  unsigned int workersCount =  OrthancPlugins::Configuration::GetMetadataWorkerThreadsCount();
   bool oneLargeQuery = false;  // we keep this code here for future use once we'll have optimized Orthanc API /series/.../instances?full to minimize the SQL queries
                                 // right now, it is faster to call /instances/..?full in each worker but, later, it should be more efficient with a large SQL query in Orthanc
 
@@ -1305,7 +1305,7 @@ void RetrieveSeriesMetadataInternal(OrthancPluginRestOutput* output,
     GetChildrenIdentifiers(instancesIds, seriesDicomUid, Orthanc::ResourceType_Series, seriesOrthancId);
   }
 
-  if (threadCount > 1)
+  if (workersCount > 1)
   {
     // span a few workers to get the tags from the core and serialize them
     Orthanc::SharedMessageQueue instancesQueue;
@@ -1313,7 +1313,7 @@ void RetrieveSeriesMetadataInternal(OrthancPluginRestOutput* output,
     boost::mutex writerMutex;
     std::vector<boost::shared_ptr<InstanceWorkerData> > instancesWorkersData;
 
-    for (size_t t = 0; t < threadCount; t++)
+    for (unsigned int t = 0; t < workersCount; t++)
     {
       InstanceWorkerData* threadData = new InstanceWorkerData(boost::lexical_cast<std::string>(t), &instancesQueue, wadoBase);
       instancesWorkersData.push_back(boost::shared_ptr<InstanceWorkerData>(threadData));

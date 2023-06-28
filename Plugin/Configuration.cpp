@@ -671,6 +671,11 @@ namespace OrthancPlugins
       }
     }
 
+    unsigned int GetMetadataWorkerThreadsCount()
+    {
+      return GetUnsignedIntegerValue("MetadataWorkerThreadsCount", 4);
+    }
+
     
     MetadataMode GetMetadataMode(Orthanc::ResourceType level)
     {

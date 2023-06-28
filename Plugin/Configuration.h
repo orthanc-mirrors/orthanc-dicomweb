@@ -137,5 +137,7 @@ namespace OrthancPlugins
     void LoadDicomWebServers();
 
     void SaveDicomWebServers();
+
+    unsigned int GetMetadataWorkerThreadsCount();
   }
 }
