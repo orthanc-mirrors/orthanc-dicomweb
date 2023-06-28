@@ -1305,7 +1305,7 @@ void RetrieveSeriesMetadataInternal(OrthancPluginRestOutput* output,
     GetChildrenIdentifiers(instancesIds, seriesDicomUid, Orthanc::ResourceType_Series, seriesOrthancId);
   }
 
-  if (workersCount > 1)
+  if (workersCount > 1 && mode == OrthancPlugins::MetadataMode_Full)
   {
     // span a few workers to get the tags from the core and serialize them
     Orthanc::SharedMessageQueue instancesQueue;
