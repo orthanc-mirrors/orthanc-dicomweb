@@ -1,5 +1,5 @@
-Pending changes in the mainline
-===============================
+Version 1.14 (2023-07-05)
+=========================
 
 * speed improvements:
   - Speeded up instance metadata retrieval using OrthancPluginLoadDicomInstance() from SDK 1.12.1
