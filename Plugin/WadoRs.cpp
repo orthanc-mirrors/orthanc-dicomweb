@@ -30,11 +30,14 @@
 #include <Logging.h>
 #include <Toolbox.h>
 #include <MultiThreading/SharedMessageQueue.h>
+#include <Compression/GzipCompressor.h>
 
 #include <memory>
 #include <boost/thread/mutex.hpp>
 #include <boost/thread.hpp>
 
+static const std::string SERIES_METADATA_ATTACHMENT_ID = "4301";
+static std::string WADO_BASE_PLACEHOLDER = "$WADO_BASE_PLACEHOLDER$";
 static const char* const MAIN_DICOM_TAGS = "MainDicomTags";
 static const char* const REQUESTED_TAGS = "RequestedTags";
 static const char* const INSTANCES = "Instances";
@@ -814,6 +817,7 @@ static void WriteInstanceMetadata(OrthancPlugins::DicomWebFormatter::HttpWriter&
     }
 
     case OrthancPlugins::MetadataMode_Full:
+    case OrthancPlugins::MetadataMode_FullWithCache:
     {
       const std::string bulkRoot = (wadoBase +
                                     "studies/" + studyInstanceUid +
@@ -1250,7 +1254,7 @@ void InstanceWorkerThread(InstanceWorkerData* data)
           instanceToLoad->bulkRoot = (data->wadoBase +
                               "studies/" + instanceToLoad->studyInstanceUid +
                               "/series/" + instanceToLoad->seriesInstanceUid + 
-                              "/instances/" + instanceResource["MainDicomTags"]["SOPInstanceUID"].asString() + "/bulk");
+                              "/instances/" + instanceResource[MAIN_DICOM_TAGS]["SOPInstanceUID"].asString() + "/bulk");
         }
       }
 
@@ -1278,8 +1282,7 @@ void InstanceWorkerThread(InstanceWorkerData* data)
   }
 }
 
-void RetrieveSeriesMetadataInternal(OrthancPluginRestOutput* output,
-                                    OrthancPlugins::DicomWebFormatter::HttpWriter& writer,
+void RetrieveSeriesMetadataInternal(OrthancPlugins::DicomWebFormatter::HttpWriter& writer,
                                     MainDicomTagsCache& cache,
                                     const OrthancPlugins::MetadataMode& mode,
                                     bool isXml,
@@ -1370,6 +1373,101 @@ void RetrieveSeriesMetadataInternal(OrthancPluginRestOutput* output,
   }
 }
 
+void CacheSeriesMetadataInternal(std::string& serializedSeriesMetadata,
+                                 OrthancPlugins::DicomWebFormatter::HttpWriter& writer,
+                                 MainDicomTagsCache& cache,
+                                 const std::string& studyInstanceUid, 
+                                 const std::string& seriesInstanceUid, 
+                                 const std::string& seriesOrthancId)
+{
+  Orthanc::GzipCompressor compressor;
+  std::string compressedSeriesMetadata;
+
+  // compute the series metadata with a placeholder WADO base url because, the base url might change (e.g if there are 2 Orthanc connected to the same DB)
+  RetrieveSeriesMetadataInternal(writer, cache, OrthancPlugins::MetadataMode_Full, false /* isXml */, seriesOrthancId, studyInstanceUid, seriesInstanceUid, WADO_BASE_PLACEHOLDER);
+  writer.CloseAndGetJsonOutput(serializedSeriesMetadata);
+
+  // save in attachments for future use
+  Orthanc::IBufferCompressor::Compress(compressedSeriesMetadata, compressor, serializedSeriesMetadata);
+
+  Json::Value putResult;
+  std::string attachmentUrl = "/series/" + seriesOrthancId + "/attachments/" + SERIES_METADATA_ATTACHMENT_ID;
+  if (!OrthancPlugins::RestApiPut(putResult, attachmentUrl, compressedSeriesMetadata, false))
+  {
+    LOG(WARNING) << "DicomWEB: failed to write series metadata attachment";
+  }
+
+}
+
+void CacheSeriesMetadata(const std::string& seriesOrthancId)
+{
+  const OrthancPlugins::MetadataMode mode =
+    OrthancPlugins::Configuration::GetMetadataMode(Orthanc::ResourceType_Series);
+
+  if (mode == OrthancPlugins::MetadataMode_FullWithCache)
+  {
+    LOG(INFO) << "DicomWEB: pre-computing the WADO-RS series metadata";
+
+    std::string studyInstanceUid, seriesInstanceUid;
+    
+    Json::Value result;
+    if (OrthancPlugins::RestApiGet(result, "/series/" + seriesOrthancId, false))
+    {
+      seriesInstanceUid = result[MAIN_DICOM_TAGS]["SeriesInstanceUID"].asString();
+      if (OrthancPlugins::RestApiGet(result, "/studies/" + result["ParentStudy"].asString(), false))
+      {
+        studyInstanceUid = result[MAIN_DICOM_TAGS]["StudyInstanceUID"].asString();
+
+        MainDicomTagsCache cache;
+        OrthancPlugins::DicomWebFormatter::HttpWriter writer(NULL /* output */, false /* isXml */);  // we cache only the JSON format -> no need for an HttpOutput
+
+        std::string serializedSeriesMetadataNotUsed;
+        CacheSeriesMetadataInternal(serializedSeriesMetadataNotUsed, writer, cache, studyInstanceUid, seriesInstanceUid, seriesOrthancId);
+      }
+    }
+  }
+}
+
+
+void RetrieveSeriesMetadataInternalWithCache(OrthancPlugins::DicomWebFormatter::HttpWriter& writer,
+                                             MainDicomTagsCache& cache,
+                                             const OrthancPlugins::MetadataMode& mode,
+                                             bool isXml,
+                                             const std::string& seriesOrthancId,
+                                             const std::string& studyInstanceUid,
+                                             const std::string& seriesInstanceUid,
+                                             const std::string& wadoBase)
+{
+  if (mode == OrthancPlugins::MetadataMode_FullWithCache && !isXml)
+  {
+    // check if we already have computed the series metadata and saved them in an attachment
+    std::string serializedSeriesMetadata;
+    std::string compressedSeriesMetadata;
+    Orthanc::GzipCompressor compressor;
+
+    std::string attachmentUrl = "/series/" + seriesOrthancId + "/attachments/" + SERIES_METADATA_ATTACHMENT_ID;
+
+    if (!OrthancPlugins::RestApiGetString(compressedSeriesMetadata, attachmentUrl + "/data", false))
+    {
+      CacheSeriesMetadataInternal(serializedSeriesMetadata, writer, cache, studyInstanceUid, seriesInstanceUid, seriesOrthancId);
+    }
+    else
+    {
+      Orthanc::IBufferCompressor::Uncompress(serializedSeriesMetadata, compressor, compressedSeriesMetadata);
+    }
+    
+    boost::replace_all(serializedSeriesMetadata, WADO_BASE_PLACEHOLDER, wadoBase);
+
+    writer.AddDicomWebSerializedJson(serializedSeriesMetadata.c_str(), serializedSeriesMetadata.size());
+  }
+  else
+  {
+    RetrieveSeriesMetadataInternal(writer, cache, mode, isXml, seriesOrthancId, studyInstanceUid, seriesInstanceUid, wadoBase);
+    writer.Send();
+  }
+
+}
+
 
 void RetrieveSeriesMetadata(OrthancPluginRestOutput* output,
                             const char* /*url*/,
@@ -1389,7 +1487,7 @@ void RetrieveSeriesMetadata(OrthancPluginRestOutput* output,
   if (LocateSeries(output, seriesOrthancId, studyInstanceUid, seriesInstanceUid, request))
   {
     std::string wadoBase = OrthancPlugins::Configuration::GetBasePublicUrl(request);
-    RetrieveSeriesMetadataInternal(output, writer, cache, mode, isXml, seriesOrthancId, studyInstanceUid, seriesInstanceUid, wadoBase);
+    RetrieveSeriesMetadataInternalWithCache(writer, cache, mode, isXml, seriesOrthancId, studyInstanceUid, seriesInstanceUid, wadoBase);
   }
 
   writer.Send();
@@ -1425,7 +1523,7 @@ void RetrieveStudyMetadata(OrthancPluginRestOutput* output,
       std::string seriesDicomUid;
       GetChildrenIdentifiers(instances, seriesDicomUid, Orthanc::ResourceType_Series, *s);
 
-      RetrieveSeriesMetadataInternal(output, writer, cache, mode, isXml, *s, studyDicomUid, seriesDicomUid, wadoBase);
+      RetrieveSeriesMetadataInternalWithCache(writer, cache, mode, isXml, *s, studyDicomUid, seriesDicomUid, wadoBase);
     }
 
     writer.Send();

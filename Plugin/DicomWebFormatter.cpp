@@ -165,7 +165,7 @@ namespace OrthancPlugins
     first_(true)
   {
     if (context_ == NULL ||
-        output_ == NULL)
+        (isXml_ && output_ == NULL))  // allow no output when working with Json output.
     {
       throw Orthanc::OrthancException(Orthanc::ErrorCode_NullPointer);
     }
@@ -331,6 +331,15 @@ namespace OrthancPlugins
     }
   }
 
+  void DicomWebFormatter::HttpWriter::CloseAndGetJsonOutput(std::string& target)
+  {
+    if (!isXml_)
+    {
+      jsonBuffer_.AddChunk("]");
+      
+      jsonBuffer_.Flatten(target);
+    }
+  }
 
   void DicomWebFormatter::HttpWriter::AddInstance(const DicomInstance& instance,
                                                   const std::string& bulkRoot)

@@ -120,6 +120,8 @@ namespace OrthancPlugins
 
       void Send();
 
+      void CloseAndGetJsonOutput(std::string& target);
+
       void AddInstance(const DicomInstance& instance,
                        const std::string& bulkRoot);
     };

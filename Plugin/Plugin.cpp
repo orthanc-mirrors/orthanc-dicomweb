@@ -471,6 +471,10 @@ static OrthancPluginErrorCode OnChangeCallback(OrthancPluginChangeType changeTyp
         OrthancPlugins::Configuration::LoadDicomWebServers();
         break;
 
+      case OrthancPluginChangeType_StableSeries:
+        CacheSeriesMetadata(resourceId);
+        break;
+
       default:
         break;
     }

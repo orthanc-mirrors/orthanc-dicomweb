@@ -1,3 +1,11 @@
+Pending changes in the mainline
+===============================
+
+* speed improvement:
+  - Now storing the output of studies/../series/../metadata route in an attachment when in "Full" mode.
+    The json file is gzipped and stored in attachment 4301 everytime a series is stable or the first time
+    its studies/../series/../metadata route is called if the attachment does not exist yet.
+
 Version 1.14 (2023-07-05)
 =========================
 
