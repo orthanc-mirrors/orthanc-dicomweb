@@ -289,8 +289,8 @@ namespace OrthancPlugins
   }
 
 
-  void DicomWebFormatter::HttpWriter::AddDicomWebSerializedJson(const void* data,
-                                                                size_t size)
+  void DicomWebFormatter::HttpWriter::AddDicomWebInstanceSerializedJson(const void* data,
+                                                                        size_t size)
   {
     if (isXml_)
     {
@@ -318,6 +318,41 @@ namespace OrthancPlugins
     jsonBuffer_.AddChunk(data, size);
   }
 
+  void DicomWebFormatter::HttpWriter::AddDicomWebSeriesSerializedJson(const void* data,
+                                                                      size_t size)
+  {
+    if (isXml_)
+    {
+      // This function can only be used in the JSON case
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadSequenceOfCalls);
+    }
+
+#if !defined(NDEBUG)  // In debug mode, check that the value is actually a JSON string
+    Json::Value json;
+    if (!OrthancPlugins::ReadJson(json, data, size))
+    {
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
+    }
+#endif
+    
+    if (size <= 2 ||
+        reinterpret_cast<const char*>(data)[0] != '[' ||
+        reinterpret_cast<const char*>(data)[size-1] != ']')
+    {
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat, "The series metadata json does not contain an array.");
+    }
+
+    if (first_)
+    {
+      first_ = false;
+    }
+    else
+    {
+      jsonBuffer_.AddChunk(",");
+    }
+    
+    jsonBuffer_.AddChunk(reinterpret_cast<const char*>(data) + 1, size - 2);  // remove leading and trailing []
+  }
 
   void DicomWebFormatter::HttpWriter::Send()
   {

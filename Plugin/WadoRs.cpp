@@ -882,7 +882,7 @@ static void WriteInstanceMetadata(OrthancPlugins::DicomWebFormatter::HttpWriter&
   {
     if (buffer.RestApiGet("/instances/" + orthancId + "/attachments/4444/data", false))
     {
-      writer.AddDicomWebSerializedJson(buffer.GetData(), buffer.GetSize());
+      writer.AddDicomWebInstanceSerializedJson(buffer.GetData(), buffer.GetSize());
     }
     else if (buffer.RestApiGet("/instances/" + orthancId + "/file", false))
     {
@@ -898,7 +898,7 @@ static void WriteInstanceMetadata(OrthancPlugins::DicomWebFormatter::HttpWriter&
       }
 
       buffer.RestApiPut("/instances/" + orthancId + "/attachments/4444", dicomweb, false);
-      writer.AddDicomWebSerializedJson(dicomweb.c_str(), dicomweb.size());
+      writer.AddDicomWebInstanceSerializedJson(dicomweb.c_str(), dicomweb.size());
     }
   }
 #endif
@@ -1449,7 +1449,10 @@ void RetrieveSeriesMetadataInternalWithCache(OrthancPlugins::DicomWebFormatter::
 
     if (!OrthancPlugins::RestApiGetString(compressedSeriesMetadata, attachmentUrl + "/data", false))
     {
-      CacheSeriesMetadataInternal(serializedSeriesMetadata, writer, cache, studyInstanceUid, seriesInstanceUid, seriesOrthancId);
+      MainDicomTagsCache tmpCache;
+      OrthancPlugins::DicomWebFormatter::HttpWriter tmpWriter(NULL /* output */, false /* isXml */);  // we cache only the JSON format -> no need for an HttpOutput
+
+      CacheSeriesMetadataInternal(serializedSeriesMetadata, tmpWriter, tmpCache, studyInstanceUid, seriesInstanceUid, seriesOrthancId);
     }
     else
     {
@@ -1458,7 +1461,7 @@ void RetrieveSeriesMetadataInternalWithCache(OrthancPlugins::DicomWebFormatter::
     
     boost::replace_all(serializedSeriesMetadata, WADO_BASE_PLACEHOLDER, wadoBase);
 
-    writer.AddDicomWebSerializedJson(serializedSeriesMetadata.c_str(), serializedSeriesMetadata.size());
+    writer.AddDicomWebSeriesSerializedJson(serializedSeriesMetadata.c_str(), serializedSeriesMetadata.size());
   }
   else
   {

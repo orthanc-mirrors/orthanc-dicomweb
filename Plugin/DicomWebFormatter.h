@@ -115,8 +115,11 @@ namespace OrthancPlugins
 
       void AddOrthancJson(const Json::Value& value);
 
-      void AddDicomWebSerializedJson(const void* data,
-                                     size_t size);
+      void AddDicomWebInstanceSerializedJson(const void* data,
+                                             size_t size);
+
+      void AddDicomWebSeriesSerializedJson(const void* data,
+                                           size_t size);
 
       void Send();
 
