@@ -2,9 +2,12 @@ Pending changes in the mainline
 ===============================
 
 * speed improvement:
-  - Now storing the output of studies/../series/../metadata route in an attachment when in "Full" mode.
+  - Now storing the output of /dicom-web/studies/../series/../metadata route in an attachment that can be used
+    by the "Full" mode.
     The json file is gzipped and stored in attachment 4301 everytime a series is stable or the first time
-    its studies/../series/../metadata route is called if the attachment does not exist yet.
+    its /dicom-web/studies/../series/../metadata route is called in "Full" mode if the attachment does not exist yet.
+    A new route /studies/{orthancId}/update-dicomweb-cache has also been added to allow e.g. the Housekeeper plugin
+    to generate these attachment for old studies.
 
 Version 1.14 (2023-07-05)
 =========================

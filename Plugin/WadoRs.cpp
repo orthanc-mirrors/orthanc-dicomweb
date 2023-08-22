@@ -817,7 +817,6 @@ static void WriteInstanceMetadata(OrthancPlugins::DicomWebFormatter::HttpWriter&
     }
 
     case OrthancPlugins::MetadataMode_Full:
-    case OrthancPlugins::MetadataMode_FullWithCache:
     {
       const std::string bulkRoot = (wadoBase +
                                     "studies/" + studyInstanceUid +
@@ -1401,32 +1400,60 @@ void CacheSeriesMetadataInternal(std::string& serializedSeriesMetadata,
 
 void CacheSeriesMetadata(const std::string& seriesOrthancId)
 {
-  const OrthancPlugins::MetadataMode mode =
-    OrthancPlugins::Configuration::GetMetadataMode(Orthanc::ResourceType_Series);
+  LOG(INFO) << "DicomWEB: pre-computing the WADO-RS series metadata for series " << seriesOrthancId;
 
-  if (mode == OrthancPlugins::MetadataMode_FullWithCache)
+  std::string studyInstanceUid, seriesInstanceUid;
+  
+  Json::Value result;
+  if (OrthancPlugins::RestApiGet(result, "/series/" + seriesOrthancId, false))
   {
-    LOG(INFO) << "DicomWEB: pre-computing the WADO-RS series metadata";
-
-    std::string studyInstanceUid, seriesInstanceUid;
-    
-    Json::Value result;
-    if (OrthancPlugins::RestApiGet(result, "/series/" + seriesOrthancId, false))
+    seriesInstanceUid = result[MAIN_DICOM_TAGS]["SeriesInstanceUID"].asString();
+    if (OrthancPlugins::RestApiGet(result, "/studies/" + result["ParentStudy"].asString(), false))
     {
-      seriesInstanceUid = result[MAIN_DICOM_TAGS]["SeriesInstanceUID"].asString();
-      if (OrthancPlugins::RestApiGet(result, "/studies/" + result["ParentStudy"].asString(), false))
-      {
-        studyInstanceUid = result[MAIN_DICOM_TAGS]["StudyInstanceUID"].asString();
+      studyInstanceUid = result[MAIN_DICOM_TAGS]["StudyInstanceUID"].asString();
 
-        MainDicomTagsCache cache;
-        OrthancPlugins::DicomWebFormatter::HttpWriter writer(NULL /* output */, false /* isXml */);  // we cache only the JSON format -> no need for an HttpOutput
+      MainDicomTagsCache cache;
+      OrthancPlugins::DicomWebFormatter::HttpWriter writer(NULL /* output */, false /* isXml */);  // we cache only the JSON format -> no need for an HttpOutput
 
-        std::string serializedSeriesMetadataNotUsed;
-        CacheSeriesMetadataInternal(serializedSeriesMetadataNotUsed, writer, cache, studyInstanceUid, seriesInstanceUid, seriesOrthancId);
-      }
+      std::string serializedSeriesMetadataNotUsed;
+      CacheSeriesMetadataInternal(serializedSeriesMetadataNotUsed, writer, cache, studyInstanceUid, seriesInstanceUid, seriesOrthancId);
     }
   }
 }
+
+void UpdateSeriesMetadataCache(OrthancPluginRestOutput* output,
+                               const char* /*url*/,
+                               const OrthancPluginHttpRequest* request)
+{
+  if (request->method != OrthancPluginHttpMethod_Post)
+  {
+    OrthancPluginSendMethodNotAllowed(OrthancPlugins::GetGlobalContext(), output, "POST");
+    return;
+  }
+
+  if (request->groupsCount != 1)
+  {
+    throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest);
+  }
+
+  std::string studyId(request->groups[0]);
+
+  LOG(INFO) << "DicomWEB: updating the series metadata cache for study " << studyId;
+
+  Json::Value study;
+
+  if (OrthancPlugins::RestApiGet(study, "/studies/" + studyId, false) && study.type() == Json::objectValue)
+  {
+    for (Json::ArrayIndex i = 0; i < study["Series"].size(); ++i)
+    {
+      CacheSeriesMetadata(study["Series"][i].asString());
+    }
+  }
+
+  std::string answer = "{}"; 
+  OrthancPluginAnswerBuffer(OrthancPlugins::GetGlobalContext(), output, answer.c_str(), answer.size(), "application/json");
+}
+
 
 
 void RetrieveSeriesMetadataInternalWithCache(OrthancPlugins::DicomWebFormatter::HttpWriter& writer,
@@ -1438,7 +1465,7 @@ void RetrieveSeriesMetadataInternalWithCache(OrthancPlugins::DicomWebFormatter::
                                              const std::string& seriesInstanceUid,
                                              const std::string& wadoBase)
 {
-  if (mode == OrthancPlugins::MetadataMode_FullWithCache && !isXml)
+  if (mode == OrthancPlugins::MetadataMode_Full && !isXml)
   {
     // check if we already have computed the series metadata and saved them in an attachment
     std::string serializedSeriesMetadata;

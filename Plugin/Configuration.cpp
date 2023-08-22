@@ -680,7 +680,6 @@ namespace OrthancPlugins
     MetadataMode GetMetadataMode(Orthanc::ResourceType level)
     {
       static const std::string FULL = "Full";
-      static const std::string FULL_NO_CACHE = "FullNoCache";
       static const std::string MAIN_DICOM_TAGS = "MainDicomTags";
       static const std::string EXTRAPOLATE = "Extrapolate";
       
@@ -702,10 +701,6 @@ namespace OrthancPlugins
       std::string value = GetStringValue(key, FULL);
 
       if (value == FULL)
-      {
-        return MetadataMode_FullWithCache;
-      }
-      else if (value == FULL_NO_CACHE)
       {
         return MetadataMode_Full;
       }

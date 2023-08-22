@@ -48,8 +48,7 @@ namespace OrthancPlugins
 
   enum MetadataMode
   {
-    MetadataMode_Full,           // Read all the DICOM instances from the storage area
-    MetadataMode_FullWithCache,  // Read all the DICOM instances from the storage area and store them in an attachment on StableSeries event
+    MetadataMode_Full,           // Read all the DICOM instances from the storage area and store them in an attachment on StableSeries event
     MetadataMode_MainDicomTags,  // Only use the Orthanc database (main DICOM tags only)
     MetadataMode_Extrapolate     // Extrapolate user-specified tags from a few DICOM instances
   };

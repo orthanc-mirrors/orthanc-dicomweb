@@ -63,6 +63,10 @@ void RetrieveSeriesMetadata(OrthancPluginRestOutput* output,
                             const char* url,
                             const OrthancPluginHttpRequest* request);
 
+void UpdateSeriesMetadataCache(OrthancPluginRestOutput* output,
+                               const char* url,
+                               const OrthancPluginHttpRequest* request);
+
 void CacheSeriesMetadata(const std::string& seriesOrthancId);
 
 void RetrieveInstanceMetadata(OrthancPluginRestOutput* output,

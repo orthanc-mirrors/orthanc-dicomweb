@@ -603,6 +603,8 @@ extern "C"
         OrthancPlugins::RegisterRestCallback<RetrieveInstanceRendered>(root + "studies/([^/]*)/series/([^/]*)/instances/([^/]*)/rendered", true);
         OrthancPlugins::RegisterRestCallback<RetrieveFrameRendered>(root + "studies/([^/]*)/series/([^/]*)/instances/([^/]*)/frames/([^/]*)/rendered", true);
 
+        OrthancPlugins::RegisterRestCallback<UpdateSeriesMetadataCache>("/studies/([^/]*)/update-dicomweb-cache", true);
+
         OrthancPluginRegisterOnChangeCallback(context, OnChangeCallback);
 
 
