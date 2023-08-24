@@ -29,6 +29,7 @@
 #include <HttpServer/HttpContentNegociation.h>
 #include <Logging.h>
 #include <Toolbox.h>
+#include <SerializationToolbox.h>
 #include <MultiThreading/SharedMessageQueue.h>
 #include <Compression/GzipCompressor.h>
 
@@ -1079,7 +1080,7 @@ void RetrieveDicomInstance(OrthancPluginRestOutput* output,
 }
 
 
-static void GetChildrenIdentifiers(std::list<std::string>& target,
+static void GetChildrenIdentifiers(std::set<std::string>& target,
                                    std::string& resourceDicomUid,
                                    Orthanc::ResourceType level,
                                    const std::string& orthancId)
@@ -1124,7 +1125,7 @@ static void GetChildrenIdentifiers(std::list<std::string>& target,
 
     for (Json::Value::ArrayIndex i = 0; i < children.size(); i++)
     {
-      target.push_back(children[i].asString());
+      target.insert(children[i].asString());
     }
   }  
 }
@@ -1283,7 +1284,7 @@ void InstanceWorkerThread(InstanceWorkerData* data)
   }
 }
 
-void RetrieveSeriesMetadataInternal(size_t& instancesCount,
+void RetrieveSeriesMetadataInternal(std::set<std::string>& instancesIds,
                                     OrthancPlugins::DicomWebFormatter::HttpWriter& writer,
                                     MainDicomTagsCache& cache,
                                     const OrthancPlugins::MetadataMode& mode,
@@ -1294,7 +1295,6 @@ void RetrieveSeriesMetadataInternal(size_t& instancesCount,
                                     const std::string& wadoBase)
 {
   ChildrenMainDicomMaps instancesDicomMaps;
-  std::list<std::string> instancesIds;
   std::string seriesDicomUid;
 
   unsigned int workersCount =  OrthancPlugins::Configuration::GetMetadataWorkerThreadsCount();
@@ -1304,12 +1304,14 @@ void RetrieveSeriesMetadataInternal(size_t& instancesCount,
   if (oneLargeQuery)
   {
     GetChildrenMainDicomTags(instancesDicomMaps, seriesDicomUid, Orthanc::ResourceType_Series, seriesOrthancId);
-    instancesCount = instancesDicomMaps.size();
+    for (ChildrenMainDicomMaps::const_iterator it = instancesDicomMaps.begin(); it != instancesDicomMaps.end(); ++it)
+    {
+      instancesIds.insert(it->first);
+    }
   }
   else
   {
     GetChildrenIdentifiers(instancesIds, seriesDicomUid, Orthanc::ResourceType_Series, seriesOrthancId);
-    instancesCount = instancesIds.size();
   }
 
   if (workersCount > 1 && mode == OrthancPlugins::MetadataMode_Full)
@@ -1341,7 +1343,7 @@ void RetrieveSeriesMetadataInternal(size_t& instancesCount,
     }
     else
     {
-      for (std::list<std::string>::const_iterator i = instancesIds.begin(); i != instancesIds.end(); ++i)
+      for (std::set<std::string>::const_iterator i = instancesIds.begin(); i != instancesIds.end(); ++i)
       {
         instancesQueue.Enqueue(new InstanceToLoad(*i, "", writerMutex, writer, isXml, OrthancPluginDicomWebBinaryMode_BulkDataUri, studyInstanceUid, seriesInstanceUid));
       }
@@ -1365,12 +1367,12 @@ void RetrieveSeriesMetadataInternal(size_t& instancesCount,
   }
   else
   { // old single threaded code
-    std::list<std::string> instances;
+    std::set<std::string> instances;
     std::string seriesDicomUid;  // not used
 
     GetChildrenIdentifiers(instances, seriesDicomUid, Orthanc::ResourceType_Series, seriesOrthancId);
 
-    for (std::list<std::string>::const_iterator i = instances.begin(); i != instances.end(); ++i)
+    for (std::set<std::string>::const_iterator i = instances.begin(); i != instances.end(); ++i)
     {
       WriteInstanceMetadata(writer, mode, cache, *i, studyInstanceUid, seriesInstanceUid, wadoBase);
     }
@@ -1386,16 +1388,18 @@ void CacheSeriesMetadataInternal(std::string& serializedSeriesMetadata,
 {
   Orthanc::GzipCompressor compressor;
   std::string compressedSeriesMetadata;
-  size_t instancesCount;
+  std::set<std::string> instancesIds;
 
   // compute the series metadata with a placeholder WADO base url because, the base url might change (e.g if there are 2 Orthanc connected to the same DB)
-  RetrieveSeriesMetadataInternal(instancesCount, writer, cache, OrthancPlugins::MetadataMode_Full, false /* isXml */, seriesOrthancId, studyInstanceUid, seriesInstanceUid, WADO_BASE_PLACEHOLDER);
+  RetrieveSeriesMetadataInternal(instancesIds, writer, cache, OrthancPlugins::MetadataMode_Full, false /* isXml */, seriesOrthancId, studyInstanceUid, seriesInstanceUid, WADO_BASE_PLACEHOLDER);
   writer.CloseAndGetJsonOutput(serializedSeriesMetadata);
 
   // save in attachments for future use
   Orthanc::IBufferCompressor::Compress(compressedSeriesMetadata, compressor, serializedSeriesMetadata);
+  std::string instancesMd5;
+  Orthanc::Toolbox::ComputeMD5(instancesMd5, instancesIds);
 
-  std::string cacheContent = "1;" + boost::lexical_cast<std::string>(instancesCount) + ";" + compressedSeriesMetadata; 
+  std::string cacheContent = "2;" + instancesMd5 + ";" + compressedSeriesMetadata; 
 
   Json::Value putResult;
   std::string attachmentUrl = "/series/" + seriesOrthancId + "/attachments/" + SERIES_METADATA_ATTACHMENT_ID;
@@ -1497,25 +1501,28 @@ void RetrieveSeriesMetadataInternalWithCache(OrthancPlugins::DicomWebFormatter::
 
     if (OrthancPlugins::RestApiGetString(cacheContent, attachmentUrl + "/data", false))
     {
-      if (boost::starts_with(cacheContent, "1;"))  // version 1, cacheContent is "1;instancesCount;compressedSeriesMetadata"
+      if (boost::starts_with(cacheContent, "2;"))  // version 2, cacheContent is "1;sorted-instances-list-md5;compressedSeriesMetadata"
       {
-        // check that the instances count has not changed since we have saved the data in cache 
+        // check that the instances count have not changed since we have saved the data in cache 
         // StableSeries event will always overwrite it but this is usefull if retrieving the metadata while
         // the instances are being received
         // Note: we can not use Toolbox::SplitString because the compressed metadata contain a lot of ";"
         const char* secondSemiColon = strchr(&cacheContent[2], ';');
-        std::string lengthString(&cacheContent[2], secondSemiColon - &cacheContent[2]);
+        std::string instancesMd5InCache(&cacheContent[2], secondSemiColon - &cacheContent[2]);
         std::string compressedSeriesMetadata(secondSemiColon + 1, cacheContent.size() - (secondSemiColon+1 - cacheContent.c_str()));
-        size_t instancesCountInCache = boost::lexical_cast<size_t>(lengthString);
-
+        
         Json::Value seriesInfo;
 
         if (!OrthancPlugins::RestApiGet(seriesInfo, "/series/" + seriesOrthancId, false))
         {
           throw Orthanc::OrthancException(Orthanc::ErrorCode_UnknownResource);
         }
+        std::set<std::string> currentInstancesIds;
+        Orthanc::SerializationToolbox::ReadSetOfStrings(currentInstancesIds, seriesInfo, "Instances");
+        std::string currentInstancesMd5;
+        Orthanc::Toolbox::ComputeMD5(currentInstancesMd5, currentInstancesIds);
 
-        if (seriesInfo["Instances"].size() == instancesCountInCache)
+        if (currentInstancesMd5 == instancesMd5InCache)
         {
           Orthanc::IBufferCompressor::Uncompress(serializedSeriesMetadata, compressor, compressedSeriesMetadata);
 
@@ -1538,8 +1545,8 @@ void RetrieveSeriesMetadataInternalWithCache(OrthancPlugins::DicomWebFormatter::
   }
   else
   {
-    size_t instancesCountNotUsed;
-    RetrieveSeriesMetadataInternal(instancesCountNotUsed, writer, cache, mode, isXml, seriesOrthancId, studyInstanceUid, seriesInstanceUid, wadoBase);
+    std::set<std::string> instancesIdsNotUsed;
+    RetrieveSeriesMetadataInternal(instancesIdsNotUsed, writer, cache, mode, isXml, seriesOrthancId, studyInstanceUid, seriesInstanceUid, wadoBase);
   }
 
 }
@@ -1589,13 +1596,13 @@ void RetrieveStudyMetadata(OrthancPluginRestOutput* output,
 
     std::string wadoBase = OrthancPlugins::Configuration::GetBasePublicUrl(request);
     
-    std::list<std::string> series;
+    std::set<std::string> series;
     std::string studyDicomUid;
     GetChildrenIdentifiers(series, studyDicomUid, Orthanc::ResourceType_Study, studyOrthancId);
 
-    for (std::list<std::string>::const_iterator s = series.begin(); s != series.end(); ++s)
+    for (std::set<std::string>::const_iterator s = series.begin(); s != series.end(); ++s)
     {
-      std::list<std::string> instances;
+      std::set<std::string> instances;
       std::string seriesDicomUid;
       GetChildrenIdentifiers(instances, seriesDicomUid, Orthanc::ResourceType_Series, *s);
 
