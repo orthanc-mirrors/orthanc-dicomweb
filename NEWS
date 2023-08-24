@@ -8,6 +8,8 @@ Pending changes in the mainline
     its /dicom-web/studies/../series/../metadata route is called in "Full" mode if the attachment does not exist yet.
     A new route /studies/{orthancId}/update-dicomweb-cache has also been added to allow e.g. the Housekeeper plugin
     to generate these attachment for old studies.
+    This cache can be disabled by setting "EnableMetadataCache" to false.  However, disabling the cache
+    won't delete the already cached data.  You may call DELETE /series/../attachments/4031 to clear the cache.
 
 Version 1.14 (2023-07-05)
 =========================

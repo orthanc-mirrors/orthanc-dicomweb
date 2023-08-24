@@ -1408,6 +1408,11 @@ void CacheSeriesMetadataInternal(std::string& serializedSeriesMetadata,
 
 void CacheSeriesMetadata(const std::string& seriesOrthancId)
 {
+  if (!OrthancPlugins::Configuration::IsMetadataCacheEnabled())
+  {
+    return;
+  }
+
   LOG(INFO) << "DicomWEB: pre-computing the WADO-RS series metadata for series " << seriesOrthancId;
 
   std::string studyInstanceUid, seriesInstanceUid;
@@ -1444,6 +1449,11 @@ void UpdateSeriesMetadataCache(OrthancPluginRestOutput* output,
     throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest);
   }
 
+  if (!OrthancPlugins::Configuration::IsMetadataCacheEnabled())
+  {
+    throw Orthanc::OrthancException(Orthanc::ErrorCode_BadRequest, "The metadata cache is disabled in the Orthanc configuration.");
+  }
+
   std::string studyId(request->groups[0]);
 
   LOG(INFO) << "DicomWEB: updating the series metadata cache for study " << studyId;
@@ -1473,7 +1483,9 @@ void RetrieveSeriesMetadataInternalWithCache(OrthancPlugins::DicomWebFormatter::
                                              const std::string& seriesInstanceUid,
                                              const std::string& wadoBase)
 {
-  if (mode == OrthancPlugins::MetadataMode_Full && !isXml)
+  if (OrthancPlugins::Configuration::IsMetadataCacheEnabled() &&
+      mode == OrthancPlugins::MetadataMode_Full && 
+      !isXml)
   {
     // check if we already have computed the series metadata and saved them in an attachment
     std::string serializedSeriesMetadata;
@@ -1528,7 +1540,6 @@ void RetrieveSeriesMetadataInternalWithCache(OrthancPlugins::DicomWebFormatter::
   {
     size_t instancesCountNotUsed;
     RetrieveSeriesMetadataInternal(instancesCountNotUsed, writer, cache, mode, isXml, seriesOrthancId, studyInstanceUid, seriesInstanceUid, wadoBase);
-    writer.Send();
   }
 
 }

@@ -676,6 +676,11 @@ namespace OrthancPlugins
       return GetUnsignedIntegerValue("MetadataWorkerThreadsCount", 4);
     }
 
+    bool IsMetadataCacheEnabled()
+    {
+      return GetBooleanValue("EnableMetadataCache", true);
+    }
+
     
     MetadataMode GetMetadataMode(Orthanc::ResourceType level)
     {

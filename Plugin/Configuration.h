@@ -139,5 +139,7 @@ namespace OrthancPlugins
     void SaveDicomWebServers();
 
     unsigned int GetMetadataWorkerThreadsCount();
+
+    bool IsMetadataCacheEnabled();
   }
 }
