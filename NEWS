@@ -1,5 +1,5 @@
-Pending changes in the mainline
-===============================
+Version 1.15 (2023-08-24)
+=========================
 
 * speed improvement:
   - Now storing the output of /dicom-web/studies/../series/../metadata route in an attachment that can be used
