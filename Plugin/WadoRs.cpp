@@ -1501,7 +1501,7 @@ void RetrieveSeriesMetadataInternalWithCache(OrthancPlugins::DicomWebFormatter::
 
     if (OrthancPlugins::RestApiGetString(cacheContent, attachmentUrl + "/data", false))
     {
-      if (boost::starts_with(cacheContent, "2;"))  // version 2, cacheContent is "1;sorted-instances-list-md5;compressedSeriesMetadata"
+      if (boost::starts_with(cacheContent, "2;"))  // version 2, cacheContent is "2;sorted-instances-list-md5;compressedSeriesMetadata"
       {
         // check that the instances count have not changed since we have saved the data in cache 
         // StableSeries event will always overwrite it but this is usefull if retrieving the metadata while
