@@ -29,7 +29,7 @@ if (ORTHANC_DICOM_WEB_VERSION STREQUAL "mainline")
   set(ORTHANC_FRAMEWORK_DEFAULT_SOURCE "hg")
 else()
   set(ORTHANC_FRAMEWORK_DEFAULT_VERSION "daf4807631c5")  # TODO: upgrade to 1.12.2 when available
-  set(ORTHANC_FRAMEWORK_DEFAULT_SOURCE "hg")             # TODO: update to "web" once 1.12.2 is available
+  set(ORTHANC_FRAMEWORK_DEFAULT_SOURCE "web")
 endif()
 
 
