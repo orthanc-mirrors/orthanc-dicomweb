@@ -70,6 +70,20 @@ static std::string GetResourceUri(Orthanc::ResourceType level,
 }
 
 
+// Hotfix: This function corresponds to a new signature introduced in Orthanc > 1.12.1
+static void ComputeMD5OfSet(std::string& result,
+                            const std::set<std::string>& data)
+{
+  std::string s;
+
+  for (std::set<std::string>::const_iterator it = data.begin(); it != data.end(); ++it)
+  {
+    s += *it;
+  }
+
+  Orthanc::Toolbox::ComputeMD5(result, s);
+}
+
 
 namespace
 {
@@ -1397,7 +1411,7 @@ void CacheSeriesMetadataInternal(std::string& serializedSeriesMetadata,
   // save in attachments for future use
   Orthanc::IBufferCompressor::Compress(compressedSeriesMetadata, compressor, serializedSeriesMetadata);
   std::string instancesMd5;
-  Orthanc::Toolbox::ComputeMD5(instancesMd5, instancesIds);
+  ComputeMD5OfSet(instancesMd5, instancesIds);
 
   std::string cacheContent = "2;" + instancesMd5 + ";" + compressedSeriesMetadata; 
 
@@ -1520,7 +1534,7 @@ void RetrieveSeriesMetadataInternalWithCache(OrthancPlugins::DicomWebFormatter::
         std::set<std::string> currentInstancesIds;
         Orthanc::SerializationToolbox::ReadSetOfStrings(currentInstancesIds, seriesInfo, "Instances");
         std::string currentInstancesMd5;
-        Orthanc::Toolbox::ComputeMD5(currentInstancesMd5, currentInstancesIds);
+        ComputeMD5OfSet(currentInstancesMd5, currentInstancesIds);
 
         if (currentInstancesMd5 == instancesMd5InCache)
         {

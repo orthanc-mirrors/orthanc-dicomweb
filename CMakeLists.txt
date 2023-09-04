@@ -54,6 +54,10 @@ set(BUILD_BOOTSTRAP_VUE OFF CACHE BOOL "Compile Bootstrap-Vue from sources")
 set(BUILD_BABEL_POLYFILL OFF CACHE BOOL "Retrieve babel-polyfill from npm")
 
 
+# Hotfix to compile against system-wide Orthanc framework
+function(DefineSourceBasenameForTarget targetname)
+endfunction()
+
 
 # Download and setup the Orthanc framework
 include(${CMAKE_SOURCE_DIR}/Resources/Orthanc/CMake/DownloadOrthancFramework.cmake)
