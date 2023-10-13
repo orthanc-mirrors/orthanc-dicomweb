@@ -456,24 +456,22 @@ static void RetrieveFrames(OrthancPluginRestOutput* output,
     }
 
     Orthanc::DicomTransferSyntax targetSyntax;
+    Orthanc::DicomTransferSyntax currentSyntax;
 
-    std::unique_ptr<OrthancPlugins::DicomInstance> instance;
-    if (ParseTransferSyntax(targetSyntax, request))
+    std::unique_ptr<OrthancPlugins::DicomInstance> instance(new OrthancPlugins::DicomInstance(content.GetData(), content.GetSize()));
+    if (!Orthanc::LookupTransferSyntax(currentSyntax, instance->GetTransferSyntaxUid()))
+    {
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_NotImplemented,
+                                      "Unknown transfer syntax: " + std::string(GetTransferSyntaxUid(currentSyntax)));
+    }
+
+    if (ParseTransferSyntax(targetSyntax, request) && targetSyntax != currentSyntax)
     {
       OrthancPlugins::LogInfo("DICOMweb RetrieveFrames: Transcoding instance " + orthancId + 
                               " to transfer syntax " + Orthanc::GetTransferSyntaxUid(targetSyntax));
 
       instance.reset(OrthancPlugins::DicomInstance::Transcode(
                        content.GetData(), content.GetSize(), GetTransferSyntaxUid(targetSyntax)));
-    }
-    else
-    {
-      instance.reset(new OrthancPlugins::DicomInstance(content.GetData(), content.GetSize()));
-      if (!Orthanc::LookupTransferSyntax(targetSyntax, instance->GetTransferSyntaxUid()))
-      {
-        throw Orthanc::OrthancException(Orthanc::ErrorCode_NotImplemented,
-                                        "Unknown transfer syntax: " + std::string(GetTransferSyntaxUid(targetSyntax)));
-      }
     }
 
     if (instance.get() == NULL)
