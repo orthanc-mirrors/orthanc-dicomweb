@@ -8,6 +8,10 @@
 
 * Add support for application/zip in /dicom-web/studies/ (aka sup 211: https://www.dicomstandard.org/docs/librariesprovider2/dicomdocuments/news/ftsup/docs/sups/sup211.pdf?sfvrsn=9fe9edae_2)
 
+* Support private tags in search fields:
+  https://discourse.orthanc-server.org/t/dicomweb-plugin-exception-of-unknown-dicom-tag-for-private-data-element-tags-while-using-query-parameters/3998
+  
+
 * Based on this discussion: https://discourse.orthanc-server.org/t/series-metadata-retrieval-is-very-long-even-with-configuration-optimization/3389 
   optimize studies/.../series/.../metadata route when "SeriesMetadata" is set 
   to "MainDicomTags" and "ExtraMainDicomTags" are configured according to recommandation 
