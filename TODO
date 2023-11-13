@@ -9,6 +9,7 @@
 
   No such issue in StoneViewer since Stone downloads the whole file.  However, Stone uses 2-3 workers at the same time and the file is read 2-3 times at the same time
   before it ends up in Orthanc cache -> we should introduce a state "is_being_loaded" in caches and have other consumers wait for it to be available.
+  https://discourse.orthanc-server.org/t/possible-memory-leak-with-multiframe-dicom-orthanc-ohif/3988/12
 
 
 * Implement capabilities: https://www.dicomstandard.org/using/dicomweb/capabilities/
