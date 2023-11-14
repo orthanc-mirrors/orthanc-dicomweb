@@ -111,33 +111,24 @@ static bool ParseTransferSyntax(Orthanc::DicomTransferSyntax& syntax,
 
       if (type == "application/octet-stream")
       {
-        if (transferSyntax.empty() ||
-            transferSyntax == "1.2.840.10008.1.2.1")
+        if (transferSyntax.empty())
         {
           syntax = Orthanc::DicomTransferSyntax_LittleEndianExplicit;
           return true;
         }
-        else if (transferSyntax == "1.2.840.10008.1.2")
-        {
-          syntax = Orthanc::DicomTransferSyntax_LittleEndianImplicit;
-          return true;
-        }
-        else if (transferSyntax == "1.2.840.10008.1.2.2")  // New in 1.3
-        {
-          syntax = Orthanc::DicomTransferSyntax_BigEndianExplicit;
-          return false;
-        }        
         else if (transferSyntax == "*")
         {
-          // New in DICOMweb plugin 1.1
-          return false;
+          // don't change transferSyntax, it must have been set to the 'current' value before calling this method
+          return true;
         }
         else
         {
-          throw Orthanc::OrthancException(
-            Orthanc::ErrorCode_BadRequest,
-            "DICOMweb RetrieveFrames: Cannot specify a transfer syntax (" + 
-            transferSyntax + ") for default Little Endian uncompressed pixel data");
+          if (!Orthanc::LookupTransferSyntax(syntax, transferSyntax))
+          {
+            throw Orthanc::OrthancException(Orthanc::ErrorCode_NotImplemented,
+                                            "Unknown transfer syntax in 'Accept' header: " + transferSyntax);
+          }
+          return true;         
         }
       }
       else
@@ -287,7 +278,7 @@ static bool ParseTransferSyntax(Orthanc::DicomTransferSyntax& syntax,
     }
   }
 
-  // By default, DICOMweb expectes Little Endian uncompressed pixel data
+  // By default, DICOMweb expects Little Endian uncompressed pixel data
   syntax = Orthanc::DicomTransferSyntax_LittleEndianExplicit;
   return true;
 }
@@ -455,7 +446,6 @@ static void RetrieveFrames(OrthancPluginRestOutput* output,
       OrthancPlugins::LogInfo(s);
     }
 
-    Orthanc::DicomTransferSyntax targetSyntax;
     Orthanc::DicomTransferSyntax currentSyntax;
 
     std::unique_ptr<OrthancPlugins::DicomInstance> instance(new OrthancPlugins::DicomInstance(content.GetData(), content.GetSize()));
@@ -464,6 +454,8 @@ static void RetrieveFrames(OrthancPluginRestOutput* output,
       throw Orthanc::OrthancException(Orthanc::ErrorCode_NotImplemented,
                                       "Unknown transfer syntax: " + std::string(GetTransferSyntaxUid(currentSyntax)));
     }
+
+    Orthanc::DicomTransferSyntax targetSyntax = currentSyntax;
 
     if (ParseTransferSyntax(targetSyntax, request) && targetSyntax != currentSyntax)
     {

@@ -3,6 +3,8 @@ Pending changes in the mainline
 
 * Removed misleading log messages about transcoding.
   https://discourse.orthanc-server.org/t/dicomweb-plugin-1-13-possible-unnecessary-transcoding/3979
+* Fix parsing of Accept header "multipart/related; type=application/octet-stream; transfer-syntax=*" that is used by OHIF.
+
 
 Version 1.15 (2023-08-24)
 =========================
