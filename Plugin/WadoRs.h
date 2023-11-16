@@ -100,3 +100,5 @@ void RetrieveSeriesRendered(OrthancPluginRestOutput* output,
 void RetrieveStudyRendered(OrthancPluginRestOutput* output,
                            const char* url,
                            const OrthancPluginHttpRequest* request);
+
+void SetPluginCanDownloadTranscodedFile(bool enable);

@@ -536,6 +536,8 @@ extern "C"
       return -1;
     }
 
+    SetPluginCanDownloadTranscodedFile(OrthancPlugins::CheckMinimalOrthancVersion(1, 12, 2));
+
 #if HAS_ORTHANC_PLUGIN_CHUNKED_HTTP_CLIENT == 0
     LOG(WARNING) << "Performance warning in DICOMweb: The plugin was compiled against "
                  << "Orthanc SDK <= 1.5.6. STOW and WADO chunked transfers will be entirely stored in RAM.";

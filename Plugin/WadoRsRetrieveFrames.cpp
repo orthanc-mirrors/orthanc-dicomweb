@@ -31,6 +31,8 @@
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/lexical_cast.hpp>
 
+static bool pluginCanDownloadTranscodedFile = false;
+
 
 static void TokenizeAndNormalize(std::vector<std::string>& tokens,
                                  const std::string& source,
@@ -426,44 +428,74 @@ static void RetrieveFrames(OrthancPluginRestOutput* output,
                            std::list<unsigned int>& frames)
 {
   std::string orthancId, studyInstanceUid, seriesInstanceUid, sopInstanceUid;
-  OrthancPlugins::MemoryBuffer content;
-  if (LocateInstance(output, orthancId, studyInstanceUid, seriesInstanceUid, sopInstanceUid, request) &&
-      content.RestApiGet("/instances/" + orthancId + "/file", false))
+  if (LocateInstance(output, orthancId, studyInstanceUid, seriesInstanceUid, sopInstanceUid, request))
   {
-    if (allFrames)
-    {
-      OrthancPlugins::LogInfo("DICOMweb RetrieveFrames on " + orthancId + ", all frames");
-    }
-    else
-    {
-      std::string s = "DICOMweb RetrieveFrames on " + orthancId + ", frames: ";
-      for (std::list<unsigned int>::const_iterator 
-             frame = frames.begin(); frame != frames.end(); ++frame)
-      {
-        s += boost::lexical_cast<std::string>(*frame + 1) + " ";
-      }
-
-      OrthancPlugins::LogInfo(s);
-    }
-
+    OrthancPlugins::MemoryBuffer content;
     Orthanc::DicomTransferSyntax currentSyntax;
+    std::unique_ptr<OrthancPlugins::DicomInstance> instance;
 
-    std::unique_ptr<OrthancPlugins::DicomInstance> instance(new OrthancPlugins::DicomInstance(content.GetData(), content.GetSize()));
-    if (!Orthanc::LookupTransferSyntax(currentSyntax, instance->GetTransferSyntaxUid()))
-    {
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_NotImplemented,
-                                      "Unknown transfer syntax: " + std::string(GetTransferSyntaxUid(currentSyntax)));
+    { // logging only
+      if (allFrames)
+      {
+        OrthancPlugins::LogInfo("DICOMweb RetrieveFrames on " + orthancId + ", all frames");
+      }
+      else
+      {
+        std::string s = "DICOMweb RetrieveFrames on " + orthancId + ", frames: ";
+        for (std::list<unsigned int>::const_iterator 
+              frame = frames.begin(); frame != frames.end(); ++frame)
+        {
+          s += boost::lexical_cast<std::string>(*frame + 1) + " ";
+        }
+
+        OrthancPlugins::LogInfo(s);
+      }
     }
 
-    Orthanc::DicomTransferSyntax targetSyntax = currentSyntax;
-
-    if (ParseTransferSyntax(targetSyntax, request) && targetSyntax != currentSyntax)
+    std::string currentSyntaxString;
+    if (!OrthancPlugins::RestApiGetString(currentSyntaxString, "/instances/" + orthancId + "/metadata/TransferSyntax", false))
     {
-      OrthancPlugins::LogInfo("DICOMweb RetrieveFrames: Transcoding instance " + orthancId + 
-                              " to transfer syntax " + Orthanc::GetTransferSyntaxUid(targetSyntax));
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError, "DICOMWeb: Unable to get TransferSyntax for instance " + orthancId);
+    }
 
-      instance.reset(OrthancPlugins::DicomInstance::Transcode(
+    if (!Orthanc::LookupTransferSyntax(currentSyntax, currentSyntaxString))
+    {
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_NotImplemented, "Unknown transfer syntax: " + currentSyntaxString);
+    }
+
+    Orthanc::DicomTransferSyntax targetSyntax = currentSyntax;  
+    bool transcodeThisInstance = false;
+    
+    if (ParseTransferSyntax(targetSyntax, request))
+    {
+      transcodeThisInstance = targetSyntax != currentSyntax;
+    }
+
+    // maximize the use the Orthanc storage cache.  Since 1.12.2, transcoded file may be stored in the storage cache
+    if (pluginCanDownloadTranscodedFile && transcodeThisInstance)
+    {
+      if (!content.RestApiGet("/instances/" + orthancId + "/file?transcode=" + Orthanc::GetTransferSyntaxUid(targetSyntax), false))
+      {
+        throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError, "DICOMWeb: Unable to get transcoded file for for instance " + orthancId);
+      }
+      instance.reset(new OrthancPlugins::DicomInstance(content.GetData(), content.GetSize()));
+    }
+    else // pre 1.12.2 code (or no transcoding needed)
+    {
+      if (!content.RestApiGet("/instances/" + orthancId + "/file", false))
+      {
+        throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError, "DICOMWeb: Unable to get file for for instance " + orthancId);
+      }
+      instance.reset(new OrthancPlugins::DicomInstance(content.GetData(), content.GetSize()));
+
+      if (transcodeThisInstance)
+      {
+        OrthancPlugins::LogInfo("DICOMweb RetrieveFrames: Transcoding instance " + orthancId + 
+                                " to transfer syntax " + Orthanc::GetTransferSyntaxUid(targetSyntax));
+
+        instance.reset(OrthancPlugins::DicomInstance::Transcode(
                        content.GetData(), content.GetSize(), GetTransferSyntaxUid(targetSyntax)));
+      }
     }
 
     if (instance.get() == NULL)
@@ -502,4 +534,9 @@ void RetrieveSelectedFrames(OrthancPluginRestOutput* output,
   std::list<unsigned int> frames;
   ParseFrameList(frames, request);
   RetrieveFrames(output, request, false, frames);
+}
+
+void SetPluginCanDownloadTranscodedFile(bool enable)
+{
+  pluginCanDownloadTranscodedFile = enable;
 }
