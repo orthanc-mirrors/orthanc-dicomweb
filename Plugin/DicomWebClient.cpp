@@ -776,7 +776,7 @@ private:
            * chunked transfers, or a version of Orthanc <= 1.7.2 that
            * supports chunk transfers, but cannot receive multipart
            * messages larger than 2GB. The latter problem is fixed by:
-           * https://hg.orthanc-server.com/orthanc/rev/36257d6f348f
+           * https://orthanc.uclouvain.be/hg/orthanc/rev/36257d6f348f
            **/
           if (client->IsChunkedTransfersAllowed())
           {
