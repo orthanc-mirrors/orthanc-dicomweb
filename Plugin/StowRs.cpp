@@ -64,7 +64,7 @@ namespace OrthancPlugins
     }
 
     // Hotfix for bug #190, until the Orthanc Framework is fixed
-    // https://bugs.orthanc-server.com/show_bug.cgi?id=190
+    // https://orthanc.uclouvain.be/bugs/show_bug.cgi?id=190
     if (!boundary.empty() &&
         boundary.size() >= 2 &&
         boundary[0] == '"' &&
