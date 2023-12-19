@@ -1,5 +1,5 @@
-Pending changes in the mainline
-===============================
+Version 1.16 (2023-12-19)
+=========================
 
 * Removed misleading log messages about transcoding.
   https://discourse.orthanc-server.org/t/dicomweb-plugin-1-13-possible-unnecessary-transcoding/3979
