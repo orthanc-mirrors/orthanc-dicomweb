@@ -329,8 +329,17 @@ static const char* GetMimeType(const Orthanc::DicomTransferSyntax& syntax)
       // The "transfer-syntax" info was added in version 1.1 of the plugin
       return "application/octet-stream; transfer-syntax=1.2.840.10008.1.2";
 
+    // note: these 2 syntaxes are not supposed to be used in retrieve frames
+    // according to https://dicom.nema.org/MEDICAL/dicom/2019a/output/chtml/part18/chapter_6.html#table_6.1.1.8-3b
+    // "The Implicit VR Little Endian (1.2.840.10008.1.2), and Explicit VR Big Endian (1.2.840.10008.1.2.2) transfer syntaxes shall not be used with Web Services."
     case Orthanc::DicomTransferSyntax_LittleEndianExplicit:
       return "application/octet-stream; transfer-syntax=1.2.840.10008.1.2.1";
+
+    case Orthanc::DicomTransferSyntax_BigEndianExplicit:
+      return "application/octet-stream; transfer-syntax=1.2.840.10008.1.2.2";
+
+    case Orthanc::DicomTransferSyntax_DeflatedLittleEndianExplicit:
+      return "application/octet-stream; transfer-syntax=1.2.840.10008.1.2.1.99";
 
     case Orthanc::DicomTransferSyntax_JPEGProcess1:
       return "image/jpeg; transfer-syntax=1.2.840.10008.1.2.4.50";
@@ -369,7 +378,7 @@ static const char* GetMimeType(const Orthanc::DicomTransferSyntax& syntax)
       return "image/jpx; transfer-syntax=1.2.840.10008.1.2.4.93";
 
     default:
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError, std::string("WADO RS Retrieve frame: unhandled Transfer syntax ") + Orthanc::GetTransferSyntaxUid(syntax));
   }
 }
 
@@ -463,7 +472,16 @@ static void RetrieveFrames(OrthancPluginRestOutput* output,
       throw Orthanc::OrthancException(Orthanc::ErrorCode_NotImplemented, "Unknown transfer syntax: " + currentSyntaxString);
     }
 
-    Orthanc::DicomTransferSyntax targetSyntax = currentSyntax;  
+    Orthanc::DicomTransferSyntax targetSyntax = currentSyntax;
+
+    if (currentSyntax == Orthanc::DicomTransferSyntax_BigEndianExplicit || currentSyntax == Orthanc::DicomTransferSyntax_LittleEndianImplicit)
+    {
+      // note: these 2 syntaxes are not supposed to be used in retrieve frames
+      // according to https://dicom.nema.org/MEDICAL/dicom/2019a/output/chtml/part18/chapter_6.html#table_6.1.1.8-3b
+      // "The Implicit VR Little Endian (1.2.840.10008.1.2), and Explicit VR Big Endian (1.2.840.10008.1.2.2) transfer syntaxes shall not be used with Web Services."
+      targetSyntax = Orthanc::DicomTransferSyntax_LittleEndianExplicit;
+    }    
+
     bool transcodeThisInstance = false;
     
     if (ParseTransferSyntax(targetSyntax, request))

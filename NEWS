@@ -1,3 +1,13 @@
+Pending changes in the mainline
+===============================
+
+Maintenance
+-----------
+
+* WADO-RS retrieve frame: fix issue 219 (https://orthanc.uclouvain.be/bugs/show_bug.cgi?id=219)
+  by converting BigEndianExplicitVR to LittleEndianExplicitVR.
+
+
 Version 1.16 (2023-12-19)
 =========================
 
