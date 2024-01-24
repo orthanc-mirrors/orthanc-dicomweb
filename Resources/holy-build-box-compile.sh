@@ -30,7 +30,7 @@ docker run -t ${DOCKER_FLAGS} --rm \
     --user $(id -u):$(id -g) \
     -v ${ROOT_DIR}:/source:ro \
     -v ${ROOT_DIR}/holy-build-box:/target:rw \
-    phusion/holy-build-box-64:2.0.1 \
+    phusion/holy-build-box-64:3.0.5 \
     bash /source/Resources/holy-build-box-internal.sh $1
 
 ls -lR ${ROOT_DIR}/holy-build-box/
