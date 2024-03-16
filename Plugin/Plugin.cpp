@@ -548,7 +548,7 @@ extern "C"
                  << "Orthanc SDK <= 1.12.0. Retrieving metadata will be slower.";
 #endif
 
-    OrthancPluginSetDescription(context, "Implementation of DICOMweb (QIDO-RS, STOW-RS and WADO-RS) and WADO-URI.");
+    OrthancPlugins::SetDescription(ORTHANC_DICOM_WEB_NAME, "Implementation of DICOMweb (QIDO-RS, STOW-RS and WADO-RS) and WADO-URI.");
 
     try
     {
@@ -635,12 +635,12 @@ extern "C"
           dictionary["DICOMWEB_ROOT"] = root.substr(1, root.size() - 2);  // Remove heading and trailing slashes
           std::string configured = Orthanc::Toolbox::SubstituteVariables(explorer, dictionary);
 
-          OrthancPluginExtendOrthancExplorer(OrthancPlugins::GetGlobalContext(), configured.c_str());
+          OrthancPlugins::ExtendOrthancExplorer(ORTHANC_DICOM_WEB_NAME, configured.c_str());
         }
         
         
         std::string uri = root + "app/client/index.html";
-        OrthancPluginSetRootUri(context, uri.c_str());
+        OrthancPlugins::SetRootUri(ORTHANC_DICOM_WEB_NAME, uri.c_str());
 
         std::string publicUrlRoot = OrthancPlugins::Configuration::GetPublicRoot();
         OrthancPlugins::LogWarning("DICOMWeb PublicRoot: " + publicUrlRoot);
@@ -686,7 +686,7 @@ extern "C"
 
   ORTHANC_PLUGINS_API const char* OrthancPluginGetName()
   {
-    return "dicom-web";
+    return ORTHANC_DICOM_WEB_NAME;
   }
 
 
