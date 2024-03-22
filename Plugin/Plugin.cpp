@@ -635,7 +635,7 @@ extern "C"
           dictionary["DICOMWEB_ROOT"] = root.substr(1, root.size() - 2);  // Remove heading and trailing slashes
           std::string configured = Orthanc::Toolbox::SubstituteVariables(explorer, dictionary);
 
-          OrthancPlugins::ExtendOrthancExplorer(ORTHANC_DICOM_WEB_NAME, configured.c_str());
+          OrthancPlugins::ExtendOrthancExplorer(ORTHANC_DICOM_WEB_NAME, configured);
         }
         
         
