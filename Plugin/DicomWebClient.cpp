@@ -919,8 +919,8 @@ void StowClient(OrthancPluginRestOutput* output,
   Json::Value resourcesForJobContent;
   ParseStowRequest(instances, httpHeaders, resourcesForJobContent, body);
 
-  OrthancPlugins::LogInfo("Sending " + boost::lexical_cast<std::string>(instances.size()) +
-                          " instances using STOW-RS to DICOMweb server: " + serverName);
+  LOG(INFO) << "Sending " << boost::lexical_cast<std::string>(instances.size()) <<
+               " instances using STOW-RS to DICOMweb server: " << serverName;
 
   std::unique_ptr<StowClientJob> job(new StowClientJob(serverName, instances, httpHeaders, resourcesForJobContent));
 

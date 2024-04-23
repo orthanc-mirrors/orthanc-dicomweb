@@ -24,6 +24,7 @@
 
 #include "../Resources/Orthanc/Plugins/OrthancPluginCppWrapper.h"
 #include "Configuration.h"
+#include "Logging.h"
 
 #include <string>
 
@@ -84,19 +85,19 @@ static bool LocateInstanceWadoUri(std::string& instance,
 
   if (requestType != "WADO")
   {
-    OrthancPlugins::LogError("WADO-URI: Invalid requestType: \"" + requestType + "\"");
+    LOG(ERROR) << "WADO-URI: Invalid requestType: \"" << requestType << "\"";
     return false;
   }
 
   if (objectUid.empty())
   {
-    OrthancPlugins::LogError("WADO-URI: No SOPInstanceUID provided");
+    LOG(ERROR) << "WADO-URI: No SOPInstanceUID provided";
     return false;
   }
 
   if (!MapWadoToOrthancIdentifier(instance, OrthancPluginLookupInstance, objectUid))
   {
-    OrthancPlugins::LogError("WADO-URI: No such SOPInstanceUID in Orthanc: \"" + objectUid + "\"");
+    LOG(ERROR) << "WADO-URI: No such SOPInstanceUID in Orthanc: \"" << objectUid << "\"";
     return false;
   }
 
@@ -110,7 +111,7 @@ static bool LocateInstanceWadoUri(std::string& instance,
     std::string series;
     if (!MapWadoToOrthancIdentifier(series, OrthancPluginLookupSeries, seriesUid))
     {
-      OrthancPlugins::LogError("WADO-URI: No such SeriesInstanceUID in Orthanc: \"" + seriesUid + "\"");
+      LOG(ERROR) << "WADO-URI: No such SeriesInstanceUID in Orthanc: \"" << seriesUid << "\"";
       return false;
     }
     else
@@ -119,7 +120,7 @@ static bool LocateInstanceWadoUri(std::string& instance,
       if (!OrthancPlugins::RestApiGet(info, "/instances/" + instance + "/series", false) ||
           info["MainDicomTags"]["SeriesInstanceUID"] != seriesUid)
       {
-        OrthancPlugins::LogError("WADO-URI: Instance " + objectUid + " does not belong to series " + seriesUid);
+        LOG(ERROR) << "WADO-URI: Instance " << objectUid << " does not belong to series " << seriesUid;
         return false;
       }
     }
@@ -130,7 +131,7 @@ static bool LocateInstanceWadoUri(std::string& instance,
     std::string study;
     if (!MapWadoToOrthancIdentifier(study, OrthancPluginLookupStudy, studyUid))
     {
-      OrthancPlugins::LogError("WADO-URI: No such StudyInstanceUID in Orthanc: \"" + studyUid + "\"");
+      LOG(ERROR) << "WADO-URI: No such StudyInstanceUID in Orthanc: \"" << studyUid << "\"";
       return false;
     }
     else
@@ -139,7 +140,7 @@ static bool LocateInstanceWadoUri(std::string& instance,
       if (!OrthancPlugins::RestApiGet(info, "/instances/" + instance + "/study", false) ||
           info["MainDicomTags"]["StudyInstanceUID"] != studyUid)
       {
-        OrthancPlugins::LogError("WADO-URI: Instance " + objectUid + " does not belong to study " + studyUid);
+        LOG(ERROR) << "WADO-URI: Instance " << objectUid << " does not belong to study " << studyUid;
         return false;
       }
     }
@@ -193,7 +194,7 @@ static void AnswerPreview(OrthancPluginRestOutput* output,
   }
   else
   {
-    OrthancPlugins::LogError("WADO-URI: Unable to generate a preview image for " + uri);
+    LOG(ERROR) << "WADO-URI: Unable to generate a preview image for " << uri;
     throw Orthanc::OrthancException(Orthanc::ErrorCode_Plugin);
   }
 }

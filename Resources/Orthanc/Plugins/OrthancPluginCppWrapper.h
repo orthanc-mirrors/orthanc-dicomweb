@@ -2,8 +2,8 @@
  * Orthanc - A Lightweight, RESTful DICOM Store
  * Copyright (C) 2012-2016 Sebastien Jodogne, Medical Physics
  * Department, University Hospital of Liege, Belgium
- * Copyright (C) 2017-2023 Osimis S.A., Belgium
- * Copyright (C) 2021-2023 Sebastien Jodogne, ICTEAM UCLouvain, Belgium
+ * Copyright (C) 2017-2024 Osimis S.A., Belgium
+ * Copyright (C) 2021-2024 Sebastien Jodogne, ICTEAM UCLouvain, Belgium
  *
  * This program is free software: you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -136,6 +136,10 @@ namespace OrthancPlugins
                                 const OrthancPluginHttpRequest* request);
 
   void SetGlobalContext(OrthancPluginContext* context);
+
+#if ORTHANC_PLUGINS_VERSION_IS_ABOVE(1, 12, 4) && ORTHANC_FRAMEWORK_VERSION_IS_ABOVE(1, 12, 4)
+  void SetGlobalContext(OrthancPluginContext* context, const char* pluginName);
+#endif
 
   void ResetGlobalContext();
 
@@ -637,11 +641,11 @@ namespace OrthancPlugins
   const char* AutodetectMimeType(const std::string& path);
 #endif
 
-  void LogError(const std::string& message);
+  void LogError(const std::string& message);   // From Orthanc 1.12.4, use LOG(ERROR) to display the plugin name, file and line (First set a plugin name in Orthanc::Logging::InitializePluginContext)
 
-  void LogWarning(const std::string& message);
+  void LogWarning(const std::string& message); // From Orthanc 1.12.4, use LOG(WARNING) to display the plugin name, file and line (First set a plugin name in Orthanc::Logging::InitializePluginContext)
 
-  void LogInfo(const std::string& message);
+  void LogInfo(const std::string& message);    // From Orthanc 1.12.4, use LOG(INFO) to display the plugin name, file and line (First set a plugin name in Orthanc::Logging::InitializePluginContext)
 
   void ReportMinimalOrthancVersion(unsigned int major,
                                    unsigned int minor,
@@ -1435,4 +1439,13 @@ void GetHttpHeaders(std::map<std::string, std::string>& result, const OrthancPlu
                          IWebDavCollection& collection);
   };
 #endif
+
+  void SetRootUri(const std::string& pluginIdentifier,
+                  const std::string& uri);
+
+  void SetDescription(const std::string& pluginIdentifier,
+                      const std::string& description);
+
+  void ExtendOrthancExplorer(const std::string& pluginIdentifier,
+                             const std::string& javascript);
 }

@@ -201,7 +201,7 @@ namespace
         }
       }
 
-      OrthancPlugins::LogInfo("Arguments of QIDO-RS request:" + args);
+      LOG(INFO) << "Arguments of QIDO-RS request:" << args;
     }
 
     unsigned int GetLimit() const
@@ -283,9 +283,8 @@ namespace
       if (offset_ != 0 &&
           !OrthancPlugins::CheckMinimalOrthancVersion(1, 3, 0))
       {
-        OrthancPlugins::LogError(
-          "QIDO-RS request with \"offset\" argument: "
-          "Only available if the Orthanc core version is >= 1.3.0");
+        LOG(ERROR) << "QIDO-RS request with \"offset\" argument: "
+                      "Only available if the Orthanc core version is >= 1.3.0";
       }
       
       for (Filters::const_iterator it = filters_.begin(); 

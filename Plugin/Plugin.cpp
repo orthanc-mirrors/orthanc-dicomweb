@@ -40,7 +40,7 @@
 #define ORTHANC_CORE_MINIMAL_MINOR     11
 #define ORTHANC_CORE_MINIMAL_REVISION  0
 
-
+#define PLUGIN_NAME "dicom-web"
 static const char* const HAS_DELETE = "HasDelete";
 
 
@@ -499,12 +499,21 @@ extern "C"
   {
     assert(DisplayPerformanceWarning(context));
 
+#if ORTHANC_FRAMEWORK_VERSION_IS_ABOVE(1, 12, 4) && ORTHANC_PLUGINS_VERSION_IS_ABOVE(1, 12, 4)
+
+    OrthancPlugins::SetGlobalContext(context, PLUGIN_NAME);
+    Orthanc::Logging::InitializePluginContext(context, PLUGIN_NAME);
+
+#elif ORTHANC_FRAMEWORK_VERSION_IS_ABOVE(1, 7, 2)
+
     OrthancPlugins::SetGlobalContext(context);
-    
-#if ORTHANC_FRAMEWORK_VERSION_IS_ABOVE(1, 7, 2)
     Orthanc::Logging::InitializePluginContext(context);
+
 #else
+
+    OrthancPlugins::SetGlobalContext(context);
     Orthanc::Logging::Initialize(context);
+
 #endif
 
     Orthanc::Logging::EnableInfoLevel(true);
@@ -518,7 +527,7 @@ extern "C"
               ORTHANC_PLUGINS_MINIMAL_MAJOR_NUMBER,
               ORTHANC_PLUGINS_MINIMAL_MINOR_NUMBER,
               ORTHANC_PLUGINS_MINIMAL_REVISION_NUMBER);
-      OrthancPluginLogError(context, info);
+      LOG(ERROR) << info;
       return -1;
     }
 
@@ -532,7 +541,7 @@ extern "C"
               ORTHANC_CORE_MINIMAL_MAJOR,
               ORTHANC_CORE_MINIMAL_MINOR,
               ORTHANC_CORE_MINIMAL_REVISION);
-      OrthancPluginLogError(context, info);
+      LOG(ERROR) << info;
       return -1;
     }
 
@@ -561,7 +570,7 @@ extern "C"
         std::string root = OrthancPlugins::Configuration::GetDicomWebRoot();
         assert(!root.empty() && root[root.size() - 1] == '/');
 
-        OrthancPlugins::LogWarning("URI to the DICOMweb REST API: " + root);
+        LOG(WARNING) << "URI to the DICOMweb REST API: " << root;
 
         OrthancPlugins::ChunkedRestRegistration<
           SearchForStudies /* TODO => Rename as QIDO-RS */,
@@ -643,35 +652,34 @@ extern "C"
         OrthancPluginSetRootUri(context, uri.c_str());
 
         std::string publicUrlRoot = OrthancPlugins::Configuration::GetPublicRoot();
-        OrthancPlugins::LogWarning("DICOMWeb PublicRoot: " + publicUrlRoot);
+        LOG(WARNING) << "DICOMWeb PublicRoot: " << publicUrlRoot;
       }
       else
       {
-        OrthancPlugins::LogWarning("DICOMweb support is disabled");
+        LOG(WARNING) << "DICOMweb support is disabled";
       }
 
       // Configure the WADO callback
       if (OrthancPlugins::Configuration::GetBooleanValue("EnableWado", true))
       {
         std::string wado = OrthancPlugins::Configuration::GetWadoRoot();
-        OrthancPlugins::LogWarning("URI to the WADO-URI API: " + wado);
+        LOG(WARNING) << "URI to the WADO-URI API: " << wado;
 
         OrthancPlugins::RegisterRestCallback<WadoUriCallback>(wado, true);
       }
       else
       {
-        OrthancPlugins::LogWarning("WADO-URI support is disabled");
+        LOG(WARNING) << "WADO-URI support is disabled";
       }
     }
     catch (Orthanc::OrthancException& e)
     {
-      OrthancPlugins::LogError("Exception while initializing the DICOMweb plugin: " + 
-                               std::string(e.What()));
+      LOG(ERROR) << "Exception while initializing the DICOMweb plugin: " << e.What();
       return -1;
     }
     catch (...)
     {
-      OrthancPlugins::LogError("Exception while initializing the DICOMweb plugin");
+      LOG(ERROR) << "Exception while initializing the DICOMweb plugin";
       return -1;
     }
 
@@ -686,7 +694,7 @@ extern "C"
 
   ORTHANC_PLUGINS_API const char* OrthancPluginGetName()
   {
-    return "dicom-web";
+    return PLUGIN_NAME;
   }
 
 

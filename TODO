@@ -1,3 +1,9 @@
+* upgrade to SDK 1.12.4 to benefit from new logging primitives for plugins
+
+
+* https://orthanc.uclouvain.be/book/plugins/dicomweb.html#retrieving-dicom-resources-from-a-wado-rs-server
+  Retrieve shall return the list of orthanc IDs -> it is not !
+
 * when retrieving frames from Multi-frame instances, we should not transcode the whole instance for each frame !!!
   For a 90MB instance with 88 frames, OHIF is unusable because of this !
   Sample request:

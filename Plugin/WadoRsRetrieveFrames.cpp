@@ -25,6 +25,7 @@
 #include "../Resources/Orthanc/Plugins/OrthancPluginCppWrapper.h"
 
 #include <Toolbox.h>
+#include <Logging.h>
 
 #include <memory>
 #include <list>
@@ -446,7 +447,7 @@ static void RetrieveFrames(OrthancPluginRestOutput* output,
     { // logging only
       if (allFrames)
       {
-        OrthancPlugins::LogInfo("DICOMweb RetrieveFrames on " + orthancId + ", all frames");
+        LOG(INFO) << "DICOMweb RetrieveFrames on " << orthancId << ", all frames";
       }
       else
       {
@@ -457,7 +458,7 @@ static void RetrieveFrames(OrthancPluginRestOutput* output,
           s += boost::lexical_cast<std::string>(*frame + 1) + " ";
         }
 
-        OrthancPlugins::LogInfo(s);
+        LOG(INFO) << s;
       }
     }
 
@@ -508,8 +509,8 @@ static void RetrieveFrames(OrthancPluginRestOutput* output,
 
       if (transcodeThisInstance)
       {
-        OrthancPlugins::LogInfo("DICOMweb RetrieveFrames: Transcoding instance " + orthancId + 
-                                " to transfer syntax " + Orthanc::GetTransferSyntaxUid(targetSyntax));
+        LOG(INFO) << "DICOMweb RetrieveFrames: Transcoding instance " + orthancId
+                  << " to transfer syntax " << Orthanc::GetTransferSyntaxUid(targetSyntax);
 
         instance.reset(OrthancPlugins::DicomInstance::Transcode(
                        content.GetData(), content.GetSize(), GetTransferSyntaxUid(targetSyntax)));

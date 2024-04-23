@@ -24,7 +24,7 @@
 
 #include "Configuration.h"
 #include "DicomWebFormatter.h"
-
+#include "Logging.h"
 
 namespace OrthancPlugins
 {
@@ -116,7 +116,7 @@ namespace OrthancPlugins
     if (!ok)
     {
       // Bad DICOM file
-      LogWarning("STOW-RS cannot parse an incoming DICOM file");
+      LOG(WARNING) << "STOW-RS cannot parse an incoming DICOM file";
       hasBadSyntax_ = true;
       return;
     }
@@ -131,7 +131,7 @@ namespace OrthancPlugins
         dicom[Orthanc::DICOM_TAG_SOP_INSTANCE_UID.Format()].type() != Json::stringValue ||
         dicom[Orthanc::DICOM_TAG_STUDY_INSTANCE_UID.Format()].type() != Json::stringValue)
     {
-      LogWarning("STOW-RS: Missing a mandatory tag in incoming DICOM file");
+      LOG(WARNING) << "STOW-RS: Missing a mandatory tag in incoming DICOM file";
       hasBadSyntax_ = true;      
 
       if (dicom.isMember(Orthanc::DICOM_TAG_SOP_CLASS_UID.Format()) &&
@@ -162,8 +162,8 @@ namespace OrthancPlugins
     if (!expectedStudy_.empty() &&
         studyInstanceUid != expectedStudy_)
     {
-      LogWarning("STOW-RS request restricted to study [" + expectedStudy_ + 
-                 "], but received instance from study [" + studyInstanceUid + "]");
+      LOG(WARNING) << "STOW-RS request restricted to study [" << expectedStudy_ << 
+                      "], but received instance from study [" << studyInstanceUid << "]";
 
       hasConflict_ = true;
 
@@ -224,7 +224,7 @@ namespace OrthancPlugins
       }
       else
       {
-        LogError("Orthanc was unable to store one instance in a STOW-RS request");
+        LOG(ERROR) << "Orthanc was unable to store one instance in a STOW-RS request";
         item[DICOM_TAG_FAILURE_REASON.Format()] =
           boost::lexical_cast<std::string>(failureReason);
         failed_.append(item);
@@ -308,11 +308,11 @@ namespace OrthancPlugins
 
     if (expectedStudy.empty())
     {
-      LogInfo("STOW-RS request without study");
+      LOG(INFO) << "STOW-RS request without study";
     }
     else
     {
-      LogInfo("STOW-RS request restricted to study UID " + expectedStudy);
+      LOG(INFO) << "STOW-RS request restricted to study UID " << expectedStudy;
     }
 
     return new StowServer(context, headers, expectedStudy);

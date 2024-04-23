@@ -6,6 +6,7 @@ Maintenance
 
 * WADO-RS retrieve frame: fix issue 219 (https://orthanc.uclouvain.be/bugs/show_bug.cgi?id=219)
   by converting BigEndianExplicitVR to LittleEndianExplicitVR.
+* The plugin now uses the new logging primitives from Orthanc 1.12.4
 
 
 Version 1.16 (2023-12-19)

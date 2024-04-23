@@ -635,8 +635,8 @@ namespace OrthancPlugins
       }
       else
       {
-        LogError("Unsupported return MIME type: " + accept +
-                 ", will return DICOM+JSON");
+        LOG(ERROR) << "Unsupported return MIME type: " << accept <<
+                      ", will return DICOM+JSON";
         return false;
       }
     }

@@ -26,6 +26,7 @@
 
 #include <Compatibility.h>
 #include <Toolbox.h>
+#include <Logging.h>
 
 #include <boost/algorithm/string/predicate.hpp>
 
@@ -72,8 +73,8 @@ namespace OrthancPlugins
     }
     catch (Orthanc::OrthancException& e)
     {
-      LogError("Exception while parsing the \"DicomWeb.Servers\" section "
-               "of the configuration file: " + std::string(e.What()));
+      LOG(ERROR) << "Exception while parsing the \"DicomWeb.Servers\" section "
+                    "of the configuration file: " + std::string(e.What());
       throw;
     }
 
