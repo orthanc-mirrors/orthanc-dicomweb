@@ -2,8 +2,8 @@
  * Orthanc - A Lightweight, RESTful DICOM Store
  * Copyright (C) 2012-2016 Sebastien Jodogne, Medical Physics
  * Department, University Hospital of Liege, Belgium
- * Copyright (C) 2017-2023 Osimis S.A., Belgium
- * Copyright (C) 2021-2023 Sebastien Jodogne, ICTEAM UCLouvain, Belgium
+ * Copyright (C) 2017-2024 Osimis S.A., Belgium
+ * Copyright (C) 2021-2024 Sebastien Jodogne, ICTEAM UCLouvain, Belgium
  *
  * This program is free software: you can redistribute it and/or
  * modify it under the terms of the GNU Affero General Public License
@@ -40,7 +40,6 @@
 #define ORTHANC_CORE_MINIMAL_MINOR     11
 #define ORTHANC_CORE_MINIMAL_REVISION  0
 
-#define PLUGIN_NAME "dicom-web"
 static const char* const HAS_DELETE = "HasDelete";
 
 
@@ -403,8 +402,7 @@ void DeleteClient(OrthancPluginRestOutput* output,
 static bool DisplayPerformanceWarning(OrthancPluginContext* context)
 {
   (void) DisplayPerformanceWarning;   // Disable warning about unused function
-  OrthancPluginLogWarning(context, "Performance warning in DICOMweb: "
-                          "Non-release build, runtime debug assertions are turned on");
+  LOG(WARNING) << "Performance warning in DICOMweb: Non-release build, runtime debug assertions are turned on";
   return true;
 }
 
@@ -497,12 +495,10 @@ extern "C"
 {
   ORTHANC_PLUGINS_API int32_t OrthancPluginInitialize(OrthancPluginContext* context)
   {
-    assert(DisplayPerformanceWarning(context));
-
 #if ORTHANC_FRAMEWORK_VERSION_IS_ABOVE(1, 12, 4) && ORTHANC_PLUGINS_VERSION_IS_ABOVE(1, 12, 4)
 
-    OrthancPlugins::SetGlobalContext(context, PLUGIN_NAME);
-    Orthanc::Logging::InitializePluginContext(context, PLUGIN_NAME);
+    OrthancPlugins::SetGlobalContext(context, ORTHANC_DICOM_WEB_NAME);
+    Orthanc::Logging::InitializePluginContext(context, ORTHANC_DICOM_WEB_NAME);
 
 #elif ORTHANC_FRAMEWORK_VERSION_IS_ABOVE(1, 7, 2)
 
@@ -515,6 +511,8 @@ extern "C"
     Orthanc::Logging::Initialize(context);
 
 #endif
+
+    assert(DisplayPerformanceWarning(context));
 
     Orthanc::Logging::EnableInfoLevel(true);
 
@@ -557,7 +555,7 @@ extern "C"
                  << "Orthanc SDK <= 1.12.0. Retrieving metadata will be slower.";
 #endif
 
-    OrthancPluginSetDescription(context, "Implementation of DICOMweb (QIDO-RS, STOW-RS and WADO-RS) and WADO-URI.");
+    OrthancPlugins::SetDescription(ORTHANC_DICOM_WEB_NAME, "Implementation of DICOMweb (QIDO-RS, STOW-RS and WADO-RS) and WADO-URI.");
 
     try
     {
@@ -644,12 +642,12 @@ extern "C"
           dictionary["DICOMWEB_ROOT"] = root.substr(1, root.size() - 2);  // Remove heading and trailing slashes
           std::string configured = Orthanc::Toolbox::SubstituteVariables(explorer, dictionary);
 
-          OrthancPluginExtendOrthancExplorer(OrthancPlugins::GetGlobalContext(), configured.c_str());
+          OrthancPlugins::ExtendOrthancExplorer(ORTHANC_DICOM_WEB_NAME, configured);
         }
         
         
         std::string uri = root + "app/client/index.html";
-        OrthancPluginSetRootUri(context, uri.c_str());
+        OrthancPlugins::SetRootUri(ORTHANC_DICOM_WEB_NAME, uri.c_str());
 
         std::string publicUrlRoot = OrthancPlugins::Configuration::GetPublicRoot();
         LOG(WARNING) << "DICOMWeb PublicRoot: " << publicUrlRoot;
@@ -694,7 +692,7 @@ extern "C"
 
   ORTHANC_PLUGINS_API const char* OrthancPluginGetName()
   {
-    return PLUGIN_NAME;
+    return ORTHANC_DICOM_WEB_NAME;
   }
 
 
