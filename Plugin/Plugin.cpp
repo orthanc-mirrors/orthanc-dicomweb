@@ -495,21 +495,14 @@ extern "C"
 {
   ORTHANC_PLUGINS_API int32_t OrthancPluginInitialize(OrthancPluginContext* context)
   {
-#if ORTHANC_FRAMEWORK_VERSION_IS_ABOVE(1, 12, 4) && ORTHANC_PLUGINS_VERSION_IS_ABOVE(1, 12, 4)
-
     OrthancPlugins::SetGlobalContext(context, ORTHANC_DICOM_WEB_NAME);
+
+#if ORTHANC_FRAMEWORK_VERSION_IS_ABOVE(1, 12, 4)
     Orthanc::Logging::InitializePluginContext(context, ORTHANC_DICOM_WEB_NAME);
-
 #elif ORTHANC_FRAMEWORK_VERSION_IS_ABOVE(1, 7, 2)
-
-    OrthancPlugins::SetGlobalContext(context);
     Orthanc::Logging::InitializePluginContext(context);
-
 #else
-
-    OrthancPlugins::SetGlobalContext(context);
     Orthanc::Logging::Initialize(context);
-
 #endif
 
     assert(DisplayPerformanceWarning(context));
