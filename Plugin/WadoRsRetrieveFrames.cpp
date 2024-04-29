@@ -480,6 +480,7 @@ static void RetrieveFrames(OrthancPluginRestOutput* output,
       // note: these 2 syntaxes are not supposed to be used in retrieve frames
       // according to https://dicom.nema.org/MEDICAL/dicom/2019a/output/chtml/part18/chapter_6.html#table_6.1.1.8-3b
       // "The Implicit VR Little Endian (1.2.840.10008.1.2), and Explicit VR Big Endian (1.2.840.10008.1.2.2) transfer syntaxes shall not be used with Web Services."
+      LOG(INFO) << "The file is in a transfer syntax " << currentSyntaxString << " that is not allowed by the DICOMWeb standard -> it will be transcoded to Little Endian Explicit";
       targetSyntax = Orthanc::DicomTransferSyntax_LittleEndianExplicit;
     }    
 
