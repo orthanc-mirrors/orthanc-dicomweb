@@ -19,6 +19,7 @@ Version 1.16 (2023-12-19)
 * Fix parsing of Accept header "multipart/related; type=application/octet-stream; transfer-syntax=*" that is used by OHIF.
 * When retrieving frames, WADO-RS may now retrieve transcoded instances from Orthanc StorageCache (for Orthanc >= 1.12.2)
 
+
 Version 1.15 (2023-08-24)
 =========================
 
@@ -32,8 +33,11 @@ Version 1.15 (2023-08-24)
     This cache can be disabled by setting "EnableMetadataCache" to false.  However, disabling the cache
     won't delete the already cached data.  You may call DELETE /series/../attachments/4031 to clear the cache.
 
+
 Version 1.14 (2023-07-05)
 =========================
+
+=> Minimum SDK version: 1.12.1 <=
 
 * speed improvements:
   - Speeded up instance metadata retrieval using OrthancPluginLoadDicomInstance() from SDK 1.12.1
