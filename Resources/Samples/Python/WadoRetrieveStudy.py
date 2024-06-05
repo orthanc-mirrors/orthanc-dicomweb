@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 # Orthanc - A Lightweight, RESTful DICOM Store
 # Copyright (C) 2012-2016 Sebastien Jodogne, Medical Physics
@@ -22,7 +22,7 @@
 
 
 import email
-import urllib2
+import requests
 import sys
 
 if len(sys.argv) != 2:
@@ -31,10 +31,16 @@ if len(sys.argv) != 2:
     print('Example: %s http://localhost:8042/dicom-web/studies/1.3.51.0.1.1.192.168.29.133.1681753.1681732' % sys.argv[0])
     sys.exit(-1)
 
-answer = urllib2.urlopen(sys.argv[1])
-s = str(answer.info()) + "\n" + answer.read()
+r = requests.get(sys.argv[1])
+r.raise_for_status()
 
-msg = email.message_from_string(s)
+headers = ''
+for (key, value) in r.headers.items():
+    headers += '%s: %s\n' % (key, value)
+
+s = bytes(headers + '\n', 'ascii') + r.content
+
+msg = email.message_from_bytes(s)
 
 for i, part in enumerate(msg.walk(), 1):
     filename = 'wado-%06d.dcm' % i
@@ -42,4 +48,4 @@ for i, part in enumerate(msg.walk(), 1):
     if dicom != None:
         print('Storing DICOM file: %s' % filename)
         with open(filename, 'wb') as f:
-            f.write(str(dicom))
+            f.write(dicom)
