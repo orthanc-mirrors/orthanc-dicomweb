@@ -356,10 +356,10 @@ namespace
       for (std::set<Orthanc::DicomTag>::const_iterator
              it = fields.begin(); it != fields.end(); ++it)
       {
-        std::string value;
-        if (source.LookupStringValue(value, *it, false /* no binary */))
+        if (source.HasTag(*it))
         {
-          result.SetValue(*it, value, false);
+          const Orthanc::DicomValue& val = source.GetValue(*it);
+          result.SetValue(*it, val);
         }
       }
 
@@ -418,7 +418,7 @@ static void ApplyMatcher(OrthancPluginRestOutput* output,
     Orthanc::DicomMap source;
     if (resource["RequestedTags"].isObject())
     {
-      source.FromDicomAsJson(resource["RequestedTags"]);
+      source.FromDicomAsJson(resource["RequestedTags"], false, true);
     }
 
     Orthanc::DicomMap target;
