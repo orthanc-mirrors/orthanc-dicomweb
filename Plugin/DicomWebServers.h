@@ -33,7 +33,7 @@
 
 namespace OrthancPlugins
 {
-  class DicomWebServers
+  class DicomWebServers : public boost::noncopyable
   {
   private:
     typedef std::map<std::string, Orthanc::WebServiceParameters*>  Servers;

@@ -40,7 +40,7 @@
 
 namespace
 {
-  class ModuleMatcher
+  class ModuleMatcher : public boost::noncopyable
   {
   public:
     typedef std::map<Orthanc::DicomTag, std::string>  Filters;
