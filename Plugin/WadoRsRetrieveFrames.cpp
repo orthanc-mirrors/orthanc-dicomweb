@@ -497,7 +497,7 @@ static void RetrieveFrames(OrthancPluginRestOutput* output,
     {
       if (!content.RestApiGet("/instances/" + orthancId + "/file?transcode=" + Orthanc::GetTransferSyntaxUid(targetSyntax), false))
       {
-        throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError, "DICOMWeb: Unable to get transcoded file for for instance " + orthancId);
+        throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError, "DICOMWeb: Unable to get transcoded file for instance " + orthancId);
       }
       instance.reset(new OrthancPlugins::DicomInstance(content.GetData(), content.GetSize()));
     }
@@ -505,7 +505,7 @@ static void RetrieveFrames(OrthancPluginRestOutput* output,
     {
       if (!content.RestApiGet("/instances/" + orthancId + "/file", false))
       {
-        throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError, "DICOMWeb: Unable to get file for for instance " + orthancId);
+        throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError, "DICOMWeb: Unable to get file for instance " + orthancId);
       }
       instance.reset(new OrthancPlugins::DicomInstance(content.GetData(), content.GetSize()));
 
