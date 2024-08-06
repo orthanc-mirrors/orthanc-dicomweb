@@ -501,26 +501,8 @@ static void CheckStowAnswer(const Json::Value& response,
 }
 
 
-// static void AddResourceForJobContent(Json::Value resourcesForJobContent /* out */, const char* resourceType, const std::string& resourceId)
 static void AddResourceForJobContent(Json::Value& resourcesForJobContent /* out */, Orthanc::ResourceType resourceType, const std::string& resourceId)
 {
-  // const char* resourceGroup = "Instances";
-  // if (resourceType == "Study")
-  // {
-  //   resourceGroup = "Studies";
-  // }
-  // else if (resourceType == "Series")
-  // {
-  //   resourceGroup = "Series";
-  // }
-  // else if (resourceType == "Patient")
-  // {
-  //   resourceGroup = "Patients";
-  // }
-  // else if (resourceType == "Instance")
-  // {
-  //   resourceGroup = "Instances";
-  // }
   const char* resourceGroup = Orthanc::GetResourceTypeText(resourceType, true, true);
 
   if (!resourcesForJobContent.isMember(resourceGroup))
