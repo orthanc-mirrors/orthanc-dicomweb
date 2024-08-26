@@ -727,7 +727,6 @@ private:
         boost::mutex::scoped_lock lock(that_.mutex_);
         context.SetContent("InstancesCount", boost::lexical_cast<std::string>(that_.instances_.size()));
         context.SetContent("Resources", that_.GetResourcesForJobContent());
-        context.SetContent("Server", that_.GetServerName());
         serverName = that_.serverName_;
         
         startPosition = that_.position_;        
@@ -871,11 +870,6 @@ public:
   const Json::Value& GetResourcesForJobContent()
   {
     return resourcesForJobContent_;
-  }
-
-  const std::string& GetServerName()
-  {
-    return serverName_;
   }
 };
 
