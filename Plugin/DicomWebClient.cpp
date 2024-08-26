@@ -501,26 +501,8 @@ static void CheckStowAnswer(const Json::Value& response,
 }
 
 
-// static void AddResourceForJobContent(Json::Value resourcesForJobContent /* out */, const char* resourceType, const std::string& resourceId)
 static void AddResourceForJobContent(Json::Value& resourcesForJobContent /* out */, Orthanc::ResourceType resourceType, const std::string& resourceId)
 {
-  // const char* resourceGroup = "Instances";
-  // if (resourceType == "Study")
-  // {
-  //   resourceGroup = "Studies";
-  // }
-  // else if (resourceType == "Series")
-  // {
-  //   resourceGroup = "Series";
-  // }
-  // else if (resourceType == "Patient")
-  // {
-  //   resourceGroup = "Patients";
-  // }
-  // else if (resourceType == "Instance")
-  // {
-  //   resourceGroup = "Instances";
-  // }
   const char* resourceGroup = Orthanc::GetResourceTypeText(resourceType, true, true);
 
   if (!resourcesForJobContent.isMember(resourceGroup))
@@ -745,6 +727,7 @@ private:
         boost::mutex::scoped_lock lock(that_.mutex_);
         context.SetContent("InstancesCount", boost::lexical_cast<std::string>(that_.instances_.size()));
         context.SetContent("Resources", that_.GetResourcesForJobContent());
+        context.SetContent("Server", that_.GetServerName());
         serverName = that_.serverName_;
         
         startPosition = that_.position_;        
@@ -888,6 +871,11 @@ public:
   const Json::Value& GetResourcesForJobContent()
   {
     return resourcesForJobContent_;
+  }
+
+  const std::string& GetServerName()
+  {
+    return serverName_;
   }
 };
 
