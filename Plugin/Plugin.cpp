@@ -256,6 +256,10 @@ void QidoClient(OrthancPluginRestOutput* output,
 
             switch (content.type())
             {
+              case Json::intValue:
+                value["Value"] = content;
+                break;
+
               case Json::stringValue:
                 value["Value"] = content.asString();
                 break;
