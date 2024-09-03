@@ -132,6 +132,16 @@ namespace
       for (uint32_t i = 0; i < request->getCount; i++)
       {
         std::string key(request->getKeys[i]);
+        if (key.empty())
+        {
+          /**
+           * This case can happen in Weasis, which uses the following
+           * URL if doing a basic QIDO-RS request (note the "?&"):
+           * http://localhost:8042/dicom-web/studies?&includefield=00080020,00080030,00080050,00080061,00080090,00081030,00100010,00100020,00100021,00100030,00100040,0020000D,00200010&limit=10&offset=0
+           **/
+          continue;
+        }
+
         std::string value(request->getValues[i]);
         args += " [" + key + "=" + value + "]";
 
