@@ -433,6 +433,9 @@ static void ApplyMatcher(OrthancPluginRestOutput* output,
 
     Orthanc::DicomMap target;
 
+    // since we are populating the target with values from JSON, all string are actually UTF-8
+    target.SetValue(Orthanc::DICOM_TAG_SPECIFIC_CHARACTER_SET, "ISO_IR 192", false);
+
     matcher.ExtractFields(target, source, wadoBasePublicUrl, level);
     writer.AddOrthancMap(target);
   }
