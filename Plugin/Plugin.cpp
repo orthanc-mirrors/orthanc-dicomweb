@@ -42,7 +42,8 @@
 #define ORTHANC_CORE_MINIMAL_REVISION  0
 
 static const char* const HAS_DELETE = "HasDelete";
-
+static const char* const SYSTEM_CAPABILITIES = "Capabilities";
+static const char* const SYSTEM_CAPABILITIES_HAS_EXTENDED_FIND = "HasExtendedFind";
 
 
 bool RequestHasKey(const OrthancPluginHttpRequest* request, const char* key)
@@ -471,8 +472,27 @@ static OrthancPluginErrorCode OnChangeCallback(OrthancPluginChangeType changeTyp
     switch (changeType)
     {
       case OrthancPluginChangeType_OrthancStarted:
+      {
         OrthancPlugins::Configuration::LoadDicomWebServers();
-        break;
+
+        Json::Value system;
+        if (OrthancPlugins::RestApiGet(system, "/system", false))
+        {
+          bool hasExtendedFind = system.isMember(SYSTEM_CAPABILITIES) 
+                                      && system[SYSTEM_CAPABILITIES].isMember(SYSTEM_CAPABILITIES_HAS_EXTENDED_FIND)
+                                      && system[SYSTEM_CAPABILITIES][SYSTEM_CAPABILITIES_HAS_EXTENDED_FIND].asBool();
+          if (hasExtendedFind)
+          {
+            LOG(WARNING) << "Orthanc supports ExtendedFind.";
+            SetPluginCanUseExtendedFile(true);
+          }
+          else
+          {
+            LOG(WARNING) << "Orthanc does not support ExtendedFind.";
+          }
+        }
+
+      }; break;
 
       case OrthancPluginChangeType_StableSeries:
         CacheSeriesMetadata(resourceId);

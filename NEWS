@@ -5,6 +5,7 @@ Pending changes in the mainline
 * Fixed parsing of numerical values in QIDO-RS response that prevented, amongst other,
   the retrieval of NumberOfStudyRelatedInstances, NumberOfStudyRelatedSeries, ...
 * Fixed non latin PatientName values that were empty in some QIDO-RS responses.
+* Optimization when running with an Orthanc that supports the ExtendedFind.
 
 
 Version 1.17 (2024-06-05)
