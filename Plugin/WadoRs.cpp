@@ -51,6 +51,7 @@ static std::string instancesMainDicomTagsList;
 static boost::mutex mainDicomTagsListMutex;
 
 static bool pluginCanUseExtendedFind_ = false;
+static bool isSystemReadOnly_ = false;
 
 void SetPluginCanUseExtendedFile(bool enable)
 {
@@ -60,6 +61,16 @@ void SetPluginCanUseExtendedFile(bool enable)
 bool CanUseExtendedFile()
 {
   return pluginCanUseExtendedFind_;
+}
+
+void SetSystemIsReadOnly(bool isReadOnly)
+{
+  isSystemReadOnly_ = isReadOnly;
+}
+
+bool IsSystemReadOnly()
+{
+  return isSystemReadOnly_;
 }
 
 static std::string GetResourceUri(Orthanc::ResourceType level,
@@ -1457,20 +1468,22 @@ void CacheSeriesMetadataInternal(std::string& serializedSeriesMetadata,
   RetrieveSeriesMetadataInternal(instancesIds, writer, cache, OrthancPlugins::MetadataMode_Full, false /* isXml */, seriesOrthancId, studyInstanceUid, seriesInstanceUid, WADO_BASE_PLACEHOLDER);
   writer.CloseAndGetJsonOutput(serializedSeriesMetadata);
 
-  // save in attachments for future use
-  Orthanc::IBufferCompressor::Compress(compressedSeriesMetadata, compressor, serializedSeriesMetadata);
-  std::string instancesMd5;
-  Orthanc::Toolbox::ComputeMD5(instancesMd5, instancesIds);
-
-  std::string cacheContent = "2;" + instancesMd5 + ";" + compressedSeriesMetadata; 
-
-  Json::Value putResult;
-  std::string attachmentUrl = "/series/" + seriesOrthancId + "/attachments/" + SERIES_METADATA_ATTACHMENT_ID;
-  if (!OrthancPlugins::RestApiPut(putResult, attachmentUrl, cacheContent, false))
+  if (!IsSystemReadOnly())
   {
-    LOG(WARNING) << "DicomWEB: failed to write series metadata attachment";
-  }
+    // save in attachments for future use
+    Orthanc::IBufferCompressor::Compress(compressedSeriesMetadata, compressor, serializedSeriesMetadata);
+    std::string instancesMd5;
+    Orthanc::Toolbox::ComputeMD5(instancesMd5, instancesIds);
 
+    std::string cacheContent = "2;" + instancesMd5 + ";" + compressedSeriesMetadata; 
+
+    Json::Value putResult;
+    std::string attachmentUrl = "/series/" + seriesOrthancId + "/attachments/" + SERIES_METADATA_ATTACHMENT_ID;
+    if (!OrthancPlugins::RestApiPut(putResult, attachmentUrl, cacheContent, false))
+    {
+      LOG(WARNING) << "DicomWEB: failed to write series metadata attachment";
+    }
+  }
 }
 
 void CacheSeriesMetadata(const std::string& seriesOrthancId)

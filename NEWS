@@ -6,6 +6,7 @@ Pending changes in the mainline
   the retrieval of NumberOfStudyRelatedInstances, NumberOfStudyRelatedSeries, ...
 * Fixed non latin PatientName values that were empty in some QIDO-RS responses.
 * Optimization when running with an Orthanc that supports the ExtendedFind.
+* Added support for Orthanc running in "ReadOnly" mode.
 
 
 Version 1.17 (2024-06-05)

@@ -142,5 +142,7 @@ namespace OrthancPlugins
     unsigned int GetMetadataWorkerThreadsCount();
 
     bool IsMetadataCacheEnabled();
+
+    bool IsReadOnly();
   }
 }

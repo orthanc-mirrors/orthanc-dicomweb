@@ -105,3 +105,5 @@ void RetrieveStudyRendered(OrthancPluginRestOutput* output,
 void SetPluginCanDownloadTranscodedFile(bool enable);
 
 void SetPluginCanUseExtendedFile(bool enable);
+
+void SetSystemIsReadOnly(bool isReadOnly);

@@ -682,6 +682,10 @@ namespace OrthancPlugins
       return GetBooleanValue("EnableMetadataCache", true);
     }
 
+    bool IsReadOnly()
+    {
+      return globalConfiguration_->GetBooleanValue("ReadOnly", false);
+    }
     
     MetadataMode GetMetadataMode(Orthanc::ResourceType level)
     {
