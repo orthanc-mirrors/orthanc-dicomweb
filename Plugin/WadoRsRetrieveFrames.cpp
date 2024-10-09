@@ -456,7 +456,7 @@ static void AnswerFrame(OrthancPluginRestOutput* output,
   const std::string base = OrthancPlugins::Configuration::GetBasePublicUrl(request);
   std::string location = (
     OrthancPlugins::Configuration::GetWadoUrl(base, studyInstanceUid, seriesInstanceUid, sopInstanceUid) +
-    "frames/" + boost::lexical_cast<std::string>(frame));
+    "frames/" + boost::lexical_cast<std::string>(frame + 1));
   const char *keys[] = { "Content-Location" };
   const char *values[] = { location.c_str() };
   error = OrthancPluginSendMultipartItem2(OrthancPlugins::GetGlobalContext(), output, instanceContent.GetData(), instanceContent.GetSize(), 1, keys, values);
@@ -548,10 +548,8 @@ static void RetrieveFrames(OrthancPluginRestOutput* output,
         throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError, "DICOMWeb: Unable to get file for instance " + orthancId);
       }
 
-      LOG(INFO) << "DICOMweb RetrieveFrames, before AnswerFrame";
       AnswerFrame(output, request, content, studyInstanceUid, seriesInstanceUid,
                   sopInstanceUid, frames.front(), targetSyntax);
-      LOG(INFO) << "DICOMweb RetrieveFrame, leaving";
       return;
     }
     else 
