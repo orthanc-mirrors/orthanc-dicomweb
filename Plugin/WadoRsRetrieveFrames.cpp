@@ -433,6 +433,43 @@ static void AnswerFrames(OrthancPluginRestOutput* output,
 }
 
 
+static void AnswerFrame(OrthancPluginRestOutput* output,
+                        const OrthancPluginHttpRequest* request,
+                        const OrthancPlugins::MemoryBuffer& instanceContent,
+                        const std::string& studyInstanceUid,
+                        const std::string& seriesInstanceUid,
+                        const std::string& sopInstanceUid,
+                        unsigned int frame,
+                        Orthanc::DicomTransferSyntax outputSyntax)
+{
+  if (OrthancPluginStartMultipartAnswer(
+        OrthancPlugins::GetGlobalContext(), 
+        output, "related", GetMimeType(outputSyntax)) != OrthancPluginErrorCode_Success)
+  {
+    throw Orthanc::OrthancException(Orthanc::ErrorCode_Plugin,
+                                    "Cannot start a multipart answer");
+  }
+
+  OrthancPluginErrorCode error;
+
+#if HAS_SEND_MULTIPART_ITEM_2 == 1
+  const std::string base = OrthancPlugins::Configuration::GetBasePublicUrl(request);
+  std::string location = (
+    OrthancPlugins::Configuration::GetWadoUrl(base, studyInstanceUid, seriesInstanceUid, sopInstanceUid) +
+    "frames/" + boost::lexical_cast<std::string>(frame));
+  const char *keys[] = { "Content-Location" };
+  const char *values[] = { location.c_str() };
+  error = OrthancPluginSendMultipartItem2(OrthancPlugins::GetGlobalContext(), output, instanceContent.GetData(), instanceContent.GetSize(), 1, keys, values);
+#else
+  error = OrthancPluginSendMultipartItem(OrthancPlugins::GetGlobalContext(), instanceContent.GetData(), instanceContent.GetSize(), size);
+#endif
+
+  if (error != OrthancPluginErrorCode_Success)
+  {
+    throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);      
+  }
+}
+
 static void RetrieveFrames(OrthancPluginRestOutput* output,
                            const OrthancPluginHttpRequest* request,
                            bool allFrames,
@@ -499,9 +536,25 @@ static void RetrieveFrames(OrthancPluginRestOutput* output,
       {
         throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError, "DICOMWeb: Unable to get transcoded file for instance " + orthancId);
       }
+
+      // TODO-OPTI: this takes a huge amount of time; e.g: 1.5s for a 600MB file while the DicomInstance usually already exists in the Orthanc core
+      //            call /instances/../frames/../transcoded (to be implemented in future Orthanc release)
       instance.reset(new OrthancPlugins::DicomInstance(content.GetData(), content.GetSize()));
     }
-    else // pre 1.12.2 code (or no transcoding needed)
+    else if (!allFrames && frames.size() == 1 && !transcodeThisInstance) // no transcoding needed, let's retrieve the raw frame directly from the core to avoid Orthanc to recreate a DicomInstance for every frame
+    {
+      if (!content.RestApiGet("/instances/" + orthancId + "/frames/" + boost::lexical_cast<std::string>(frames.front()) + "/raw", false))
+      {
+        throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError, "DICOMWeb: Unable to get file for instance " + orthancId);
+      }
+
+      LOG(INFO) << "DICOMweb RetrieveFrames, before AnswerFrame";
+      AnswerFrame(output, request, content, studyInstanceUid, seriesInstanceUid,
+                  sopInstanceUid, frames.front(), targetSyntax);
+      LOG(INFO) << "DICOMweb RetrieveFrame, leaving";
+      return;
+    }
+    else 
     {
       if (!content.RestApiGet("/instances/" + orthancId + "/file", false))
       {
