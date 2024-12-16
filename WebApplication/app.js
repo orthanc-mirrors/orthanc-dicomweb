@@ -35,8 +35,6 @@ var app = new Vue({
     showStudies: false,
     showSeries: false,
     maxResults: MAX_RESULTS,
-    currentPage: 0,
-    perPage: 10,
     servers: [ ],
     serversInfo: { },
     activeServer: '',
@@ -49,28 +47,20 @@ var app = new Vue({
     jobDetails: '',
     studiesFields: [
       {
-        key: DICOM_TAG_PATIENT_ID + '.Value',
-        label: 'Patient ID',
-        sortable: true
+        key: DICOM_TAG_PATIENT_ID,
+        label: 'Patient ID'
       },
       {
-        key: DICOM_TAG_PATIENT_NAME + '.Value',
-        label: 'Patient name',
-        sortable: true
+        key: DICOM_TAG_PATIENT_NAME,
+        label: 'Patient name'
       },
       {
-        key: DICOM_TAG_ACCESSION_NUMBER + '.Value',
-        label: 'Accession number',
-        sortable: true
+        key: DICOM_TAG_ACCESSION_NUMBER,
+        label: 'Accession number'
       },
       {
-        key: DICOM_TAG_STUDY_DATE + '.Value',
-        label: 'Study date',
-        sortable: true
-      },
-      {
-        key: 'operations',
-        label: ''
+        key: DICOM_TAG_STUDY_DATE,
+        label: 'Study date'
       }
     ],
     studyToDelete: null,
