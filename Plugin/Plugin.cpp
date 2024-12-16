@@ -42,7 +42,10 @@
 #define ORTHANC_CORE_MINIMAL_REVISION  0
 
 static const char* const HAS_DELETE = "HasDelete";
-
+static const char* const SYSTEM_CAPABILITIES = "Capabilities";
+static const char* const SYSTEM_CAPABILITIES_HAS_EXTENDED_FIND = "HasExtendedFind";
+static const char* const READ_ONLY = "ReadOnly";
+bool isReadOnly_ = false;
 
 
 bool RequestHasKey(const OrthancPluginHttpRequest* request, const char* key)
@@ -471,11 +474,41 @@ static OrthancPluginErrorCode OnChangeCallback(OrthancPluginChangeType changeTyp
     switch (changeType)
     {
       case OrthancPluginChangeType_OrthancStarted:
+      {
         OrthancPlugins::Configuration::LoadDicomWebServers();
-        break;
+
+        Json::Value system;
+        if (OrthancPlugins::RestApiGet(system, "/system", false))
+        {
+          bool hasExtendedFind = system.isMember(SYSTEM_CAPABILITIES) 
+                                      && system[SYSTEM_CAPABILITIES].isMember(SYSTEM_CAPABILITIES_HAS_EXTENDED_FIND)
+                                      && system[SYSTEM_CAPABILITIES][SYSTEM_CAPABILITIES_HAS_EXTENDED_FIND].asBool();
+          if (hasExtendedFind)
+          {
+            LOG(INFO) << "Orthanc supports ExtendedFind.";
+            SetPluginCanUseExtendedFile(true);
+          }
+          else
+          {
+            LOG(WARNING) << "Orthanc does not support ExtendedFind.  The DICOMWeb plugin will not benefit from some optimizations.";
+          }
+
+          bool isReadOnly = system.isMember(READ_ONLY) && system[READ_ONLY].asBool();
+
+          if (isReadOnly)
+          {
+            LOG(INFO) << "Orthanc is ReadOnly.";
+            SetSystemIsReadOnly(true);
+          }
+        }
+
+      }; break;
 
       case OrthancPluginChangeType_StableSeries:
-        CacheSeriesMetadata(resourceId);
+        if (!OrthancPlugins::Configuration::IsReadOnly())
+        {
+          CacheSeriesMetadata(resourceId);
+        }
         break;
 
       default:
@@ -568,13 +601,27 @@ extern "C"
 
         LOG(WARNING) << "URI to the DICOMweb REST API: " << root;
 
-        OrthancPlugins::ChunkedRestRegistration<
-          SearchForStudies /* TODO => Rename as QIDO-RS */,
-          OrthancPlugins::StowServer::PostCallback>::Apply(root + "studies");
 
-        OrthancPlugins::ChunkedRestRegistration<
-          RetrieveDicomStudy /* TODO => Rename as WADO-RS */,
-          OrthancPlugins::StowServer::PostCallback>::Apply(root + "studies/([^/]*)");
+        if (!OrthancPlugins::Configuration::IsReadOnly())
+        {
+          OrthancPlugins::ChunkedRestRegistration<
+            SearchForStudies /* TODO => Rename as QIDO-RS */,
+            OrthancPlugins::StowServer::PostCallback>::Apply(root + "studies");
+
+          OrthancPlugins::ChunkedRestRegistration<
+            RetrieveDicomStudy /* TODO => Rename as WADO-RS */,
+            OrthancPlugins::StowServer::PostCallback>::Apply(root + "studies/([^/]*)");
+        }
+        else
+        {
+          LOG(WARNING) << "READ-ONLY SYSTEM: deactivating STOW-RS routes";
+          
+          OrthancPlugins::ChunkedRestRegistration<
+            SearchForStudies /* TODO => Rename as QIDO-RS */>::Apply(root + "studies");
+
+          OrthancPlugins::ChunkedRestRegistration<
+            RetrieveDicomStudy /* TODO => Rename as WADO-RS */>::Apply(root + "studies/([^/]*)");
+        }
 
         OrthancPlugins::RegisterRestCallback<SearchForInstances>(root + "instances", true);
         OrthancPlugins::RegisterRestCallback<SearchForSeries>(root + "series", true);    
@@ -592,10 +639,19 @@ extern "C"
 
         OrthancPlugins::RegisterRestCallback<ListServers>(root + "servers", true);
         OrthancPlugins::RegisterRestCallback<ListServerOperations>(root + "servers/([^/]*)", true);
-        OrthancPlugins::RegisterRestCallback<StowClient>(root + "servers/([^/]*)/stow", true);
+        
+        if (!OrthancPlugins::Configuration::IsReadOnly())
+        {
+          OrthancPlugins::RegisterRestCallback<RetrieveFromServer>(root + "servers/([^/]*)/retrieve", true);
+        }
+        else
+        {
+          LOG(WARNING) << "READ-ONLY SYSTEM: deactivating 'servers/../retrieve' route";
+        }
+
         OrthancPlugins::RegisterRestCallback<WadoRetrieveClient>(root + "servers/([^/]*)/wado", true);
+        OrthancPlugins::RegisterRestCallback<StowClient>(root + "servers/([^/]*)/stow", true);
         OrthancPlugins::RegisterRestCallback<GetFromServer>(root + "servers/([^/]*)/get", true);
-        OrthancPlugins::RegisterRestCallback<RetrieveFromServer>(root + "servers/([^/]*)/retrieve", true);
         OrthancPlugins::RegisterRestCallback<QidoClient>(root + "servers/([^/]*)/qido", true);
         OrthancPlugins::RegisterRestCallback<DeleteClient>(root + "servers/([^/]*)/delete", true);
 
@@ -610,7 +666,10 @@ extern "C"
         OrthancPlugins::RegisterRestCallback<RetrieveInstanceRendered>(root + "studies/([^/]*)/series/([^/]*)/instances/([^/]*)/rendered", true);
         OrthancPlugins::RegisterRestCallback<RetrieveFrameRendered>(root + "studies/([^/]*)/series/([^/]*)/instances/([^/]*)/frames/([^/]*)/rendered", true);
 
-        OrthancPlugins::RegisterRestCallback<UpdateSeriesMetadataCache>("/studies/([^/]*)/update-dicomweb-cache", true);
+        if (!OrthancPlugins::Configuration::IsReadOnly())
+        {
+          OrthancPlugins::RegisterRestCallback<UpdateSeriesMetadataCache>("/studies/([^/]*)/update-dicomweb-cache", true);
+        }
 
         OrthancPluginRegisterOnChangeCallback(context, OnChangeCallback);
 

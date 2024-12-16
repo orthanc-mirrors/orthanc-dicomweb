@@ -443,7 +443,7 @@ static void AnswerFrame(OrthancPluginRestOutput* output,
                         Orthanc::DicomTransferSyntax outputSyntax)
 {
   if (OrthancPluginStartMultipartAnswer(
-        OrthancPlugins::GetGlobalContext(), 
+        OrthancPlugins::GetGlobalContext(),
         output, "related", GetMimeType(outputSyntax)) != OrthancPluginErrorCode_Success)
   {
     throw Orthanc::OrthancException(Orthanc::ErrorCode_Plugin,
@@ -466,7 +466,7 @@ static void AnswerFrame(OrthancPluginRestOutput* output,
 
   if (error != OrthancPluginErrorCode_Success)
   {
-    throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);      
+    throw Orthanc::OrthancException(Orthanc::ErrorCode_NetworkProtocol);
   }
 }
 
@@ -552,7 +552,7 @@ static void RetrieveFrames(OrthancPluginRestOutput* output,
                   sopInstanceUid, frames.front(), targetSyntax);
       return;
     }
-    else 
+    else
     {
       if (!content.RestApiGet("/instances/" + orthancId + "/file", false))
       {

@@ -50,6 +50,28 @@ static const char* const PATIENT_MAIN_DICOM_TAGS = "PatientMainDicomTags";
 static std::string instancesMainDicomTagsList;
 static boost::mutex mainDicomTagsListMutex;
 
+static bool pluginCanUseExtendedFind_ = false;
+static bool isSystemReadOnly_ = false;
+
+void SetPluginCanUseExtendedFile(bool enable)
+{
+  pluginCanUseExtendedFind_ = enable;
+}
+
+bool CanUseExtendedFile()
+{
+  return pluginCanUseExtendedFind_;
+}
+
+void SetSystemIsReadOnly(bool isReadOnly)
+{
+  isSystemReadOnly_ = isReadOnly;
+}
+
+bool IsSystemReadOnly()
+{
+  return isSystemReadOnly_;
+}
 
 static std::string GetResourceUri(Orthanc::ResourceType level,
                                   const std::string& publicId)
@@ -1348,15 +1370,13 @@ void RetrieveSeriesMetadataInternal(std::set<std::string>& instancesIds,
                                     const std::string& wadoBase)
 {
   const unsigned int workersCount =  OrthancPlugins::Configuration::GetMetadataWorkerThreadsCount();
-  const bool oneLargeQuery = false;  // we keep this code here for future use once we'll have optimized Orthanc API /series/.../instances?full to minimize the SQL queries
-                                // right now, it is faster to call /instances/..?full in each worker but, later, it should be more efficient with a large SQL query in Orthanc
 
   if (workersCount > 1 && mode == OrthancPlugins::MetadataMode_Full)
   {
     ChildrenMainDicomMaps instancesDicomMaps;
     std::string seriesDicomUid;
 
-    if (oneLargeQuery)
+    if (CanUseExtendedFile()) // in this case, /series/.../instances?full has been optimized to minimize the SQL queries
     {
       GetChildrenMainDicomTags(instancesDicomMaps, seriesDicomUid, Orthanc::ResourceType_Series, seriesOrthancId);
       for (ChildrenMainDicomMaps::const_iterator it = instancesDicomMaps.begin(); it != instancesDicomMaps.end(); ++it)
@@ -1382,7 +1402,7 @@ void RetrieveSeriesMetadataInternal(std::set<std::string>& instancesIds,
       instancesWorkers.push_back(boost::shared_ptr<boost::thread>(new boost::thread(InstanceWorkerThread, threadData)));
     }
 
-    if (oneLargeQuery)
+    if (CanUseExtendedFile())  // we must correct the bulkRoot
     {
       for (ChildrenMainDicomMaps::const_iterator i = instancesDicomMaps.begin(); i != instancesDicomMaps.end(); ++i)
       {
@@ -1448,20 +1468,22 @@ void CacheSeriesMetadataInternal(std::string& serializedSeriesMetadata,
   RetrieveSeriesMetadataInternal(instancesIds, writer, cache, OrthancPlugins::MetadataMode_Full, false /* isXml */, seriesOrthancId, studyInstanceUid, seriesInstanceUid, WADO_BASE_PLACEHOLDER);
   writer.CloseAndGetJsonOutput(serializedSeriesMetadata);
 
-  // save in attachments for future use
-  Orthanc::IBufferCompressor::Compress(compressedSeriesMetadata, compressor, serializedSeriesMetadata);
-  std::string instancesMd5;
-  Orthanc::Toolbox::ComputeMD5(instancesMd5, instancesIds);
-
-  std::string cacheContent = "2;" + instancesMd5 + ";" + compressedSeriesMetadata; 
-
-  Json::Value putResult;
-  std::string attachmentUrl = "/series/" + seriesOrthancId + "/attachments/" + SERIES_METADATA_ATTACHMENT_ID;
-  if (!OrthancPlugins::RestApiPut(putResult, attachmentUrl, cacheContent, false))
+  if (!IsSystemReadOnly())
   {
-    LOG(WARNING) << "DicomWEB: failed to write series metadata attachment";
-  }
+    // save in attachments for future use
+    Orthanc::IBufferCompressor::Compress(compressedSeriesMetadata, compressor, serializedSeriesMetadata);
+    std::string instancesMd5;
+    Orthanc::Toolbox::ComputeMD5(instancesMd5, instancesIds);
 
+    std::string cacheContent = "2;" + instancesMd5 + ";" + compressedSeriesMetadata; 
+
+    Json::Value putResult;
+    std::string attachmentUrl = "/series/" + seriesOrthancId + "/attachments/" + SERIES_METADATA_ATTACHMENT_ID;
+    if (!OrthancPlugins::RestApiPut(putResult, attachmentUrl, cacheContent, false))
+    {
+      LOG(WARNING) << "DicomWEB: failed to write series metadata attachment";
+    }
+  }
 }
 
 void CacheSeriesMetadata(const std::string& seriesOrthancId)

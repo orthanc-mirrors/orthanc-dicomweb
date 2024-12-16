@@ -278,6 +278,8 @@ namespace OrthancPlugins
         Orthanc::ResourceType level = Orthanc::StringToResourceType(levels[i].c_str());
 
         const Json::Value& content = configuration[EXTRA_MAIN_DICOM_TAGS][levels[i]];
+        std::set<Orthanc::DicomTag> defaultTags;
+        Orthanc::DicomMap::GetMainDicomTags(defaultTags, level);
 
         if (content.size() > 0)
         {
@@ -286,7 +288,10 @@ namespace OrthancPlugins
             const std::string& tagName = content[t].asString();
             Orthanc::DicomTag tag(0, 0);
             OrthancPlugins::ParseTag(tag, tagName);
-            Orthanc::DicomMap::AddMainDicomTag(tag, level);
+            if (defaultTags.find(tag) == defaultTags.end()) // don't generate an error if the ExtraMainDicomTags is now a default one
+            {
+              Orthanc::DicomMap::AddMainDicomTag(tag, level);
+            }
           }
         }
       }
@@ -682,6 +687,10 @@ namespace OrthancPlugins
       return GetBooleanValue("EnableMetadataCache", true);
     }
 
+    bool IsReadOnly()
+    {
+      return globalConfiguration_->GetBooleanValue("ReadOnly", false);
+    }
     
     MetadataMode GetMetadataMode(Orthanc::ResourceType level)
     {
