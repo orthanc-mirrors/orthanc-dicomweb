@@ -10,12 +10,15 @@
   curl -H "Accept: multipart/related; type=application/octet-stream" http://localhost:8043/dicom-web/studies/1.2.156.112536.1.2143.25015081191207.14610300430.5/series/1.2.156.112536.1.2143.25015081191207.14610300430.6/instances/1.2.156.112536.1.2143.25015081191207.14610309990.44/frames/3 --output /tmp/out.bin
   check for these logs: DICOMweb RetrieveFrames: Transcoding instance a7aec17a-e296e51f-2abe8ad8-bc95d57b-4de269d0 to transfer syntax 1.2.840.10008.1.2.1
 
+  Note: This has been partially handled in 1.18: Tf no transcoding is needed, we avoid downloading the full instance from Orthanc
+
   We should very likely implement a cache in the DicomWEB plugin and make sure that, if 3 clients are requesting the same instance at the same time, we only
   request one transcoding.
 
   No such issue in StoneViewer since Stone downloads the whole file.  However, Stone uses 2-3 workers at the same time and the file is read 2-3 times at the same time
   before it ends up in Orthanc cache -> we should introduce a state "is_being_loaded" in caches and have other consumers wait for it to be available.
   https://discourse.orthanc-server.org/t/possible-memory-leak-with-multiframe-dicom-orthanc-ohif/3988/12
+
 
 
 * Implement capabilities: https://www.dicomstandard.org/using/dicomweb/capabilities/

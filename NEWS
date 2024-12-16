@@ -1,11 +1,13 @@
 Pending changes in the mainline
 ===============================
 
-* Added a "Server" entry in the DICOMWeb job content.
-* Fixed parsing of numerical values in QIDO-RS response that prevented, amongst other,
-  the retrieval of NumberOfStudyRelatedInstances, NumberOfStudyRelatedSeries, ...
-* Fixed non latin PatientName values that were empty in some QIDO-RS responses.
-* Optimization when running with an Orthanc that supports the ExtendedFind.
+* Added a "Server" entry in the DICOMweb job content.
+* Fixed parsing of numerical values in QIDO-RS response that prevented, among other,
+  the retrieval of "NumberOfStudyRelatedInstances", "NumberOfStudyRelatedSeries",...
+* Fixed non-Latin "PatientName" values that were empty in some QIDO-RS responses.
+* Optimized the retrieval of single frame in WADO-RS when no transcoding is required.
+  This greatly improves the download time of multi-frame images in OHIF.
+* Optimization when running with an Orthanc that supports the "ExtendedFind" primitive.
 * Added support for Orthanc running in "ReadOnly" mode.
 
 
