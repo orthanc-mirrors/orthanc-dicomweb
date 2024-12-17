@@ -51,7 +51,6 @@ set(ORTHANC_FRAMEWORK_STATIC OFF CACHE BOOL "If linking against the Orthanc fram
 mark_as_advanced(ORTHANC_FRAMEWORK_STATIC)
 
 
-set(BUILD_BOOTSTRAP_VUE OFF CACHE BOOL "Compile Bootstrap-Vue from sources")
 set(BUILD_BABEL_POLYFILL OFF CACHE BOOL "Retrieve babel-polyfill from npm")
 
 

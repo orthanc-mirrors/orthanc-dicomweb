@@ -46,72 +46,6 @@ DownloadPackage(
   "${CMAKE_CURRENT_BINARY_DIR}/Font-Awesome-4.7.0")
 
 
-set(BOOTSTRAP_VUE_SOURCES_DIR ${CMAKE_CURRENT_BINARY_DIR}/bootstrap-vue-2.0.0-rc.24)
-
-if (BUILD_BOOTSTRAP_VUE OR
-    BUILD_BABEL_POLYFILL)
-  find_program(NPM_EXECUTABLE npm)
-  if (${NPM_EXECUTABLE} MATCHES "NPM_EXECUTABLE-NOTFOUND")
-    message(FATAL_ERROR "Please install the 'npm' standard command-line tool")
-  endif()
-endif()
-
-if (BUILD_BOOTSTRAP_VUE)
-  DownloadPackage(
-    "36ab31495ab94162e159619532e8def5"
-    "${BASE_URL}/dicom-web/bootstrap-vue-2.0.0-rc.24.tar.gz"
-    "${BOOTSTRAP_VUE_SOURCES_DIR}")
-
-  if (NOT IS_DIRECTORY "${BOOTSTRAP_VUE_SOURCES_DIR}/node_modules")
-    execute_process(
-      COMMAND ${NPM_EXECUTABLE} install
-      WORKING_DIRECTORY ${BOOTSTRAP_VUE_SOURCES_DIR}
-      RESULT_VARIABLE Failure
-      OUTPUT_QUIET
-      )
-    
-    if (Failure)
-      message(FATAL_ERROR "Error while running 'npm install' on Bootstrap-Vue")
-    endif()
-  endif()
-
-  if (NOT IS_DIRECTORY "${BOOTSTRAP_VUE_SOURCES_DIR}/dist")
-    execute_process(
-      COMMAND ${NPM_EXECUTABLE} run build
-      WORKING_DIRECTORY ${BOOTSTRAP_VUE_SOURCES_DIR}
-      RESULT_VARIABLE Failure
-      OUTPUT_QUIET
-      )
-    
-    if (Failure)
-      message(FATAL_ERROR "Error while running 'npm build' on Bootstrap-Vue")
-    endif()
-  endif()
-
-else()
-
-  ##
-  ## Generation of the precompiled Bootstrap-Vue package:
-  ##
-  ## Possibility 1 (build from sources):
-  ##  $ cmake -DBUILD_BOOTSTRAP_VUE=ON .
-  ##  $ tar cvfz bootstrap-vue-2.0.0-rc.24-dist.tar.gz bootstrap-vue-2.0.0-rc.24/dist/
-  ##
-  ## Possibility 2 (download from CDN):
-  ##  $ mkdir /tmp/i && cd /tmp/i
-  ##  $ wget -r --no-parent https://unpkg.com/bootstrap-vue@2.0.0-rc.24/dist/
-  ##  $ mv unpkg.com/bootstrap-vue@2.0.0-rc.24/ bootstrap-vue-2.0.0-rc.24
-  ##  $ rm bootstrap-vue-2.0.0-rc.24/dist/index.html
-  ##  $ tar cvfz bootstrap-vue-2.0.0-rc.24-dist.tar.gz bootstrap-vue-2.0.0-rc.24/dist/
-
-  DownloadPackage(
-    "ba0e67b1f0b4ce64e072b42b17f6c578"
-    "${BASE_URL}/dicom-web/bootstrap-vue-2.0.0-rc.24-dist.tar.gz"
-    "${BOOTSTRAP_VUE_SOURCES_DIR}")
-
-endif()
-
-
 if (BUILD_BABEL_POLYFILL)
   set(BABEL_POLYFILL_SOURCES_DIR ${CMAKE_CURRENT_BINARY_DIR}/node_modules/babel-polyfill/dist)
 
@@ -124,7 +58,7 @@ if (BUILD_BABEL_POLYFILL)
       )
     
     if (Failure)
-      message(FATAL_ERROR "Error while running 'npm install' on Bootstrap-Vue")
+      message(FATAL_ERROR "Error while running 'npm install' on babel-polyfill")
     endif()
   endif()
 else()
@@ -145,8 +79,6 @@ file(MAKE_DIRECTORY ${JAVASCRIPT_LIBS_DIR})
 
 file(COPY
   ${BABEL_POLYFILL_SOURCES_DIR}/polyfill.min.js
-  ${BOOTSTRAP_VUE_SOURCES_DIR}/dist/bootstrap-vue.min.js
-  ${BOOTSTRAP_VUE_SOURCES_DIR}/dist/bootstrap-vue.min.js.map
   ${CMAKE_CURRENT_BINARY_DIR}/axios-0.19.0/dist/axios.min.js
   ${CMAKE_CURRENT_BINARY_DIR}/axios-0.19.0/dist/axios.min.map
   ${CMAKE_CURRENT_BINARY_DIR}/bootstrap-4.3.1/dist/js/bootstrap.min.js
@@ -157,8 +89,6 @@ file(COPY
   )
 
 file(COPY
-  ${BOOTSTRAP_VUE_SOURCES_DIR}/dist/bootstrap-vue.min.css
-  ${BOOTSTRAP_VUE_SOURCES_DIR}/dist/bootstrap-vue.min.css.map
   ${CMAKE_CURRENT_BINARY_DIR}/Font-Awesome-4.7.0/css/font-awesome.min.css
   ${CMAKE_CURRENT_BINARY_DIR}/bootstrap-4.3.1/dist/css/bootstrap.min.css
   ${CMAKE_CURRENT_BINARY_DIR}/bootstrap-4.3.1/dist/css/bootstrap.min.css.map
