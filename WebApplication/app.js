@@ -83,18 +83,12 @@ var app = new Vue({
     series: [ ],
     seriesFields: [
       {
-        key: DICOM_TAG_SERIES_DESCRIPTION + '.Value',
-        label: 'Series description',
-        sortable: true
+        key: DICOM_TAG_SERIES_DESCRIPTION,
+        label: 'Series description'
       },
       {
-        key: DICOM_TAG_MODALITY + '.Value',
-        label: 'Modality',
-        sortable: true
-      },
-      {
-        key: 'operations',
-        label: ''
+        key: DICOM_TAG_MODALITY,
+        label: 'Modality'
       }
     ],
     seriesToDelete: null,
