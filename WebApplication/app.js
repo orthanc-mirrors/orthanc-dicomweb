@@ -220,7 +220,7 @@ var app = new Vue({
     },
     ConfirmDeleteStudy: function(study) {
       app.studyToDelete = study;
-      app.$bvModal.show('study-delete-confirm');
+      $(app.$refs['study-delete-confirm']).modal();
     },
     ExecuteDeleteStudy: function(study) {
       axios
@@ -319,7 +319,7 @@ var app = new Vue({
     },
     ConfirmDeleteSeries: function(series) {
       app.seriesToDelete = series;
-      app.$bvModal.show('series-delete-confirm');
+      $(app.$refs['series-delete-confirm']).modal();
     },
     ExecuteDeleteSeries: function(series) {
       axios
