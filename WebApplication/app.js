@@ -65,21 +65,6 @@ var app = new Vue({
     ],
     studyToDelete: null,
     studyTags: [ ],    
-    studyTagsFields: [
-      {
-        key: 'Tag',
-        sortable: true
-      },
-      {
-        key: 'Name',
-        label: 'Description',
-        sortable: true
-      },
-      {
-        key: 'Value',
-        sortable: true
-      }
-    ],
     series: [ ],
     seriesFields: [
       {
@@ -92,22 +77,7 @@ var app = new Vue({
       }
     ],
     seriesToDelete: null,
-    seriesTags: [ ],    
-    seriesTagsFields: [
-      {
-        key: 'Tag',
-        sortable: true
-      },
-      {
-        key: 'Name',
-        label: 'Description',
-        sortable: true
-      },
-      {
-        key: 'Value',
-        sortable: true
-      }
-    ],
+    seriesTags: [ ],
     scrollToSeries: false,
     scrollToStudies: false
   },
@@ -139,7 +109,7 @@ var app = new Vue({
       window.scrollTo(0, element.offsetTop);
     },
     ShowErrorModal: function() {
-      app.$refs['modal-error'].show();
+      $(app.$refs['modal-error']).modal();
     },
     RefreshJobDetails: function() {
       axios
@@ -232,7 +202,7 @@ var app = new Vue({
         return item;
       });
       
-      app.$refs['study-details'].show();
+      $(app.$refs['study-details']).modal();
     },
     RetrieveStudy: function(study) {
       var base = '../../servers/';
@@ -296,7 +266,7 @@ var app = new Vue({
         return item;
       });
       
-      app.$refs['series-details'].show();
+      $(app.$refs['series-details']).modal();
     },
     RetrieveSeries: function(series) {
       var base = '../../servers/';

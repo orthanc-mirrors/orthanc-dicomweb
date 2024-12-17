@@ -16,6 +16,10 @@
     <!-- CSS style to truncate long text in tables, provided they have
          class "table-layout:fixed;" or attribute ":fixed=true" -->
     <style>
+      table {
+      table-layout:fixed;
+      }
+
       table td { 
       white-space: nowrap;
       overflow: hidden;
@@ -60,18 +64,28 @@
       </div>
 
 
-      <b-modal ref="modal-error" size="xl" ok-only="true">
-        <template slot="modal-title">
-          Connection error
-        </template>
-        <div class="d-block">
-          <p>
-            There was an error connecting to "{{ activeServer }}" server.
-          </p>
+      <div class="modal" tabindex="-1" ref="modal-error">
+        <div class="modal-dialog modal-xl">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title">Connection error</h5>
+              <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+              </button>
+            </div>
+            <div class="modal-body">
+              <p>
+                There was an error connecting to "{{ activeServer }}" server.
+              </p>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-primary" data-dismiss="modal">OK</button>
+            </div>
+          </div>
         </div>
-      </b-modal>
+      </div>
 
-      
+
       <!-- LOOKUP -->
 
       <div class="row">
@@ -160,16 +174,6 @@
           </tbody>
         </table>
 
-        <b-modal ref="study-details" size="xl" ok-only="true">
-          <template slot="modal-title">
-            Details of study
-          </template>
-          <div class="d-block text-center">
-            <b-table striped :items="studyTags" :fields="studyTagsFields" :fixed="true">
-            </b-table>
-          </div>
-        </b-modal>
-
         <b-modal id="study-delete-confirm" size="xl" @ok="ExecuteDeleteStudy">
           <template slot="modal-title">
             Confirm deletion
@@ -183,6 +187,41 @@
             </p>
           </div>
         </b-modal>
+      </div>
+
+
+      <div class="modal" tabindex="-1" ref="study-details">
+        <div class="modal-dialog modal-xl">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title">Details of study</h5>
+              <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+              </button>
+            </div>
+            <div class="modal-body">
+              <table class="table table-striped">
+                <thead>
+                  <tr>
+                    <th scope="col" class="col-sm-2">Tag</th>
+                    <th scope="col" class="col-sm-3">Description</th>
+                    <th scope="col">Value</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="s in studyTags">
+                    <td>{{'Tag' in s ? s.Tag : ''}}</td>
+                    <td>{{'Name' in s ? s.Name : ''}}</td>
+                    <td>{{'Value' in s ? s.Value : ''}}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-primary" data-dismiss="modal">OK</button>
+            </div>
+          </div>
+        </div>
       </div>
 
 
@@ -222,16 +261,6 @@
           </tbody>
         </table>
 
-        <b-modal ref="series-details" size="xl" ok-only="true">
-          <template slot="modal-title">
-            Details of series
-          </template>
-          <div class="d-block text-center">
-            <b-table striped :items="seriesTags" :fields="seriesTagsFields" :fixed="true">
-            </b-table>
-          </div>
-        </b-modal>
-
         <b-modal ref="series-preview" size="xl" ok-only="true">
           <template slot="modal-title">
             Preview of series
@@ -257,6 +286,41 @@
             </p>
           </div>
         </b-modal>
+      </div>
+
+
+      <div class="modal" tabindex="-1" ref="series-details">
+        <div class="modal-dialog modal-xl">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title">Details of series</h5>
+              <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+              </button>
+            </div>
+            <div class="modal-body">
+              <table class="table table-striped">
+                <thead>
+                  <tr>
+                    <th scope="col" class="col-sm-2">Tag</th>
+                    <th scope="col" class="col-sm-3">Description</th>
+                    <th scope="col">Value</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="s in seriesTags">
+                    <td>{{'Tag' in s ? s.Tag : ''}}</td>
+                    <td>{{'Name' in s ? s.Name : ''}}</td>
+                    <td>{{'Value' in s ? s.Value : ''}}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-primary" data-dismiss="modal">OK</button>
+            </div>
+          </div>
+        </div>
       </div>
 
 
@@ -288,7 +352,10 @@
     </div>
 
     <!-- Add Vue and Bootstrap-Vue JS just before the closing </body> tag -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js" integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>  <!-- Necessary for Bootstrap -->
+    <script src="../libs/js/bootstrap.min.js"></script>
     <script src="../libs/js/vue.min.js"></script>
+    <script src="../libs/js/bootstrap-vue.min.js"></script>
     <script src="../libs/js/axios.min.js"></script>
     <script type="text/javascript" src="app.js"></script>
   </body>
