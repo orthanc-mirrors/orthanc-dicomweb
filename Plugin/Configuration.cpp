@@ -475,11 +475,10 @@ namespace OrthancPlugins
 
 
     static bool LookupHttpHeader2(std::string& value,
-                                  const HttpClient::HttpHeaders& headers,
+                                  const HttpHeaders& headers,
                                   const std::string& name)
     {
-      for (HttpClient::HttpHeaders::const_iterator
-             it = headers.begin(); it != headers.end(); ++it)
+      for (HttpHeaders::const_iterator it = headers.begin(); it != headers.end(); ++it)
       {
         if (boost::iequals(it->first, name))
         {
@@ -492,7 +491,7 @@ namespace OrthancPlugins
     }
 
 
-    std::string GetBasePublicUrl(const HttpClient::HttpHeaders& headers)
+    std::string GetBasePublicUrl(const HttpHeaders& headers)
     {
       assert(dicomWebConfiguration_.get() != NULL);
       std::string host = dicomWebConfiguration_->GetStringValue("Host", "");
@@ -563,7 +562,7 @@ namespace OrthancPlugins
 
     std::string GetBasePublicUrl(const OrthancPluginHttpRequest* request)
     {
-      HttpClient::HttpHeaders headers;
+      HttpHeaders headers;
 
       std::string value;
       if (LookupHttpHeader(value, request, "forwarded"))

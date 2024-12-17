@@ -598,16 +598,16 @@ private:
     Action_Cancel
   };
   
-  boost::mutex                             mutex_;
-  std::string                              serverName_;
-  std::vector<std::string>                 instances_;
-  OrthancPlugins::HttpClient::HttpHeaders  headers_;
-  std::string                              boundary_;
-  size_t                                   position_;
-  Action                                   action_;
-  size_t                                   networkSize_;
-  bool                                     debug_;
-  Json::Value                              resourcesForJobContent_;
+  boost::mutex                 mutex_;
+  std::string                  serverName_;
+  std::vector<std::string>     instances_;
+  OrthancPlugins::HttpHeaders  headers_;
+  std::string                  boundary_;
+  size_t                       position_;
+  Action                       action_;
+  size_t                       networkSize_;
+  bool                         debug_;
+  Json::Value                  resourcesForJobContent_;
 
   bool ReadNextInstance(std::string& dicom,
                         JobContext& context)
@@ -740,7 +740,7 @@ private:
         client->AddHeaders(that_.headers_);
       }
 
-      OrthancPlugins::HttpClient::HttpHeaders answerHeaders;
+      OrthancPlugins::HttpHeaders answerHeaders;
       Json::Value answerBody;
 
       assert(client.get() != NULL);
@@ -822,7 +822,7 @@ private:
 public:
   StowClientJob(const std::string& serverName,
                 const std::list<std::string>& instances,
-                const OrthancPlugins::HttpClient::HttpHeaders& headers,
+                const OrthancPlugins::HttpHeaders& headers,
                 const Json::Value& resourcesForJobContent) :
     SingleFunctionJob("DicomWebStowClient"),
     serverName_(serverName),

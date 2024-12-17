@@ -922,7 +922,15 @@ static void WriteInstanceMetadata(OrthancPlugins::DicomWebFormatter::HttpWriter&
           false /* JSON */, OrthancPluginDicomWebBinaryMode_Ignore, "");
       }
 
-      buffer.RestApiPut("/instances/" + orthancId + "/attachments/4444", dicomweb, false);
+      try
+      {
+        buffer.RestApiPut("/instances/" + orthancId + "/attachments/4444", dicomweb, false);
+      }
+      catch (Orthanc::OrthancException& e)
+      {
+        // An exception might occur if another writer has concurrently created the attachment, ignore this case
+      }
+
       writer.AddDicomWebInstanceSerializedJson(dicomweb.c_str(), dicomweb.size());
     }
   }
@@ -1479,7 +1487,24 @@ void CacheSeriesMetadataInternal(std::string& serializedSeriesMetadata,
 
     Json::Value putResult;
     std::string attachmentUrl = "/series/" + seriesOrthancId + "/attachments/" + SERIES_METADATA_ATTACHMENT_ID;
-    if (!OrthancPlugins::RestApiPut(putResult, attachmentUrl, cacheContent, false))
+
+    OrthancPlugins::RestApiClient client;
+    client.SetMethod(OrthancPluginHttpMethod_Get);
+    client.SetPath(attachmentUrl);
+
+    std::string etag;
+    bool hasRevision = (client.Execute() &&
+                        client.LookupAnswerHeader(etag, "etag"));
+
+    client.SetMethod(OrthancPluginHttpMethod_Put);
+    client.SwapRequestBody(cacheContent);
+
+    if (hasRevision)
+    {
+      client.AddRequestHeader("If-Match", etag);
+    }
+
+    if (!client.Execute())
     {
       LOG(WARNING) << "DicomWEB: failed to write series metadata attachment";
     }

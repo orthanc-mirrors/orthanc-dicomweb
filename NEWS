@@ -9,6 +9,7 @@ Pending changes in the mainline
   This greatly improves the download time of multi-frame images in OHIF.
 * Optimization when running with an Orthanc that supports the "ExtendedFind" primitive.
 * Added support for Orthanc running in "ReadOnly" mode.
+* Fix handling of revisions for cached data.
 
 
 Version 1.17 (2024-06-05)
