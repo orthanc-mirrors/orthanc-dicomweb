@@ -6,9 +6,7 @@
 
     <title>Orthanc - DICOMweb client</title>
 
-    <!-- Add Bootstrap and Bootstrap-Vue CSS to the <head> section -->
     <link type="text/css" rel="stylesheet" href="../libs/css/bootstrap.min.css"/>
-    <link type="text/css" rel="stylesheet" href="../libs/css/bootstrap-vue.min.css"/>
     <link type="text/css" rel="stylesheet" href="../libs/css/font-awesome.min.css"/>
     
     <script src="../libs/js/polyfill.min.js"></script>
@@ -272,18 +270,31 @@
             </tr>
           </tbody>
         </table>
+      </div>
 
-        <b-modal ref="series-preview" size="xl" ok-only="true">
-          <template slot="modal-title">
-            Preview of series
-          </template>
-          <div class="d-block text-center">
-            <b-alert variant="danger" v-model="previewFailure">
-              The remote DICOMweb server cannot generate a preview for this image.
-            </b-alert>
-            <b-img v-if="!previewFailure" :src="preview" fluid alt=""></b-img>
+
+      <div class="modal" tabindex="-1" ref="series-preview">
+        <div class="modal-dialog modal-xl">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title">Preview of series</h5>
+              <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+              </button>
+            </div>
+            <div class="modal-body">
+              <div class="alert alert-danger alert-dismissible" v-if="previewFailure">
+                The remote DICOMweb server cannot generate a preview for this image.
+              </div>
+              <div class="text-center">
+                <img class="img-fluid" v-if="!previewFailure" v-bind:src="preview">
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-primary" data-dismiss="modal">OK</button>
+            </div>
           </div>
-        </b-modal>
+        </div>
       </div>
 
 
@@ -348,38 +359,46 @@
       </div>
 
 
-      <b-modal ref="retrieve-job" size="xl" ok-only="true">
-        <template slot="modal-title">
-          Retrieving {{ jobLevel }}
-        </template>
-        <div class="d-block">
-          <p>
-            Orthanc is now running a background job to retrieve the
-            {{ jobLevel }} from remote server "{{ activeServer }}" using
-            WADO-RS.
-          </p>
-          <p>
-            Job ID: <tt>{{ jobId }}</tt>
-          </p>
-          <p>
-            Job details:
-          </p>
-          <pre>{{ jobDetails }}</pre>
-          <p>
-            <b-button variant="success" @click="RefreshJobDetails()">Refresh job details</b-button>
-          </p>
+      <div class="modal" tabindex="-1" ref="retrieve-job">
+        <div class="modal-dialog modal-xl">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title">Retrieving {{ jobLevel }}</h5>
+              <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+              </button>
+            </div>
+            <div class="modal-body">
+              <p>
+                Orthanc is now running a background job to retrieve the
+                {{ jobLevel }} from remote server "{{ activeServer }}" using
+                WADO-RS.
+              </p>
+              <p>
+                Job ID: <tt>{{ jobId }}</tt>
+              </p>
+              <p>
+                Job details:
+              </p>
+              <pre>{{ jobDetails }}</pre>
+              <p>
+                <button type="button" class="btn btn-success" @click="RefreshJobDetails()">Refresh job details</button>
+              </p>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-primary" data-dismiss="modal">OK</button>
+            </div>
+          </div>
         </div>
-      </b-modal>
+      </div>
 
 
       <p style="height:5em"></p>
     </div>
 
-    <!-- Add Vue and Bootstrap-Vue JS just before the closing </body> tag -->
     <script src="../libs/js/jquery-3.7.1.min.js"></script>  <!-- Necessary for Bootstrap -->
     <script src="../libs/js/bootstrap.min.js"></script>
     <script src="../libs/js/vue.min.js"></script>
-    <script src="../libs/js/bootstrap-vue.min.js"></script>
     <script src="../libs/js/axios.min.js"></script>
     <script type="text/javascript" src="app.js"></script>
   </body>

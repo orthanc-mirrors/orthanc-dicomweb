@@ -214,7 +214,7 @@ var app = new Vue({
           app.jobLevel = 'study';
           app.jobId = response.data.ID;
           app.jobUri = base + response.data.Path;
-          app.$refs['retrieve-job'].show();
+          $(app.$refs['retrieve-job']).modal();
           app.RefreshJobDetails();
         });
     },
@@ -279,7 +279,7 @@ var app = new Vue({
           app.jobLevel = 'series';
           app.jobId = response.data.ID;
           app.jobUri = base + response.data.Path;
-          app.$refs['retrieve-job'].show();
+          $(app.$refs['retrieve-job']).modal();
           app.RefreshJobDetails();
         });
     },
@@ -313,7 +313,7 @@ var app = new Vue({
               app.previewFailure = true;
             })
               .finally(function() {
-                app.$refs['series-preview'].show();
+                $(app.$refs['series-preview']).modal();
               })
         })
     },
