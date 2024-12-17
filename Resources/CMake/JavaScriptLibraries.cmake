@@ -19,26 +19,30 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 
-set(BASE_URL "https://orthanc.uclouvain.be/downloads/third-party-downloads/dicom-web")
+set(BASE_URL "https://orthanc.uclouvain.be/downloads/third-party-downloads")
+
+DownloadFile(
+  "2c872dbe60f4ba70fb85356113d8b35e"
+  "${BASE_URL}/jquery-3.7.1.min.js")
 
 DownloadPackage(
   "da0189f7c33bf9f652ea65401e0a3dc9"
-  "${BASE_URL}/bootstrap-4.3.1.zip"
+  "${BASE_URL}/dicom-web/bootstrap-4.3.1.zip"
   "${CMAKE_CURRENT_BINARY_DIR}/bootstrap-4.3.1")
 
 DownloadPackage(
   "8242afdc5bd44105d9dc9e6535315484"
-  "${BASE_URL}/vuejs-2.6.10.tar.gz"
+  "${BASE_URL}/dicom-web/vuejs-2.6.10.tar.gz"
   "${CMAKE_CURRENT_BINARY_DIR}/vue-2.6.10")
 
 DownloadPackage(
   "3e2b4e1522661f7fcf8ad49cb933296c"
-  "${BASE_URL}/axios-0.19.0.tar.gz"
+  "${BASE_URL}/dicom-web/axios-0.19.0.tar.gz"
   "${CMAKE_CURRENT_BINARY_DIR}/axios-0.19.0")
 
 DownloadPackage(
   "a6145901f233f7d54165d8ade779082e"
-  "${BASE_URL}/Font-Awesome-4.7.0.tar.gz"
+  "${BASE_URL}/dicom-web/Font-Awesome-4.7.0.tar.gz"
   "${CMAKE_CURRENT_BINARY_DIR}/Font-Awesome-4.7.0")
 
 
@@ -55,7 +59,7 @@ endif()
 if (BUILD_BOOTSTRAP_VUE)
   DownloadPackage(
     "36ab31495ab94162e159619532e8def5"
-    "${BASE_URL}/bootstrap-vue-2.0.0-rc.24.tar.gz"
+    "${BASE_URL}/dicom-web/bootstrap-vue-2.0.0-rc.24.tar.gz"
     "${BOOTSTRAP_VUE_SOURCES_DIR}")
 
   if (NOT IS_DIRECTORY "${BOOTSTRAP_VUE_SOURCES_DIR}/node_modules")
@@ -102,7 +106,7 @@ else()
 
   DownloadPackage(
     "ba0e67b1f0b4ce64e072b42b17f6c578"
-    "${BASE_URL}/bootstrap-vue-2.0.0-rc.24-dist.tar.gz"
+    "${BASE_URL}/dicom-web/bootstrap-vue-2.0.0-rc.24-dist.tar.gz"
     "${BOOTSTRAP_VUE_SOURCES_DIR}")
 
 endif()
@@ -130,7 +134,7 @@ else()
   set(BABEL_POLYFILL_SOURCES_DIR ${CMAKE_CURRENT_BINARY_DIR})
   DownloadCompressedFile(
     "49f7bad4176d715ce145e75c903988ef"
-    "${BASE_URL}/babel-polyfill-6.26.0.min.js.gz"
+    "${BASE_URL}/dicom-web/babel-polyfill-6.26.0.min.js.gz"
     "${CMAKE_CURRENT_BINARY_DIR}/polyfill.min.js")
 
 endif()
@@ -147,6 +151,7 @@ file(COPY
   ${CMAKE_CURRENT_BINARY_DIR}/axios-0.19.0/dist/axios.min.map
   ${CMAKE_CURRENT_BINARY_DIR}/bootstrap-4.3.1/dist/js/bootstrap.min.js
   ${CMAKE_CURRENT_BINARY_DIR}/vue-2.6.10/dist/vue.min.js
+  ${CMAKE_SOURCE_DIR}/ThirdPartyDownloads/jquery-3.7.1.min.js
   DESTINATION
   ${JAVASCRIPT_LIBS_DIR}/js
   )
