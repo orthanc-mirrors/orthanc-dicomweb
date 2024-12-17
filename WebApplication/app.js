@@ -109,7 +109,7 @@ var app = new Vue({
       window.scrollTo(0, element.offsetTop);
     },
     ShowErrorModal: function() {
-      $(app.$refs['modal-error']).modal();
+      bootstrap.Modal.getOrCreateInstance('#modal-error').show();
     },
     RefreshJobDetails: function() {
       axios
@@ -201,8 +201,8 @@ var app = new Vue({
         item['Tag'] = i;
         return item;
       });
-      
-      $(app.$refs['study-details']).modal();
+
+      bootstrap.Modal.getOrCreateInstance('#study-details').show();
     },
     RetrieveStudy: function(study) {
       var base = '../../servers/';
@@ -214,13 +214,13 @@ var app = new Vue({
           app.jobLevel = 'study';
           app.jobId = response.data.ID;
           app.jobUri = base + response.data.Path;
-          $(app.$refs['retrieve-job']).modal();
+          bootstrap.Modal.getOrCreateInstance('#retrieve-job').show();
           app.RefreshJobDetails();
         });
     },
     ConfirmDeleteStudy: function(study) {
       app.studyToDelete = study;
-      $(app.$refs['study-delete-confirm']).modal();
+      bootstrap.Modal.getOrCreateInstance('#study-delete-confirm').show();
     },
     ExecuteDeleteStudy: function(study) {
       axios
@@ -266,7 +266,7 @@ var app = new Vue({
         return item;
       });
       
-      $(app.$refs['series-details']).modal();
+      bootstrap.Modal.getOrCreateInstance('#series-details').show();
     },
     RetrieveSeries: function(series) {
       var base = '../../servers/';
@@ -279,7 +279,7 @@ var app = new Vue({
           app.jobLevel = 'series';
           app.jobId = response.data.ID;
           app.jobUri = base + response.data.Path;
-          $(app.$refs['retrieve-job']).modal();
+          bootstrap.Modal.getOrCreateInstance('#retrieve-job').show();
           app.RefreshJobDetails();
         });
     },
@@ -313,13 +313,13 @@ var app = new Vue({
               app.previewFailure = true;
             })
               .finally(function() {
-                $(app.$refs['series-preview']).modal();
+                bootstrap.Modal.getOrCreateInstance('#series-preview').show();
               })
         })
     },
     ConfirmDeleteSeries: function(series) {
       app.seriesToDelete = series;
-      $(app.$refs['series-delete-confirm']).modal();
+      bootstrap.Modal.getOrCreateInstance('#series-delete-confirm').show();
     },
     ExecuteDeleteSeries: function(series) {
       axios

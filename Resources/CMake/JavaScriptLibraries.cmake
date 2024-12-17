@@ -21,14 +21,10 @@
 
 set(BASE_URL "https://orthanc.uclouvain.be/downloads/third-party-downloads")
 
-DownloadFile(
-  "2c872dbe60f4ba70fb85356113d8b35e"
-  "${BASE_URL}/jquery-3.7.1.min.js")
-
 DownloadPackage(
-  "da0189f7c33bf9f652ea65401e0a3dc9"
-  "${BASE_URL}/dicom-web/bootstrap-4.3.1.zip"
-  "${CMAKE_CURRENT_BINARY_DIR}/bootstrap-4.3.1")
+  "102a4386a022f26a3b604e3852fffba8"
+  "${BASE_URL}/bootstrap-5.3.3.zip"
+  "${CMAKE_CURRENT_BINARY_DIR}/bootstrap-5.3.3")
 
 DownloadPackage(
   "8242afdc5bd44105d9dc9e6535315484"
@@ -81,17 +77,16 @@ file(COPY
   ${BABEL_POLYFILL_SOURCES_DIR}/polyfill.min.js
   ${CMAKE_CURRENT_BINARY_DIR}/axios-0.19.0/dist/axios.min.js
   ${CMAKE_CURRENT_BINARY_DIR}/axios-0.19.0/dist/axios.min.map
-  ${CMAKE_CURRENT_BINARY_DIR}/bootstrap-4.3.1/dist/js/bootstrap.min.js
+  ${CMAKE_CURRENT_BINARY_DIR}/bootstrap-5.3.3/dist/js/bootstrap.min.js
   ${CMAKE_CURRENT_BINARY_DIR}/vue-2.6.10/dist/vue.min.js
-  ${CMAKE_SOURCE_DIR}/ThirdPartyDownloads/jquery-3.7.1.min.js
   DESTINATION
   ${JAVASCRIPT_LIBS_DIR}/js
   )
 
 file(COPY
   ${CMAKE_CURRENT_BINARY_DIR}/Font-Awesome-4.7.0/css/font-awesome.min.css
-  ${CMAKE_CURRENT_BINARY_DIR}/bootstrap-4.3.1/dist/css/bootstrap.min.css
-  ${CMAKE_CURRENT_BINARY_DIR}/bootstrap-4.3.1/dist/css/bootstrap.min.css.map
+  ${CMAKE_CURRENT_BINARY_DIR}/bootstrap-5.3.3/dist/css/bootstrap.min.css
+  ${CMAKE_CURRENT_BINARY_DIR}/bootstrap-5.3.3/dist/css/bootstrap.min.css.map
   DESTINATION
   ${JAVASCRIPT_LIBS_DIR}/css
   )

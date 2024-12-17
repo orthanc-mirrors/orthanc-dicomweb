@@ -30,7 +30,7 @@
     <div class="container" id="app">
       <p style="height:1em"></p>
 
-      <div class="jumbotron">
+      <div class="bg-light mb-4 rounded-2 py-5 px-3">
         <div class="row">
           <div class="col-sm-8">
             <h1 class="display-4">DICOMweb client</h1>
@@ -62,14 +62,12 @@
       </div>
 
 
-      <div class="modal" tabindex="-1" ref="modal-error">
+      <div class="modal" tabindex="-1" id="modal-error">
         <div class="modal-dialog modal-xl">
           <div class="modal-content">
             <div class="modal-header">
               <h5 class="modal-title">Connection error</h5>
-              <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                <span aria-hidden="true">&times;</span>
-              </button>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
               <p>
@@ -77,7 +75,7 @@
               </p>
             </div>
             <div class="modal-footer">
-              <button type="button" class="btn btn-primary" data-dismiss="modal">OK</button>
+              <button type="button" class="btn btn-primary" data-bs-dismiss="modal">OK</button>
             </div>
           </div>
         </div>
@@ -91,33 +89,33 @@
           No DICOMweb server is configured!
         </div>
         <form style="width:100%;padding:5px;">
-          <div class="form-group row">
+          <div class="mb-3 row">
             <label class="col-form-label col-sm-3 cols-lg-3">DICOMweb server:</label>
             <div class="col-sm-9 cols-lg-9">
-              <select class="form-control" v-model="lookup.server">
+              <select class="form-select" v-model="lookup.server">
                 <option v-for="option in servers">{{ option }}</option>
               </select>
             </div>
           </div>
-          <div class="form-group row">
+          <div class="mb-3 row">
             <label class="col-form-label col-sm-3 cols-lg-3">Patient ID:</label>
             <div class="col-sm-9 cols-lg-9">
               <input type="text" class="form-control" v-model="lookup.patientID"></input>
             </div>
           </div>
-          <div class="form-group row">
+          <div class="mb-3 row">
             <label class="col-form-label col-sm-3 cols-lg-3">Patient name:</label>
             <div class="col-sm-9 cols-lg-9">
               <input type="text" class="form-control" v-model="lookup.patientName"></input>
             </div>
           </div>
-          <div class="form-group row">
+          <div class="mb-3 row">
             <label class="col-form-label col-sm-3 cols-lg-3">Accession number:</label>
             <div class="col-sm-9 cols-lg-9">
               <input type="text" class="form-control" v-model="lookup.accessionNumber"></input>
             </div>
           </div>
-          <div class="form-group row">
+          <div class="mb-3 row">
             <label class="col-form-label col-sm-3 cols-lg-3">Study date:</label>
             <div class="col-sm-9 cols-lg-9">
               <input type="text" class="form-control" v-model="lookup.studyDate"></input>
@@ -174,14 +172,12 @@
       </div>
 
 
-      <div class="modal" tabindex="-1" ref="study-details">
+      <div class="modal" tabindex="-1" id="study-details">
         <div class="modal-dialog modal-xl">
           <div class="modal-content">
             <div class="modal-header">
               <h5 class="modal-title">Details of study</h5>
-              <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                <span aria-hidden="true">&times;</span>
-              </button>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
               <table class="table table-striped">
@@ -202,21 +198,19 @@
               </table>
             </div>
             <div class="modal-footer">
-              <button type="button" class="btn btn-primary" data-dismiss="modal">OK</button>
+              <button type="button" class="btn btn-primary" data-bs-dismiss="modal">OK</button>
             </div>
           </div>
         </div>
       </div>
 
 
-      <div class="modal" tabindex="-1" ref="study-delete-confirm">
+      <div class="modal" tabindex="-1" id="study-delete-confirm">
         <div class="modal-dialog modal-xl">
           <div class="modal-content">
             <div class="modal-header">
               <h5 class="modal-title">Confirm deletion</h5>
-              <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                <span aria-hidden="true">&times;</span>
-              </button>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
               <p>
@@ -227,8 +221,8 @@
               </p>
             </div>
             <div class="modal-footer">
-              <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-              <button type="button" class="btn btn-primary" data-dismiss="modal" @click="ExecuteDeleteStudy">Confirm</button>
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+              <button type="button" class="btn btn-primary" data-bs-dismiss="modal" @click="ExecuteDeleteStudy">Confirm</button>
             </div>
           </div>
         </div>
@@ -273,14 +267,12 @@
       </div>
 
 
-      <div class="modal" tabindex="-1" ref="series-preview">
+      <div class="modal" tabindex="-1" id="series-preview">
         <div class="modal-dialog modal-xl">
           <div class="modal-content">
             <div class="modal-header">
               <h5 class="modal-title">Preview of series</h5>
-              <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                <span aria-hidden="true">&times;</span>
-              </button>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
               <div class="alert alert-danger alert-dismissible" v-if="previewFailure">
@@ -291,21 +283,19 @@
               </div>
             </div>
             <div class="modal-footer">
-              <button type="button" class="btn btn-primary" data-dismiss="modal">OK</button>
+              <button type="button" class="btn btn-primary" data-bs-dismiss="modal">OK</button>
             </div>
           </div>
         </div>
       </div>
 
 
-      <div class="modal" tabindex="-1" ref="series-details">
+      <div class="modal" tabindex="-1" id="series-details">
         <div class="modal-dialog modal-xl">
           <div class="modal-content">
             <div class="modal-header">
               <h5 class="modal-title">Details of series</h5>
-              <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                <span aria-hidden="true">&times;</span>
-              </button>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
               <table class="table table-striped">
@@ -326,21 +316,19 @@
               </table>
             </div>
             <div class="modal-footer">
-              <button type="button" class="btn btn-primary" data-dismiss="modal">OK</button>
+              <button type="button" class="btn btn-primary" data-bs-dismiss="modal">OK</button>
             </div>
           </div>
         </div>
       </div>
 
 
-      <div class="modal" tabindex="-1" ref="series-delete-confirm">
+      <div class="modal" tabindex="-1" id="series-delete-confirm">
         <div class="modal-dialog modal-xl">
           <div class="modal-content">
             <div class="modal-header">
               <h5 class="modal-title">Confirm deletion</h5>
-              <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                <span aria-hidden="true">&times;</span>
-              </button>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
               <p>
@@ -351,22 +339,20 @@
               </p>
             </div>
             <div class="modal-footer">
-              <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-              <button type="button" class="btn btn-primary" data-dismiss="modal" @click="ExecuteDeleteSeries">Confirm</button>
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+              <button type="button" class="btn btn-primary" data-bs-dismiss="modal" @click="ExecuteDeleteSeries">Confirm</button>
             </div>
           </div>
         </div>
       </div>
 
 
-      <div class="modal" tabindex="-1" ref="retrieve-job">
+      <div class="modal" tabindex="-1" id="retrieve-job">
         <div class="modal-dialog modal-xl">
           <div class="modal-content">
             <div class="modal-header">
               <h5 class="modal-title">Retrieving {{ jobLevel }}</h5>
-              <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                <span aria-hidden="true">&times;</span>
-              </button>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
               <p>
@@ -386,7 +372,7 @@
               </p>
             </div>
             <div class="modal-footer">
-              <button type="button" class="btn btn-primary" data-dismiss="modal">OK</button>
+              <button type="button" class="btn btn-primary" data-bs-dismiss="modal">OK</button>
             </div>
           </div>
         </div>
@@ -396,7 +382,6 @@
       <p style="height:5em"></p>
     </div>
 
-    <script src="../libs/js/jquery-3.7.1.min.js"></script>  <!-- Necessary for Bootstrap -->
     <script src="../libs/js/bootstrap.min.js"></script>
     <script src="../libs/js/vue.min.js"></script>
     <script src="../libs/js/axios.min.js"></script>

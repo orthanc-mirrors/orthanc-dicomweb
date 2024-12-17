@@ -11,6 +11,7 @@ Pending changes in the mainline
 * Added support for Orthanc running in "ReadOnly" mode
 * Fix handling of revisions for cached data
 * Removed dependency on bootstrap-vue
+* Upgraded to Bootstrap 5.3.3
 
 
 Version 1.17 (2024-06-05)
