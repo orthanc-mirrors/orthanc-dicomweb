@@ -490,7 +490,7 @@ static OrthancPluginErrorCode OnChangeCallback(OrthancPluginChangeType changeTyp
           }
           else
           {
-            LOG(WARNING) << "Orthanc does not support ExtendedFind.  The DICOMWeb plugin will not benefit from some optimizations.";
+            LOG(WARNING) << "Orthanc does not support ExtendedFind. The DICOMweb plugin will not benefit from some optimizations.";
           }
 
           bool isReadOnly = system.isMember(READ_ONLY) && system[READ_ONLY].asBool();
@@ -707,7 +707,7 @@ extern "C"
         OrthancPlugins::SetRootUri(ORTHANC_DICOM_WEB_NAME, uri.c_str());
 
         std::string publicUrlRoot = OrthancPlugins::Configuration::GetPublicRoot();
-        LOG(WARNING) << "DICOMWeb PublicRoot: " << publicUrlRoot;
+        LOG(WARNING) << "DICOMweb public root: " << publicUrlRoot;
       }
       else
       {

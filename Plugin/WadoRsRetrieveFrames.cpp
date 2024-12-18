@@ -503,7 +503,7 @@ static void RetrieveFrames(OrthancPluginRestOutput* output,
     std::string currentSyntaxString;
     if (!OrthancPlugins::RestApiGetString(currentSyntaxString, "/instances/" + orthancId + "/metadata/TransferSyntax", false))
     {
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError, "DICOMWeb: Unable to get TransferSyntax for instance " + orthancId);
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError, "DICOMweb: Unable to get TransferSyntax for instance " + orthancId);
     }
 
     if (!Orthanc::LookupTransferSyntax(currentSyntax, currentSyntaxString))
@@ -518,7 +518,7 @@ static void RetrieveFrames(OrthancPluginRestOutput* output,
       // note: these 2 syntaxes are not supposed to be used in retrieve frames
       // according to https://dicom.nema.org/MEDICAL/dicom/2019a/output/chtml/part18/chapter_6.html#table_6.1.1.8-3b
       // "The Implicit VR Little Endian (1.2.840.10008.1.2), and Explicit VR Big Endian (1.2.840.10008.1.2.2) transfer syntaxes shall not be used with Web Services."
-      LOG(INFO) << "The file is in a transfer syntax " << currentSyntaxString << " that is not allowed by the DICOMWeb standard -> it will be transcoded to Little Endian Explicit";
+      LOG(INFO) << "The file is in a transfer syntax " << currentSyntaxString << " that is not allowed by the DICOMweb standard -> it will be transcoded to Little Endian Explicit";
       targetSyntax = Orthanc::DicomTransferSyntax_LittleEndianExplicit;
     }    
 
@@ -534,7 +534,7 @@ static void RetrieveFrames(OrthancPluginRestOutput* output,
     {
       if (!content.RestApiGet("/instances/" + orthancId + "/file?transcode=" + Orthanc::GetTransferSyntaxUid(targetSyntax), false))
       {
-        throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError, "DICOMWeb: Unable to get transcoded file for instance " + orthancId);
+        throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError, "DICOMweb: Unable to get transcoded file for instance " + orthancId);
       }
 
       // TODO-OPTI: this takes a huge amount of time; e.g: 1.5s for a 600MB file while the DicomInstance usually already exists in the Orthanc core
@@ -545,7 +545,7 @@ static void RetrieveFrames(OrthancPluginRestOutput* output,
     {
       if (!content.RestApiGet("/instances/" + orthancId + "/frames/" + boost::lexical_cast<std::string>(frames.front()) + "/raw", false))
       {
-        throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError, "DICOMWeb: Unable to get file for instance " + orthancId);
+        throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError, "DICOMweb: Unable to get file for instance " + orthancId);
       }
 
       AnswerFrame(output, request, content, studyInstanceUid, seriesInstanceUid,
@@ -556,7 +556,7 @@ static void RetrieveFrames(OrthancPluginRestOutput* output,
     {
       if (!content.RestApiGet("/instances/" + orthancId + "/file", false))
       {
-        throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError, "DICOMWeb: Unable to get file for instance " + orthancId);
+        throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError, "DICOMweb: Unable to get file for instance " + orthancId);
       }
       instance.reset(new OrthancPlugins::DicomInstance(content.GetData(), content.GetSize()));
 

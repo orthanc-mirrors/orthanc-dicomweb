@@ -290,7 +290,7 @@ Version 0.4 (2017-07-19)
 * WADO-RS client supports quoted Content-Type header in HTTP answers
 * Added "Arguments" to WADO-RS and STOW-RS client to handle query arguments in uri
 * Using MIME types of DICOM version 2017c in WADO RetrieveFrames
-* Fix issue #53 (DICOMWeb plugin support for "limit" and "offset" parameters in QIDO-RS)
+* Fix issue #53 (DICOMweb plugin support for "limit" and "offset" parameters in QIDO-RS)
 * Fix issue #28 (Non-compliant enumerations for "accept" header for WADO RetrieveFrames)
 
 
