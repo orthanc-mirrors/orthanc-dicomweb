@@ -198,7 +198,7 @@ namespace
           if (OrthancPlugins::ParseTag(tag, key))
           {
             // The following lines are new in DICOMweb > 1.0, and
-            // allow to query against a list of multiple values
+            // allow one to query against a list of multiple values
             // http://dicom.nema.org/MEDICAL/dicom/2019a/output/chtml/part18/sect_6.7.html#sect_6.7.1.1.1
             boost::replace_all(value, "\\", "");  // Remove backslashes from source request
 
