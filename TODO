@@ -31,6 +31,8 @@
 
 * Add support for application/zip in /dicom-web/studies/ (aka sup 211: https://www.dicomstandard.org/docs/librariesprovider2/dicomdocuments/news/ftsup/docs/sups/sup211.pdf?sfvrsn=9fe9edae_2)
 
+* Add support for thumbnails (aka sup 203: https://www.dicomstandard.org/docs/librariesprovider2/dicomdocuments/news/progress/docs/sups/sup203.pdf)
+
 * Support private tags in search fields:
   https://discourse.orthanc-server.org/t/dicomweb-plugin-exception-of-unknown-dicom-tag-for-private-data-element-tags-while-using-query-parameters/3998
   

@@ -53,12 +53,12 @@ static boost::mutex mainDicomTagsListMutex;
 static bool pluginCanUseExtendedFind_ = false;
 static bool isSystemReadOnly_ = false;
 
-void SetPluginCanUseExtendedFile(bool enable)
+void SetPluginCanUseExtendedFind(bool enable)
 {
   pluginCanUseExtendedFind_ = enable;
 }
 
-bool CanUseExtendedFile()
+bool CanUseExtendedFind()
 {
   return pluginCanUseExtendedFind_;
 }
@@ -939,11 +939,13 @@ static void WriteInstanceMetadata(OrthancPlugins::DicomWebFormatter::HttpWriter&
 
 bool LocateResource(OrthancPluginRestOutput* output,
                     std::string& orthancId,
+                    std::map<std::string, std::string>& metadata, 
                     const std::string& studyInstanceUid,
                     const std::string& seriesInstanceUid,
                     const std::string& sopInstanceUid,
                     const std::string& level,
-                    const OrthancPluginHttpRequest* request)
+                    const OrthancPluginHttpRequest* request,
+                    bool firstResourceOnly)
 {
   OrthancPluginContext* context = OrthancPlugins::GetGlobalContext();
 
@@ -969,8 +971,15 @@ bool LocateResource(OrthancPluginRestOutput* output,
       payloadQuery["SeriesInstanceUID"] = seriesInstanceUid;
     }
 
+    if (firstResourceOnly)
+    {
+      payload["Limit"] = 1;
+    }
+
     payloadQuery["StudyInstanceUID"] = studyInstanceUid;
     payload["Query"] = payloadQuery;
+    payload["ResponseContent"] = Json::arrayValue;
+    payload["ResponseContent"].append("Metadata");
 
     std::map<std::string, std::string> httpHeaders;
     OrthancPlugins::GetHttpHeaders(httpHeaders, request);
@@ -992,7 +1001,14 @@ bool LocateResource(OrthancPluginRestOutput* output,
       throw Orthanc::OrthancException(Orthanc::ErrorCode_InexistentItem,
                                       "Multiple " + level + " found for WADO-RS: " + studyInstanceUid + "/" + seriesInstanceUid + "/" + sopInstanceUid);
     }
-    orthancId = resources[0].asString();
+    orthancId = resources[0]["ID"].asString();
+    Json::Value::Members metadataMembers = resources[0]["Metadata"].getMemberNames();
+    
+    for (size_t i = 0; i < metadataMembers.size(); ++i)
+    {
+      metadata[metadataMembers[i]] = resources[0]["Metadata"][metadataMembers[i]].asString();
+    }
+    
     return true;
   }
 }
@@ -1000,64 +1016,115 @@ bool LocateResource(OrthancPluginRestOutput* output,
 
 
 bool LocateStudy(OrthancPluginRestOutput* output,
-                 std::string& orthancId,
+                 std::string& studyOrthancId,
                  std::string& studyInstanceUid,
                  const OrthancPluginHttpRequest* request)
 {
   std::string sopInstanceUid;
   std::string seriesInstanceUid;
+  std::map<std::string, std::string> metadata;
   studyInstanceUid = request->groups[0];
 
   return LocateResource(output,
-                        orthancId,
+                        studyOrthancId,
+                        metadata,
                         studyInstanceUid,
                         seriesInstanceUid,
                         sopInstanceUid,
                         "Study",
-                        request);
+                        request,
+                        false);
 }
 
 
 bool LocateSeries(OrthancPluginRestOutput* output,
-                  std::string& orthancId,
+                  std::string& seriesOrthancId,
                   std::string& studyInstanceUid,
                   std::string& seriesInstanceUid,
                   const OrthancPluginHttpRequest* request)
 {
   std::string sopInstanceUid;
+  std::map<std::string, std::string> metadata;
   studyInstanceUid = request->groups[0];
   seriesInstanceUid = request->groups[1];
 
   return LocateResource(output,
-                        orthancId,
+                        seriesOrthancId,
+                        metadata,
                         studyInstanceUid,
                         seriesInstanceUid,
                         sopInstanceUid,
                         "Series",
-                        request);
+                        request,
+                        false);
 }
 
 
 bool LocateInstance(OrthancPluginRestOutput* output,
-                    std::string& orthancId,
+                    std::string& instanceOrthancId,
                     std::string& studyInstanceUid,
                     std::string& seriesInstanceUid,
                     std::string& sopInstanceUid,
+                    std::string& transferSyntaxMetadata,
                     const OrthancPluginHttpRequest* request)
 {
+  std::map<std::string, std::string> metadata;
   studyInstanceUid = request->groups[0];
   seriesInstanceUid = request->groups[1];
   sopInstanceUid = request->groups[2];
 
-  return LocateResource(output,
-                        orthancId,
-                        studyInstanceUid,
-                        seriesInstanceUid,
-                        sopInstanceUid,
-                        "Instance",
-                        request);
+  bool ret = LocateResource(output,
+                            instanceOrthancId,
+                            metadata,
+                            studyInstanceUid,
+                            seriesInstanceUid,
+                            sopInstanceUid,
+                            "Instance",
+                            request,
+                            false);
+  
+  if (ret && metadata.find("TransferSyntax") != metadata.end())
+  {
+    transferSyntaxMetadata = metadata["TransferSyntax"];
+  }
+  
+  return ret;
 }
 
+bool LocateOneInstance(OrthancPluginRestOutput* output,
+                       std::string& instanceOrthancId,
+                       std::string& studyInstanceUid,
+                       std::string& seriesInstanceUid,
+                       std::string& transferSyntaxMetadata,
+                       const OrthancPluginHttpRequest* request)
+{
+  std::string sopInstanceUid;
+  std::map<std::string, std::string> metadata;
+
+  studyInstanceUid = request->groups[0];
+
+  if (request->groupsCount > 1)
+  {
+    seriesInstanceUid = request->groups[1];
+  }
+
+  bool ret = LocateResource(output,
+                            instanceOrthancId,
+                            metadata,
+                            studyInstanceUid,
+                            seriesInstanceUid,
+                            sopInstanceUid,
+                            "Instance",
+                            request,
+                            false);
+  
+  if (ret && metadata.find("TransferSyntax") != metadata.end())
+  {
+    transferSyntaxMetadata = metadata["TransferSyntax"];
+  }
+  
+  return ret;
+}
 
 void RetrieveDicomStudy(OrthancPluginRestOutput* output,
                         const char* url,
@@ -1099,12 +1166,13 @@ void RetrieveDicomInstance(OrthancPluginRestOutput* output,
                            const OrthancPluginHttpRequest* request)
 {
   bool transcode;
+  std::string transferSyntax;
   Orthanc::DicomTransferSyntax targetSyntax;
   
   AcceptMultipartDicom(transcode, targetSyntax, request);
   
   std::string orthancId, studyInstanceUid, seriesInstanceUid, sopInstanceUid;
-  if (LocateInstance(output, orthancId, studyInstanceUid, seriesInstanceUid, sopInstanceUid, request))
+  if (LocateInstance(output, orthancId, studyInstanceUid, seriesInstanceUid, sopInstanceUid, transferSyntax, request))
   {
     AnswerListOfDicomInstances(output, Orthanc::ResourceType_Instance, orthancId, transcode, targetSyntax);
   }
@@ -1384,7 +1452,7 @@ void RetrieveSeriesMetadataInternal(std::set<std::string>& instancesIds,
     ChildrenMainDicomMaps instancesDicomMaps;
     std::string seriesDicomUid;
 
-    if (CanUseExtendedFile()) // in this case, /series/.../instances?full has been optimized to minimize the SQL queries
+    if (CanUseExtendedFind()) // in this case, /series/.../instances?full has been optimized to minimize the SQL queries
     {
       GetChildrenMainDicomTags(instancesDicomMaps, seriesDicomUid, Orthanc::ResourceType_Series, seriesOrthancId);
       for (ChildrenMainDicomMaps::const_iterator it = instancesDicomMaps.begin(); it != instancesDicomMaps.end(); ++it)
@@ -1410,7 +1478,7 @@ void RetrieveSeriesMetadataInternal(std::set<std::string>& instancesIds,
       instancesWorkers.push_back(boost::shared_ptr<boost::thread>(new boost::thread(InstanceWorkerThread, threadData)));
     }
 
-    if (CanUseExtendedFile())  // we must correct the bulkRoot
+    if (CanUseExtendedFind())  // we must correct the bulkRoot
     {
       for (ChildrenMainDicomMaps::const_iterator i = instancesDicomMaps.begin(); i != instancesDicomMaps.end(); ++i)
       {
@@ -1720,12 +1788,14 @@ void RetrieveInstanceMetadata(OrthancPluginRestOutput* output,
                               const OrthancPluginHttpRequest* request)
 {
   bool isXml;
+  std::string transferSyntax;
+
   AcceptMetadata(request, isXml);
 
   MainDicomTagsCache cache;
 
   std::string orthancId, studyInstanceUid, seriesInstanceUid, sopInstanceUid;
-  if (LocateInstance(output, orthancId, studyInstanceUid, seriesInstanceUid, sopInstanceUid, request))
+  if (LocateInstance(output, orthancId, studyInstanceUid, seriesInstanceUid, sopInstanceUid, transferSyntax, request))
   {
     OrthancPlugins::DicomWebFormatter::HttpWriter writer(output, isXml);
     WriteInstanceMetadata(writer, OrthancPlugins::MetadataMode_Full, cache, orthancId, studyInstanceUid,
@@ -1740,12 +1810,13 @@ void RetrieveBulkData(OrthancPluginRestOutput* output,
                       const OrthancPluginHttpRequest* request)
 {
   OrthancPluginContext* context = OrthancPlugins::GetGlobalContext();
+  std::string transferSyntax;
 
   AcceptBulkData(request);
 
   std::string orthancId, studyInstanceUid, seriesInstanceUid, sopInstanceUid;
   OrthancPlugins::MemoryBuffer content;
-  if (LocateInstance(output, orthancId, studyInstanceUid, seriesInstanceUid, sopInstanceUid, request) &&
+  if (LocateInstance(output, orthancId, studyInstanceUid, seriesInstanceUid, sopInstanceUid, transferSyntax, request) &&
       content.RestApiGet("/instances/" + orthancId + "/file", false))
   {
     std::string bulk(request->groups[3]);

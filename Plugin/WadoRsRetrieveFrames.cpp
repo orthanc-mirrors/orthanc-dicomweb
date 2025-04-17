@@ -476,7 +476,9 @@ static void RetrieveFrames(OrthancPluginRestOutput* output,
                            std::list<unsigned int>& frames)
 {
   std::string orthancId, studyInstanceUid, seriesInstanceUid, sopInstanceUid;
-  if (LocateInstance(output, orthancId, studyInstanceUid, seriesInstanceUid, sopInstanceUid, request))
+  std::string transferSyntax;
+
+  if (LocateInstance(output, orthancId, studyInstanceUid, seriesInstanceUid, sopInstanceUid, transferSyntax, request))
   {
     OrthancPlugins::MemoryBuffer content;
     Orthanc::DicomTransferSyntax currentSyntax;
@@ -500,15 +502,9 @@ static void RetrieveFrames(OrthancPluginRestOutput* output,
       }
     }
 
-    std::string currentSyntaxString;
-    if (!OrthancPlugins::RestApiGetString(currentSyntaxString, "/instances/" + orthancId + "/metadata/TransferSyntax", false))
+    if (!Orthanc::LookupTransferSyntax(currentSyntax, transferSyntax))
     {
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError, "DICOMweb: Unable to get TransferSyntax for instance " + orthancId);
-    }
-
-    if (!Orthanc::LookupTransferSyntax(currentSyntax, currentSyntaxString))
-    {
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_NotImplemented, "Unknown transfer syntax: " + currentSyntaxString);
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_NotImplemented, "Unknown transfer syntax: " + transferSyntax);
     }
 
     Orthanc::DicomTransferSyntax targetSyntax = currentSyntax;
@@ -518,7 +514,7 @@ static void RetrieveFrames(OrthancPluginRestOutput* output,
       // note: these 2 syntaxes are not supposed to be used in retrieve frames
       // according to https://dicom.nema.org/MEDICAL/dicom/2019a/output/chtml/part18/chapter_6.html#table_6.1.1.8-3b
       // "The Implicit VR Little Endian (1.2.840.10008.1.2), and Explicit VR Big Endian (1.2.840.10008.1.2.2) transfer syntaxes shall not be used with Web Services."
-      LOG(INFO) << "The file is in a transfer syntax " << currentSyntaxString << " that is not allowed by the DICOMweb standard -> it will be transcoded to Little Endian Explicit";
+      LOG(INFO) << "The file is in a transfer syntax " << transferSyntax << " that is not allowed by the DICOMweb standard -> it will be transcoded to Little Endian Explicit";
       targetSyntax = Orthanc::DicomTransferSyntax_LittleEndianExplicit;
     }    
 

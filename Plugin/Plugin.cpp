@@ -37,9 +37,10 @@
 #include <boost/algorithm/string/predicate.hpp>
 
 
+// we use "ResponseContent" in tools/find -> we need 1.12.5
 #define ORTHANC_CORE_MINIMAL_MAJOR     1
-#define ORTHANC_CORE_MINIMAL_MINOR     11
-#define ORTHANC_CORE_MINIMAL_REVISION  0
+#define ORTHANC_CORE_MINIMAL_MINOR     12
+#define ORTHANC_CORE_MINIMAL_REVISION  5
 
 static const char* const HAS_DELETE = "HasDelete";
 static const char* const SYSTEM_CAPABILITIES = "Capabilities";
@@ -486,7 +487,7 @@ static OrthancPluginErrorCode OnChangeCallback(OrthancPluginChangeType changeTyp
           if (hasExtendedFind)
           {
             LOG(INFO) << "Orthanc supports ExtendedFind.";
-            SetPluginCanUseExtendedFile(true);
+            SetPluginCanUseExtendedFind(true);
           }
           else
           {

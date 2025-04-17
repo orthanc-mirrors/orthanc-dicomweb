@@ -821,10 +821,29 @@ static bool ReadDefaultWindow(RenderingParameters& parameters,
 
 
 static void AnswerFrameRendered(OrthancPluginRestOutput* output,
-                                std::string instanceId,
+                                const std::string& instanceId,
+                                const std::string& transferSyntax,
                                 int frame,
                                 const OrthancPluginHttpRequest* request)
 {
+  // If the instance is a video, we shall provide the video file itself (MP4, ...)
+  Orthanc::DicomTransferSyntax currentSyntax;
+  if (Orthanc::LookupTransferSyntax(currentSyntax, transferSyntax))
+  {
+    if (currentSyntax >= Orthanc::DicomTransferSyntax_MPEG2MainProfileAtMainLevel && currentSyntax <= Orthanc::DicomTransferSyntax_HEVCMain10ProfileLevel5_1)
+    {
+      OrthancPlugins::RestApiClient apiClient;
+      apiClient.SetPath(std::string("/instances/") + instanceId + "/frames/0/raw");
+      if (apiClient.Execute())
+      {
+        apiClient.Forward(OrthancPlugins::GetGlobalContext(), output);
+        return;
+      }
+    }
+  }
+
+  // for other media types, try to generate a single image preview.
+
   static const char* const PHOTOMETRIC_INTERPRETATION = "0028,0004";
   static const char* const PER_FRAME_FUNCTIONAL_GROUPS_SEQUENCE = "5200,9230";
   static const char* const PIXEL_VALUE_TRANSFORMATION_SEQUENCE = "0028,9145";
@@ -976,9 +995,11 @@ static void AnswerFrameRendered(OrthancPluginRestOutput* output,
   else
   {
     std::string instanceId, studyInstanceUid, seriesInstanceUid, sopInstanceUid;
-    if (LocateInstance(output, instanceId, studyInstanceUid, seriesInstanceUid, sopInstanceUid, request))
+    std::string transferSyntax;
+
+    if (LocateInstance(output, instanceId, studyInstanceUid, seriesInstanceUid, sopInstanceUid, transferSyntax, request))
     {
-      AnswerFrameRendered(output, instanceId, frame, request);
+      AnswerFrameRendered(output, instanceId, transferSyntax, frame, request);
     }
     else
     {
@@ -1012,8 +1033,6 @@ void RetrieveSeriesRendered(OrthancPluginRestOutput* output,
                             const char* url,
                             const OrthancPluginHttpRequest* request)
 {
-  static const char* const INSTANCES = "Instances";
-  
   assert(request->groupsCount == 2);
 
   if (request->method != OrthancPluginHttpMethod_Get)
@@ -1022,35 +1041,11 @@ void RetrieveSeriesRendered(OrthancPluginRestOutput* output,
   }
   else
   {
-    std::string orthancId, studyInstanceUid, seriesInstanceUid;
-    if (LocateSeries(output, orthancId, studyInstanceUid, seriesInstanceUid, request))
+    std::string instanceOrthancId, studyInstanceUid, seriesInstanceUid, transferSyntax;
+    if (LocateOneInstance(output, instanceOrthancId, studyInstanceUid, seriesInstanceUid, transferSyntax, request))
     {
-      Json::Value series;
-      if (OrthancPlugins::RestApiGet(series, "/series/" + orthancId, false) &&
-          series.type() == Json::objectValue &&
-          series.isMember(INSTANCES) &&
-          series[INSTANCES].type() == Json::arrayValue &&
-          series[INSTANCES].size() > 0)
-      {
-        std::set<std::string> ids;
-        for (Json::Value::ArrayIndex i = 0; i < series[INSTANCES].size(); i++)
-        {
-          if (series[INSTANCES][i].type() != Json::stringValue)
-          {
-            throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
-          }
-          else
-          {
-            ids.insert(series[INSTANCES][i].asString());
-          }
-        }
-
-        // Retrieve the first instance in alphanumeric order, in order
-        // to always return the same instance
-        std::string instanceId = *ids.begin();
-        AnswerFrameRendered(output, instanceId, 1 /* first frame */, request);
-        return;  // Success
-      }
+      AnswerFrameRendered(output, instanceOrthancId, transferSyntax, 1 /* first frame */, request);
+      return;  // Success
     }
 
     throw Orthanc::OrthancException(Orthanc::ErrorCode_InexistentItem, "Inexistent series");
@@ -1062,8 +1057,6 @@ void RetrieveStudyRendered(OrthancPluginRestOutput* output,
                            const char* url,
                            const OrthancPluginHttpRequest* request)
 {
-  static const char* const ID = "ID";
-  
   assert(request->groupsCount == 1);
 
   if (request->method != OrthancPluginHttpMethod_Get)
@@ -1072,35 +1065,11 @@ void RetrieveStudyRendered(OrthancPluginRestOutput* output,
   }
   else
   {
-    std::string orthancId, studyInstanceUid;
-    if (LocateStudy(output, orthancId, studyInstanceUid, request))
+    std::string instanceOrthancId, studyInstanceUid, seriesInstanceUid, transferSyntax;
+    if (LocateOneInstance(output, instanceOrthancId, studyInstanceUid, seriesInstanceUid, transferSyntax, request))
     {
-      Json::Value instances;
-      if (OrthancPlugins::RestApiGet(instances, "/studies/" + orthancId + "/instances", false) &&
-          instances.type() == Json::arrayValue &&
-          instances.size() > 0)
-      {
-        std::set<std::string> ids;
-        for (Json::Value::ArrayIndex i = 0; i < instances.size(); i++)
-        {
-          if (instances[i].type() != Json::objectValue ||
-              !instances[i].isMember(ID) ||
-              instances[i][ID].type() != Json::stringValue)
-          {
-            throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
-          }
-          else
-          {
-            ids.insert(instances[i][ID].asString());
-          }
-        }
-
-        // Retrieve the first instance in alphanumeric order, in order
-        // to always return the same instance
-        std::string instanceId = *ids.begin();
-        AnswerFrameRendered(output, instanceId, 1 /* first frame */, request);
-        return;  // Success
-      }
+      AnswerFrameRendered(output, instanceOrthancId, transferSyntax, 1 /* first frame */, request);
+      return;  // Success
     }
 
     throw Orthanc::OrthancException(Orthanc::ErrorCode_InexistentItem, "Inexistent study");

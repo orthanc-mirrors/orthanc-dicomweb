@@ -1,9 +1,18 @@
 Pending changes in the mainline
 ===============================
 
+=> Minimum Orthanc version: 1.12.5 <=
+=> Minimum SDK version: 1.12.1 <=
+
+* If calling /rendered route on a video, the plugin will now return the video file (MP4 or ...).
+  This notably enables display of videos in OHIF 3.10.1.
+
 
 Version 1.18 (2024-12-18)
 =========================
+
+=> Minimum Orthanc version: 1.11.0 <=
+=> Minimum SDK version: 1.12.1 <=
 
 * Added a "Server" entry in the DICOMweb job content
 * Fixed parsing of numerical values in QIDO-RS response that prevented, among other,

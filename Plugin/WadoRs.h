@@ -27,22 +27,30 @@
 
 
 bool LocateStudy(OrthancPluginRestOutput* output,
-                 std::string& uri,
+                 std::string& studyOrthancId,
                  std::string& studyInstanceUid,
                  const OrthancPluginHttpRequest* request);
 
 bool LocateSeries(OrthancPluginRestOutput* output,
-                  std::string& uri,
+                  std::string& seriesOrthancId,
                   std::string& studyInstanceUid,
                   std::string& seriesInstanceUid,
                   const OrthancPluginHttpRequest* request);
 
 bool LocateInstance(OrthancPluginRestOutput* output,
-                    std::string& uri,
+                    std::string& instanceOrthancId,
                     std::string& studyInstanceUid,
                     std::string& seriesInstanceUid,
                     std::string& sopInstanceUid,
+                    std::string& transferSyntaxMetadata,
                     const OrthancPluginHttpRequest* request);
+
+bool LocateOneInstance(OrthancPluginRestOutput* output,
+                       std::string& instanceOrthancId,
+                       std::string& studyInstanceUid,
+                       std::string& seriesInstanceUid,
+                       std::string& transferSyntaxMetadata,
+                       const OrthancPluginHttpRequest* request);
 
 void RetrieveDicomStudy(OrthancPluginRestOutput* output,
                         const char* url,
@@ -104,6 +112,6 @@ void RetrieveStudyRendered(OrthancPluginRestOutput* output,
 
 void SetPluginCanDownloadTranscodedFile(bool enable);
 
-void SetPluginCanUseExtendedFile(bool enable);
+void SetPluginCanUseExtendedFind(bool enable);
 
 void SetSystemIsReadOnly(bool isReadOnly);
