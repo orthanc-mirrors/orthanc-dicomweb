@@ -96,19 +96,23 @@ void RetrieveSelectedFrames(OrthancPluginRestOutput* output,
 
 void RetrieveInstanceRendered(OrthancPluginRestOutput* output,
                               const char* url,
-                              const OrthancPluginHttpRequest* request);
+                              const OrthancPluginHttpRequest* request,
+                              bool isThumbnail);
 
 void RetrieveFrameRendered(OrthancPluginRestOutput* output,
                            const char* url,
-                           const OrthancPluginHttpRequest* request);
+                           const OrthancPluginHttpRequest* request,
+                           bool isThumbnail);
 
 void RetrieveSeriesRendered(OrthancPluginRestOutput* output,
                             const char* url,
-                            const OrthancPluginHttpRequest* request);
+                            const OrthancPluginHttpRequest* request,
+                            bool isThumbnail);
 
 void RetrieveStudyRendered(OrthancPluginRestOutput* output,
                            const char* url,
-                           const OrthancPluginHttpRequest* request);
+                           const OrthancPluginHttpRequest* request,
+                           bool isThumbnail);
 
 void SetPluginCanDownloadTranscodedFile(bool enable);
 

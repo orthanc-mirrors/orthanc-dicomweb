@@ -157,6 +157,7 @@ EmbedResources(
   --no-upcase-check
   ${ADDITIONAL_RESOURCES}
   JAVASCRIPT_LIBS   ${JAVASCRIPT_LIBS_DIR}
+  VIDEO_THUMBNAIL   ${CMAKE_SOURCE_DIR}/Resources/Images/video-thumbnail.jpg
   )
 
 

@@ -528,6 +528,38 @@ static OrthancPluginErrorCode OnChangeCallback(OrthancPluginChangeType changeTyp
   return OrthancPluginErrorCode_Success;
 }
 
+template <bool isThumbnail>
+void RetrieveInstanceRenderedThumbnail(OrthancPluginRestOutput* output,
+                                       const char* url,
+                                       const OrthancPluginHttpRequest* request)
+{
+  RetrieveInstanceRendered(output, url, request, isThumbnail);
+}
+
+template <bool isThumbnail>
+void RetrieveFrameRenderedThumbnail(OrthancPluginRestOutput* output,
+                                    const char* url,
+                                    const OrthancPluginHttpRequest* request)
+{
+  RetrieveFrameRendered(output, url, request, isThumbnail);
+}
+
+template <bool isThumbnail>
+void RetrieveSeriesRenderedThumbnail(OrthancPluginRestOutput* output,
+                                     const char* url,
+                                     const OrthancPluginHttpRequest* request)
+{
+  RetrieveSeriesRendered(output, url, request, isThumbnail);
+}
+
+template <bool isThumbnail>
+void RetrieveStudyRenderedThumbnail(OrthancPluginRestOutput* output,
+                                    const char* url,
+                                    const OrthancPluginHttpRequest* request)
+{
+  RetrieveStudyRendered(output, url, request, isThumbnail);
+}
+
 
 
 extern "C"
@@ -662,10 +694,15 @@ extern "C"
 
         OrthancPlugins::RegisterRestCallback<GetClientInformation>(root + "info", true);
 
-        OrthancPlugins::RegisterRestCallback<RetrieveStudyRendered>(root + "studies/([^/]*)/rendered", true);
-        OrthancPlugins::RegisterRestCallback<RetrieveSeriesRendered>(root + "studies/([^/]*)/series/([^/]*)/rendered", true);
-        OrthancPlugins::RegisterRestCallback<RetrieveInstanceRendered>(root + "studies/([^/]*)/series/([^/]*)/instances/([^/]*)/rendered", true);
-        OrthancPlugins::RegisterRestCallback<RetrieveFrameRendered>(root + "studies/([^/]*)/series/([^/]*)/instances/([^/]*)/frames/([^/]*)/rendered", true);
+        OrthancPlugins::RegisterRestCallback<RetrieveStudyRenderedThumbnail<false> >(root + "studies/([^/]*)/rendered", true);
+        OrthancPlugins::RegisterRestCallback<RetrieveSeriesRenderedThumbnail<false> >(root + "studies/([^/]*)/series/([^/]*)/rendered", true);
+        OrthancPlugins::RegisterRestCallback<RetrieveInstanceRenderedThumbnail<false> >(root + "studies/([^/]*)/series/([^/]*)/instances/([^/]*)/rendered", true);
+        OrthancPlugins::RegisterRestCallback<RetrieveFrameRenderedThumbnail<false> >(root + "studies/([^/]*)/series/([^/]*)/instances/([^/]*)/frames/([^/]*)/rendered", true);
+
+        OrthancPlugins::RegisterRestCallback<RetrieveStudyRenderedThumbnail<true> >(root + "studies/([^/]*)/thumbnail", true);
+        OrthancPlugins::RegisterRestCallback<RetrieveSeriesRenderedThumbnail<true> >(root + "studies/([^/]*)/series/([^/]*)/thumbnail", true);
+        OrthancPlugins::RegisterRestCallback<RetrieveInstanceRenderedThumbnail<true> >(root + "studies/([^/]*)/series/([^/]*)/instances/([^/]*)/thumbnail", true);
+        OrthancPlugins::RegisterRestCallback<RetrieveFrameRenderedThumbnail<true> >(root + "studies/([^/]*)/series/([^/]*)/instances/([^/]*)/frames/([^/]*)/thumbnail", true);
 
         if (!OrthancPlugins::Configuration::IsReadOnly())
         {

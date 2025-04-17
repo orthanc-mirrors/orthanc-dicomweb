@@ -29,6 +29,8 @@
 #include <Images/ImageTraits.h>
 #include <Logging.h>
 #include <Toolbox.h>
+#include <EmbeddedResources.h>
+
 
 #if ORTHANC_FRAMEWORK_VERSION_IS_ABOVE(1, 9, 7)
 #  include <SerializationToolbox.h>
@@ -824,7 +826,8 @@ static void AnswerFrameRendered(OrthancPluginRestOutput* output,
                                 const std::string& instanceId,
                                 const std::string& transferSyntax,
                                 int frame,
-                                const OrthancPluginHttpRequest* request)
+                                const OrthancPluginHttpRequest* request,
+                                bool isThumbnail)  // for now, for every images except for videos, we consider that /rendered is equivalent to /thumbnail
 {
   // If the instance is a video, we shall provide the video file itself (MP4, ...)
   Orthanc::DicomTransferSyntax currentSyntax;
@@ -832,12 +835,23 @@ static void AnswerFrameRendered(OrthancPluginRestOutput* output,
   {
     if (currentSyntax >= Orthanc::DicomTransferSyntax_MPEG2MainProfileAtMainLevel && currentSyntax <= Orthanc::DicomTransferSyntax_HEVCMain10ProfileLevel5_1)
     {
-      OrthancPlugins::RestApiClient apiClient;
-      apiClient.SetPath(std::string("/instances/") + instanceId + "/frames/0/raw");
-      if (apiClient.Execute())
+      if (isThumbnail)
       {
-        apiClient.Forward(OrthancPlugins::GetGlobalContext(), output);
+        // we are not able to extract a thumbnail from a video -> just return a camera icon
+        std::string videoThumbnail;
+        Orthanc::EmbeddedResources::GetFileResource(videoThumbnail, Orthanc::EmbeddedResources::VIDEO_THUMBNAIL);
+        OrthancPluginAnswerBuffer(OrthancPlugins::GetGlobalContext(), output, videoThumbnail.c_str(), videoThumbnail.size(), "image/jpeg");
         return;
+      }
+      else
+      {
+        OrthancPlugins::RestApiClient apiClient;
+        apiClient.SetPath(std::string("/instances/") + instanceId + "/frames/0/raw");
+        if (apiClient.Execute())
+        {
+          apiClient.Forward(OrthancPlugins::GetGlobalContext(), output);
+          return;
+        }
       }
     }
   }
@@ -986,7 +1000,8 @@ static void AnswerFrameRendered(OrthancPluginRestOutput* output,
 
 static void AnswerFrameRendered(OrthancPluginRestOutput* output,
                                 int frame,
-                                const OrthancPluginHttpRequest* request)
+                                const OrthancPluginHttpRequest* request,
+                                bool isThumbnail)
 {
   if (request->method != OrthancPluginHttpMethod_Get)
   {
@@ -999,7 +1014,7 @@ static void AnswerFrameRendered(OrthancPluginRestOutput* output,
 
     if (LocateInstance(output, instanceId, studyInstanceUid, seriesInstanceUid, sopInstanceUid, transferSyntax, request))
     {
-      AnswerFrameRendered(output, instanceId, transferSyntax, frame, request);
+      AnswerFrameRendered(output, instanceId, transferSyntax, frame, request, isThumbnail);
     }
     else
     {
@@ -1011,27 +1026,30 @@ static void AnswerFrameRendered(OrthancPluginRestOutput* output,
 
 void RetrieveInstanceRendered(OrthancPluginRestOutput* output,
                               const char* url,
-                              const OrthancPluginHttpRequest* request)
+                              const OrthancPluginHttpRequest* request,
+                              bool isThumbnail)
 {
   assert(request->groupsCount == 3);
-  AnswerFrameRendered(output, 1 /* first frame */, request);
+  AnswerFrameRendered(output, 1 /* first frame */, request, isThumbnail);
 }
 
 
 void RetrieveFrameRendered(OrthancPluginRestOutput* output,
                            const char* url,
-                           const OrthancPluginHttpRequest* request)
+                           const OrthancPluginHttpRequest* request,
+                           bool isThumbnail)
 {
   assert(request->groupsCount == 4);
   const char* frame = request->groups[3];
 
-  AnswerFrameRendered(output, boost::lexical_cast<int>(frame), request);
+  AnswerFrameRendered(output, boost::lexical_cast<int>(frame), request, isThumbnail);
 }
 
 
 void RetrieveSeriesRendered(OrthancPluginRestOutput* output,
                             const char* url,
-                            const OrthancPluginHttpRequest* request)
+                            const OrthancPluginHttpRequest* request,
+                            bool isThumbnail)
 {
   assert(request->groupsCount == 2);
 
@@ -1044,7 +1062,7 @@ void RetrieveSeriesRendered(OrthancPluginRestOutput* output,
     std::string instanceOrthancId, studyInstanceUid, seriesInstanceUid, transferSyntax;
     if (LocateOneInstance(output, instanceOrthancId, studyInstanceUid, seriesInstanceUid, transferSyntax, request))
     {
-      AnswerFrameRendered(output, instanceOrthancId, transferSyntax, 1 /* first frame */, request);
+      AnswerFrameRendered(output, instanceOrthancId, transferSyntax, 1 /* first frame */, request, isThumbnail);
       return;  // Success
     }
 
@@ -1055,7 +1073,8 @@ void RetrieveSeriesRendered(OrthancPluginRestOutput* output,
 
 void RetrieveStudyRendered(OrthancPluginRestOutput* output,
                            const char* url,
-                           const OrthancPluginHttpRequest* request)
+                           const OrthancPluginHttpRequest* request,
+                           bool isThumbnail)
 {
   assert(request->groupsCount == 1);
 
@@ -1068,7 +1087,7 @@ void RetrieveStudyRendered(OrthancPluginRestOutput* output,
     std::string instanceOrthancId, studyInstanceUid, seriesInstanceUid, transferSyntax;
     if (LocateOneInstance(output, instanceOrthancId, studyInstanceUid, seriesInstanceUid, transferSyntax, request))
     {
-      AnswerFrameRendered(output, instanceOrthancId, transferSyntax, 1 /* first frame */, request);
+      AnswerFrameRendered(output, instanceOrthancId, transferSyntax, 1 /* first frame */, request, isThumbnail);
       return;  // Success
     }
 
