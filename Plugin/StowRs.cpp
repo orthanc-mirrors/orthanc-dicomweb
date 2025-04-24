@@ -86,7 +86,7 @@ namespace OrthancPlugins
     std::string contentType;
 
     if (!Orthanc::MultipartStreamReader::GetMainContentType(contentType, headers) ||
-        contentType != "application/dicom")
+        contentType.find("application/dicom") == std::string::npos)
     {
       throw Orthanc::OrthancException(
         Orthanc::ErrorCode_UnsupportedMediaType,
@@ -247,7 +247,12 @@ namespace OrthancPlugins
     assert(parser_.get() != NULL);
     parser_->CloseStream();
 
-    result_[DICOM_TAG_FAILED_SOP_SEQUENCE.Format()] = failed_;
+    if (failed_.size() > 0)
+    {
+      // new in 1.19: don't include the failed sequence if there are no failures (https://discourse.orthanc-server.org/t/orthanc-dicomweb-stowrs-server-request-response-compatibility/5763)
+      result_[DICOM_TAG_FAILED_SOP_SEQUENCE.Format()] = failed_;
+    }
+
     result_[DICOM_TAG_REFERENCED_SOP_SEQUENCE.Format()] = success_;
     
     std::string answer;

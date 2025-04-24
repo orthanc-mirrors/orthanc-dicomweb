@@ -5,6 +5,10 @@ Pending changes in the mainline
 => Recommended SDK version: 1.12.4 <=
 => Minimum SDK version: 1.12.1 <=
 
+* STOW-RS: improved compatibility with, amongst others, DCM4CHEE:
+  - it now accepts extra 'transfer-syntax=..' in Content-Type
+  - it now returns 0008,00198 (FailedSopSequence) only if there are failed instances.
+  (https://discourse.orthanc-server.org/t/orthanc-dicomweb-stowrs-server-request-response-compatibility/5763)
 * If calling /rendered route on a video, the plugin will now return the video file (MP4 or ...).
   This notably enables display of videos in OHIF 3.10.1.
 * Added basic support for thumbnails 
