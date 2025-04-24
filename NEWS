@@ -6,9 +6,12 @@ Pending changes in the mainline
 
 * If calling /rendered route on a video, the plugin will now return the video file (MP4 or ...).
   This notably enables display of videos in OHIF 3.10.1.
-* Added basic support for thumbnails (aka sup 203: https://www.dicomstandard.org/docs/librariesprovider2/dicomdocuments/news/progress/docs/sups/sup203.pdf).
-  Right now, /thumbnail is equivalent to /rendered except for videos for which the same default video is shown since we are not able to
-  extract a thumbnail from a video.  This notably enables display of a video icon in the series list of OHIF 3.10.1.
+* Added basic support for thumbnails 
+  (aka sup 203: https://www.dicomstandard.org/docs/librariesprovider2/dicomdocuments/news/progress/docs/sups/sup203.pdf).
+  Right now, /thumbnail is equivalent to /rendered except for videos for 
+  which the same default video icon is shown since we are not able to extract a 
+  thumbnail from a video.  
+  This notably enables display of a video icon in the series list of OHIF 3.10.1.
 
 
 Version 1.18 (2024-12-18)
