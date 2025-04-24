@@ -1,4 +1,3 @@
-* upgrade to SDK 1.12.4 to benefit from new logging primitives for plugins
 
 
 * https://orthanc.uclouvain.be/book/plugins/dicomweb.html#retrieving-dicom-resources-from-a-wado-rs-server

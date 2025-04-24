@@ -2,6 +2,7 @@ Pending changes in the mainline
 ===============================
 
 => Minimum Orthanc version: 1.12.5 <=
+=> Recommended SDK version: 1.12.4 <=
 => Minimum SDK version: 1.12.1 <=
 
 * If calling /rendered route on a video, the plugin will now return the video file (MP4 or ...).
@@ -12,8 +13,9 @@ Pending changes in the mainline
   which the same default video icon is shown since we are not able to extract a 
   thumbnail from a video.  
   This notably enables display of a video icon in the series list of OHIF 3.10.1.
-* Maintenance: use new internal API available only from Orthanc 1.12.5 to reduce
+* Maintenance: Use new internal API available only from Orthanc 1.12.5 to reduce
   the number of SQL queries.
+* Maintenance: Use Orthanc SDK 1.12.4 by default to benefit from more detailed logging.
 
 
 Version 1.18 (2024-12-18)
