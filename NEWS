@@ -12,6 +12,8 @@ Pending changes in the mainline
   which the same default video icon is shown since we are not able to extract a 
   thumbnail from a video.  
   This notably enables display of a video icon in the series list of OHIF 3.10.1.
+* Maintenance: use new internal API available only from Orthanc 1.12.5 to reduce
+  the number of SQL queries.
 
 
 Version 1.18 (2024-12-18)
