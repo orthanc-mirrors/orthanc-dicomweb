@@ -30,26 +30,6 @@
 #include <string>
 
 
-static bool MapWadoToOrthancIdentifier(std::string& orthanc,
-                                       char* (*func) (OrthancPluginContext*, const char*),
-                                       const std::string& dicom)
-{
-  OrthancPluginContext* context = OrthancPlugins::GetGlobalContext();
-
-  char* tmp = func(context, dicom.c_str());
-
-  if (tmp)
-  {
-    orthanc = tmp;
-    OrthancPluginFreeString(context, tmp);
-    return true;
-  }
-  else
-  {
-    return false;
-  }
-}
-
 
 static bool LocateInstanceWadoUri(std::string& instance,
                                   std::string& contentType,
@@ -96,57 +76,52 @@ static bool LocateInstanceWadoUri(std::string& instance,
     return false;
   }
 
-  if (!MapWadoToOrthancIdentifier(instance, OrthancPluginLookupInstance, objectUid))
+  /**
+  * Below are only sanity checks to ensure that the possibly provided
+  * "seriesUID" and "studyUID" match that of the provided instance.
+  **/
+
+  Json::Value payload;
+  Json::Value payloadQuery;
+
+  payload["Level"] = "instance";
+  payload["Expand"] = false;
+
+  payloadQuery["SOPInstanceUID"] = objectUid;
+  if (!seriesUid.empty())
   {
-    LOG(ERROR) << "WADO-URI: No such SOPInstanceUID in Orthanc: \"" << objectUid << "\"";
+    payloadQuery["SeriesInstanceUID"] = seriesUid;
+  }
+  if (!studyUid.empty())
+  {
+    payloadQuery["StudyInstanceUID"] = studyUid;
+  }
+
+  payload["Query"] = payloadQuery;
+
+  std::map<std::string, std::string> httpHeaders;
+  OrthancPlugins::GetHttpHeaders(httpHeaders, request);
+
+  Json::Value resources;
+  if (!OrthancPlugins::RestApiPost(resources, "/tools/find", payload, httpHeaders, true) ||
+      resources.type() != Json::arrayValue)
+  {
+    throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
+  }
+
+  if (resources.size() == 0)
+  {
+    LOG(ERROR) << "WADO-URI: No such SOPInstanceUID in Orthanc: \"" << objectUid << "\" or parent SeriesInstanceUID/StudyInstanceUID is invalid";
+    return false;
+  }
+  
+  if (resources.size() > 1)
+  {
+    LOG(ERROR) << "WADO-URI: Multiple SOPInstanceUID found in Orthanc: \"" << objectUid;
     return false;
   }
 
-  /**
-   * Below are only sanity checks to ensure that the possibly provided
-   * "seriesUID" and "studyUID" match that of the provided instance.
-   **/
-
-  if (!seriesUid.empty())
-  {
-    std::string series;
-    if (!MapWadoToOrthancIdentifier(series, OrthancPluginLookupSeries, seriesUid))
-    {
-      LOG(ERROR) << "WADO-URI: No such SeriesInstanceUID in Orthanc: \"" << seriesUid << "\"";
-      return false;
-    }
-    else
-    {
-      Json::Value info;
-      if (!OrthancPlugins::RestApiGet(info, "/instances/" + instance + "/series", false) ||
-          info["MainDicomTags"]["SeriesInstanceUID"] != seriesUid)
-      {
-        LOG(ERROR) << "WADO-URI: Instance " << objectUid << " does not belong to series " << seriesUid;
-        return false;
-      }
-    }
-  }
-  
-  if (!studyUid.empty())
-  {
-    std::string study;
-    if (!MapWadoToOrthancIdentifier(study, OrthancPluginLookupStudy, studyUid))
-    {
-      LOG(ERROR) << "WADO-URI: No such StudyInstanceUID in Orthanc: \"" << studyUid << "\"";
-      return false;
-    }
-    else
-    {
-      Json::Value info;
-      if (!OrthancPlugins::RestApiGet(info, "/instances/" + instance + "/study", false) ||
-          info["MainDicomTags"]["StudyInstanceUID"] != studyUid)
-      {
-        LOG(ERROR) << "WADO-URI: Instance " << objectUid << " does not belong to study " << studyUid;
-        return false;
-      }
-    }
-  }
-  
+  instance = resources[0].asString();
   return true;
 }
 
