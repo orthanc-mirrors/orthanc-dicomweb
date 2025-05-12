@@ -556,26 +556,30 @@ static void ParseStowRequest(std::list<std::string>& instances /* out */,
     Json::Value tmpInstances;
     if (OrthancPlugins::RestApiGet(tmpResource, "/instances/" + resource, false))
     {
-      AddInstance(instances, tmpResource);
+      // AddInstance(instances, tmpResource);
+      instances.push_back(resource);
       AddResourceForJobContent(resourcesForJobContent, Orthanc::ResourceType_Instance, resource);
     }
     // This was not an instance, successively try with series/studies/patients
     else if ((OrthancPlugins::RestApiGet(tmpResource, "/series/" + resource, false) &&
-              OrthancPlugins::RestApiGet(tmpInstances, "/series/" + resource + "/instances", false)) ||
+              OrthancPlugins::RestApiGet(tmpInstances, "/series/" + resource + "/instances?expand=false", false)) ||
              (OrthancPlugins::RestApiGet(tmpResource, "/studies/" + resource, false) &&
-              OrthancPlugins::RestApiGet(tmpInstances, "/studies/" + resource + "/instances", false)) ||
+              OrthancPlugins::RestApiGet(tmpInstances, "/studies/" + resource + "/instances?expand=false", false)) ||
              (OrthancPlugins::RestApiGet(tmpResource, "/patients/" + resource, false) &&
-              OrthancPlugins::RestApiGet(tmpInstances, "/patients/" + resource + "/instances", false)))
+              OrthancPlugins::RestApiGet(tmpInstances, "/patients/" + resource + "/instances?expand=false", false)))
     {
       if (tmpInstances.type() != Json::arrayValue)
       {
         throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
       }
 
+      AddResourceForJobContent(resourcesForJobContent, Orthanc::StringToResourceType(tmpResource["Type"].asString().c_str()), resource);
+
       for (Json::Value::ArrayIndex j = 0; j < tmpInstances.size(); j++)
       {
-        AddInstance(instances, tmpInstances[j]);
-        AddResourceForJobContent(resourcesForJobContent, Orthanc::StringToResourceType(tmpResource["Type"].asString().c_str()), resource);
+        // AddInstance(instances, tmpInstances[j]);
+        instances.push_back(tmpInstances[j].asString());
+        AddResourceForJobContent(resourcesForJobContent, Orthanc::ResourceType_Instance, tmpInstances[j].asString());
       }
     }
     else
