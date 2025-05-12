@@ -1116,7 +1116,7 @@ bool LocateOneInstance(OrthancPluginRestOutput* output,
                             sopInstanceUid,
                             "Instance",
                             request,
-                            false);
+                            true);
   
   if (ret && metadata.find("TransferSyntax") != metadata.end())
   {

@@ -1,3 +1,12 @@
+=> Minimum Orthanc version: 1.12.5 <=
+=> Recommended SDK version: 1.12.4 <=
+=> Minimum SDK version: 1.12.1 <=
+
+* Fix calls to /studies/../series/../rendered returning a 404 if the series has
+  multiple instances.
+  https://discourse.orthanc-server.org/t/thumbnail-orthanc-stone-viewer-issue/5827/3
+  
+
 Version 1.19 (2025-04-29)
 =========================
 
