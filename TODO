@@ -1,3 +1,6 @@
+* Force usage of StudyInstanceUID & SeriesInstanceUID in WADO-URI for single instances:
+  https://discourse.orthanc-server.org/t/dicomweb-wado-uri-does-not-work-if-duplicated-instances/5863
+
 
 
 * https://orthanc.uclouvain.be/book/plugins/dicomweb.html#retrieving-dicom-resources-from-a-wado-rs-server
