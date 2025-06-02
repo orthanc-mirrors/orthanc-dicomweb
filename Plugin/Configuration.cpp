@@ -691,6 +691,11 @@ namespace OrthancPlugins
       return globalConfiguration_->GetBooleanValue("ReadOnly", false);
     }
     
+    unsigned int GetWadoRsLoaderThreadsCount()
+    {
+      return GetUnsignedIntegerValue("WadoRsLoaderThreadsCount", 0);
+    }
+
     MetadataMode GetMetadataMode(Orthanc::ResourceType level)
     {
       static const std::string FULL = "Full";

@@ -1,3 +1,12 @@
+Pending changes in the mainline
+===============================
+
+* New configuration "WadoRsLoaderThreadsCount" to configure how many threads are loading
+  files from the storage when answering to a WADO-RS query.  A value > 1 is meaningful 
+  only if the storage is a distributed network storage (e.g object storage plugin).
+  A value of 0 means reading and writing are performed in sequence (default behaviour).
+
+
 Version 1.20 (2025-05-12)
 =========================
 

@@ -141,6 +141,8 @@ namespace OrthancPlugins
 
     unsigned int GetMetadataWorkerThreadsCount();
 
+    unsigned int GetWadoRsLoaderThreadsCount();
+
     bool IsMetadataCacheEnabled();
 
     bool IsReadOnly();
