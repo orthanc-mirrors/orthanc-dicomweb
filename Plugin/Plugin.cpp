@@ -746,6 +746,8 @@ extern "C"
 
         std::string publicUrlRoot = OrthancPlugins::Configuration::GetPublicRoot();
         LOG(WARNING) << "DICOMweb public root: " << publicUrlRoot;
+
+        LOG(WARNING) << "The DICOMWeb plugin will use " << (OrthancPlugins::Configuration::GetWadoRsLoaderThreadsCount() == 0 ? 1 : OrthancPlugins::Configuration::GetWadoRsLoaderThreadsCount()) << " threads to load DICOM files for WADO-RS queries";
       }
       else
       {
