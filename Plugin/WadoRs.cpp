@@ -597,7 +597,7 @@ static void AnswerListOfDicomInstances(OrthancPluginRestOutput* output,
 {
   Orthanc::Toolbox::ElapsedTimer perfTimer;
   size_t perfTotalSizeInBytes = 0;
-  size_t perfTotalFilesCount = 0;
+  size_t perfTotalInstancesCount = 0;
 
   if (level != Orthanc::ResourceType_Study &&
       level != Orthanc::ResourceType_Series &&
@@ -727,7 +727,7 @@ static void AnswerListOfDicomInstances(OrthancPluginRestOutput* output,
     loader->PrepareDicom(instances[i]["ID"].asString(), transcodeThisInstance);
   }
 
-  perfTotalFilesCount = instances.size();
+  perfTotalInstancesCount = instances.size();
 
   for (Json::Value::ArrayIndex i = 0; i < instances.size(); i++)
   {
@@ -752,8 +752,8 @@ static void AnswerListOfDicomInstances(OrthancPluginRestOutput* output,
   if (OrthancPlugins::Configuration::IsPerformanceLogsEnabled())
   {
     uint64_t elapsedMicrosends = perfTimer.GetElapsedMicroseconds();
-    float filesPerSeconds = float(perfTotalFilesCount) / (float(elapsedMicrosends) / 1000000.0f);
-    LOG(INFO) << "WADO-RS: elapsed: " << perfTimer.GetElapsedMicroseconds() << " us, rate: " << std::fixed << std::setprecision(2) << filesPerSeconds << " files/s, " << Orthanc::Toolbox::GetHumanTransferSpeed(false, perfTotalSizeInBytes, elapsedMicrosends * 1000);
+    float instancesPerSeconds = float(perfTotalInstancesCount) / (float(elapsedMicrosends) / 1000000.0f);
+    LOG(INFO) << "WADO-RS: elapsed: " << perfTimer.GetElapsedMicroseconds() << " us, rate: " << std::fixed << std::setprecision(2) << instancesPerSeconds << " instances/s, " << Orthanc::Toolbox::GetHumanTransferSpeed(false, perfTotalSizeInBytes, elapsedMicrosends * 1000);
   }
 }
 
