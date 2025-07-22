@@ -696,6 +696,11 @@ namespace OrthancPlugins
       return GetUnsignedIntegerValue("WadoRsLoaderThreadsCount", 0);
     }
 
+    bool IsPerformanceLogsEnabled()
+    {
+      return GetBooleanValue("EnablePerformanceLogs", false);
+    }
+
     MetadataMode GetMetadataMode(Orthanc::ResourceType level)
     {
       static const std::string FULL = "Full";

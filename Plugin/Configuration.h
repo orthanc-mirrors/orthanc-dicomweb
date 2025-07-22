@@ -146,5 +146,7 @@ namespace OrthancPlugins
     bool IsMetadataCacheEnabled();
 
     bool IsReadOnly();
+
+    bool IsPerformanceLogsEnabled();
   }
 }
