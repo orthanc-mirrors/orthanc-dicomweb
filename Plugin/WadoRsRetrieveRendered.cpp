@@ -849,7 +849,7 @@ static void AnswerFrameRendered(OrthancPluginRestOutput* output,
         apiClient.SetPath(std::string("/instances/") + instanceId + "/frames/0/raw");
         if (apiClient.Execute())
         {
-          apiClient.Forward(OrthancPlugins::GetGlobalContext(), output);
+          apiClient.ExecuteAndForwardAnswer(OrthancPlugins::GetGlobalContext(), output);
           return;
         }
       }

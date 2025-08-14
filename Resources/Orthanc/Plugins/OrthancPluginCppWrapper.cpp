@@ -266,6 +266,16 @@ namespace OrthancPlugins
 #endif
 
 
+#if ORTHANC_PLUGINS_VERSION_IS_ABOVE(1, 7, 0)
+  void MemoryBuffer::AssignJson(const Json::Value& value)
+  {
+    std::string s;
+    WriteFastJson(s, value);
+    Assign(s);
+  }
+#endif
+
+
   void MemoryBuffer::Assign(OrthancPluginMemoryBuffer& other)
   {
     Clear();
@@ -686,7 +696,7 @@ namespace OrthancPlugins
   {
     OrthancString str;
     str.Assign(OrthancPluginDicomBufferToJson
-               (GetGlobalContext(), GetData(), GetSize(), format, flags, maxStringLength));
+               (GetGlobalContext(), reinterpret_cast<const char*>(GetData()), GetSize(), format, flags, maxStringLength));
     str.ToJson(target);
   }
 
@@ -4112,6 +4122,16 @@ namespace OrthancPlugins
   }
 #endif
 
+  void GetGetArguments(GetArguments& result, const OrthancPluginHttpRequest* request)
+  {
+    result.clear();
+
+    for (uint32_t i = 0; i < request->getCount; ++i)
+    {
+      result[request->getKeys[i]] = request->getValues[i];
+    }    
+  }
+
   void GetHttpHeaders(HttpHeaders& result, const OrthancPluginHttpRequest* request)
   {
     result.clear();
@@ -4212,6 +4232,11 @@ namespace OrthancPlugins
     {
       path_ += "?" + getArguments;
     }
+
+    if (request->bodySize > 0 && request->body != NULL)
+    {
+      requestBody_.assign(reinterpret_cast<const char*>(request->body), request->bodySize);
+    }
   }
 #endif
 
@@ -4228,6 +4253,15 @@ namespace OrthancPlugins
     {
       ORTHANC_PLUGINS_THROW_EXCEPTION(BadSequenceOfCalls);
     }
+  }
+#endif
+
+
+#if HAS_ORTHANC_PLUGIN_GENERIC_CALL_REST_API == 1
+  void RestApiClient::SetRequestHeader(const std::string& key,
+                                       const std::string& value)
+  {
+    requestHeaders_[key] = value;
   }
 #endif
 
@@ -4279,9 +4313,17 @@ namespace OrthancPlugins
     }
   }
 
-  void RestApiClient::Forward(OrthancPluginContext* context, OrthancPluginRestOutput* output)
+  void RestApiClient::ExecuteAndForwardAnswer(OrthancPluginContext* context, OrthancPluginRestOutput* output)
   {
-    if (Execute() && httpStatus_ == 200)
+    if (Execute())
+    {
+      ForwardAnswer(context, output);
+    }
+  }
+
+  void RestApiClient::ForwardAnswer(OrthancPluginContext* context, OrthancPluginRestOutput* output)
+  {
+    if (httpStatus_ == 200)
     {
       const char* mimeType = NULL;
       for (HttpHeaders::const_iterator h = answerHeaders_.begin(); h != answerHeaders_.end(); ++h)
