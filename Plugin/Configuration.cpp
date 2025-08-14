@@ -626,21 +626,21 @@ namespace OrthancPlugins
       std::string accept;
       Orthanc::Toolbox::ToLowerCase(accept, acceptHeader);
   
-      if (accept == "application/dicom+json" ||
-          accept == "application/json" ||
-          accept == "*/*")
+      if (accept.find("application/dicom+json") != std::string::npos ||
+          accept.find("application/json") != std::string::npos ||
+          accept.find("*/*")  != std::string::npos)
       {
         return false;
       }
-      else if (accept == "application/dicom+xml" ||
-               accept == "application/xml" ||
-               accept == "text/xml")
+      else if (accept.find("application/dicom+xml") != std::string::npos ||
+               accept.find("application/xml") != std::string::npos ||
+               accept.find("text/xml")  != std::string::npos)
       {
         return true;
       }
       else
       {
-        LOG(ERROR) << "Unsupported return MIME type: " << accept <<
+        LOG(WARNING) << "Unsupported return MIME type: " << accept <<
                       ", will return DICOM+JSON";
         return false;
       }
