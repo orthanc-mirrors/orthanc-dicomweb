@@ -1,5 +1,5 @@
-Pending changes in the mainline
-===============================
+Version 1.21 (2025-08-14)
+=========================
 
 * New configuration "WadoRsLoaderThreadsCount" to configure how many threads are loading
   files from the storage when answering to a WADO-RS query.  A value > 1 is meaningful 
