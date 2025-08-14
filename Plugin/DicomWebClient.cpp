@@ -386,21 +386,6 @@ static void SubmitJob(OrthancPluginRestOutput* output,
 }
 
 
-static void AddInstance(std::list<std::string>& target,
-                        const Json::Value& instance)
-{
-  std::string id;
-  if (OrthancPlugins::LookupStringValue(id, instance, "ID"))
-  {
-    target.push_back(id);
-  }
-  else
-  {
-    throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
-  }
-}
-
-
 static bool GetSequenceSize(size_t& result,
                             const Json::Value& answer,
                             const std::string& tag,
@@ -556,7 +541,6 @@ static void ParseStowRequest(std::list<std::string>& instances /* out */,
     Json::Value tmpInstances;
     if (OrthancPlugins::RestApiGet(tmpResource, "/instances/" + resource, false))
     {
-      // AddInstance(instances, tmpResource);
       instances.push_back(resource);
       AddResourceForJobContent(resourcesForJobContent, Orthanc::ResourceType_Instance, resource);
     }
@@ -577,7 +561,6 @@ static void ParseStowRequest(std::list<std::string>& instances /* out */,
 
       for (Json::Value::ArrayIndex j = 0; j < tmpInstances.size(); j++)
       {
-        // AddInstance(instances, tmpInstances[j]);
         instances.push_back(tmpInstances[j].asString());
         AddResourceForJobContent(resourcesForJobContent, Orthanc::ResourceType_Instance, tmpInstances[j].asString());
       }
