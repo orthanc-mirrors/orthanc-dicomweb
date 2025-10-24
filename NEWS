@@ -1,3 +1,10 @@
+Pending changes in the mainline
+===============================
+
+* Fixed a possible deadlock when using "WadoRsLoaderThreadsCount" > 1 when the HTTP
+  client disconnects while downloading the response.
+
+
 Version 1.21 (2025-08-14)
 =========================
 

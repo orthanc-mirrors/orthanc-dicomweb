@@ -453,12 +453,15 @@ class ThreadedInstanceLoader : public InstanceLoader
 
   Orthanc::Semaphore                  bufferSemaphore_;
 
+  bool                                loadersShouldStop_;
+
 public:
   ThreadedInstanceLoader(size_t threadCount, bool transcode, Orthanc::DicomTransferSyntax transferSyntax)
   : InstanceLoader(transcode, transferSyntax),
     instancesToPreload_(0),
     loadedInstances_(0),
-    bufferSemaphore_(3*threadCount) // to limit the number of loaded instances in memory
+    bufferSemaphore_(3*threadCount), // to limit the number of loaded instances in memory
+    loadersShouldStop_(false)
   {
     for (size_t i = 0; i < threadCount; i++)
     {
@@ -473,21 +476,38 @@ public:
 
   void Clear()
   {
-    for (size_t i = 0; i < threads_.size(); i++)
+    if (threads_.size() > 0)
     {
-      instancesToPreload_.Enqueue(NULL);
-    }
+      loadersShouldStop_ = true; // not need to protect this by a mutex.  This is the only "writer" and all loaders are "readers"
 
-    for (size_t i = 0; i < threads_.size(); i++)
-    {
-      if (threads_[i]->joinable())
+      LOG(INFO) << "Waiting for loader threads to complete";
+
+      // unlock the loaders if they are waiting on this message queue (this happens when the job completes sucessfully)
+      for (size_t i = 0; i < threads_.size(); i++)
       {
-        threads_[i]->join();
+        instancesToPreload_.Enqueue(NULL);
       }
-      delete threads_[i];
-    }
 
-    threads_.clear();
+      // If the consumer stops e.g. because the HttpClient disconnected, we must make sure the loader threads are not blocked waiting for room in the bufferSemaphore_.
+      // If the loader threads have completed their jobs, this is harmless to release the bufferSemaphore_ since they won't be used anymore.
+      for (size_t i = 0; i < threads_.size(); i++)
+      {
+        bufferSemaphore_.Release();
+      }
+
+      for (size_t i = 0; i < threads_.size(); i++)
+      {
+        if (threads_[i]->joinable())
+        {
+          threads_[i]->join();
+        }
+        delete threads_[i];
+      }
+
+      threads_.clear();
+
+      LOG(INFO) << "Waiting for loader threads to complete - done";
+    }
   }
 
   static void PreloaderWorkerThread(ThreadedInstanceLoader* that)
@@ -495,11 +515,14 @@ public:
     static uint16_t threadCounter = 0;
     Orthanc::Logging::SetCurrentThreadName(std::string("WADO-LOAD-") + boost::lexical_cast<std::string>(threadCounter++));
 
+    LOG(INFO) << "Loader thread has started";
+
     while (true)
     {
-      std::unique_ptr<InstanceToPreload> instanceToPreload(dynamic_cast<InstanceToPreload*>(that->instancesToPreload_.Dequeue(0)));
-      if (instanceToPreload.get() == NULL)  // that's the signal to exit the thread
+      std::unique_ptr<InstanceToPreload> instancesToPreload(dynamic_cast<InstanceToPreload*>(that->instancesToPreload_.Dequeue(0)));
+      if (instancesToPreload.get() == NULL || that->loadersShouldStop_)  // that's the signal to exit the thread
       {
+        LOG(INFO) << "Loader thread has completed";
         return;
       }
       
@@ -508,7 +531,7 @@ public:
 
       try
       {
-        std::unique_ptr<OrthancPlugins::DicomInstance> dicom(that->GetAndTranscodeDicom(instanceToPreload.get()));
+        std::unique_ptr<OrthancPlugins::DicomInstance> dicom(that->GetAndTranscodeDicom(instancesToPreload.get()));
         that->loadedInstances_.Enqueue(new LoadedInstance(dicom.release()));
       }
       catch (Orthanc::OrthancException& e)
@@ -521,7 +544,6 @@ public:
         LOG(ERROR) << "Unknown error while loading instances ";
         that->loadedInstances_.Enqueue(NULL);
       }
-
     }
   }
 
