@@ -16,7 +16,8 @@ Version 1.21 (2025-08-14)
   only showing the time required to execute a WADO-RS query.  For example:
   WADO-RS: elapsed: 26106623 us, rate: 14.86 instances/s, 155.23Mbps
 * Fix false errors logs generated e.g when OHIF requests the /dicom-web/studies/../metadata route:
-  "dicom-web:/Configuration.cpp:643] Unsupported return MIME type: application/dicom+json, multipart/related; type=application/octet-stream; transfer-syntax=*, will return DICOM+JSON"
+  "dicom-web:/Configuration.cpp:643] Unsupported return MIME type: application/dicom+json,
+  multipart/related; type=application/octet-stream; transfer-syntax=*, will return DICOM+JSON"
 
 
 Version 1.20 (2025-05-12)
