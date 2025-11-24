@@ -3,7 +3,7 @@ Pending changes in the mainline
 
 * Fixed a possible deadlock when using "WadoRsLoaderThreadsCount" > 1 when the HTTP
   client disconnects while downloading the response.
-* Fixed "Success: Success" errors when trying to send resources synchronously to a remote DICOMWeb
+* Fixed "Success: Success" errors when trying to send resources synchronously to a remote DICOMweb
   server while the Orthanc job engine was busy with other tasks.
 
 
