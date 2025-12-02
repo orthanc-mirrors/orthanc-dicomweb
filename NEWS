@@ -1,7 +1,5 @@
-Pending changes in the mainline
-===============================
-
-TODO before release: update to framework 1.12.10+ (with BlockingSharedMessageQueue)
+Version 1.22 (2025-12-02)
+=========================
 
 * Fixed a possible deadlock when using "WadoRsLoaderThreadsCount" > 1 when the HTTP
   client disconnects while downloading the response.
