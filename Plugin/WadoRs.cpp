@@ -32,8 +32,11 @@
 #include <Toolbox.h>
 #include <SerializationToolbox.h>
 #include <MultiThreading/SharedMessageQueue.h>
-#include <MultiThreading/BlockingSharedMessageQueue.h>
 #include <Compression/GzipCompressor.h>
+
+#if ORTHANC_FRAMEWORK_VERSION_IS_ABOVE(1, 12, 11)
+#  include <MultiThreading/BlockingSharedMessageQueue.h>
+#endif
 
 #include <memory>
 #include <boost/thread/mutex.hpp>
@@ -445,11 +448,16 @@ public:
 
 class ThreadedInstanceLoader : public InstanceLoader
 {
+private:
   std::vector<boost::thread*>         threads_;
 
   Orthanc::SharedMessageQueue         instancesToPreload_;
 
+#if ORTHANC_FRAMEWORK_VERSION_IS_ABOVE(1, 12, 11)
   Orthanc::BlockingSharedMessageQueue loadedInstances_;
+#else
+  Orthanc::SharedMessageQueue         loadedInstances_;
+#endif
 
   bool                                loadersShouldStop_;
 
@@ -457,7 +465,11 @@ public:
   ThreadedInstanceLoader(size_t threadCount, bool transcode, Orthanc::DicomTransferSyntax transferSyntax)
   : InstanceLoader(transcode, transferSyntax),
     instancesToPreload_(0),
-    loadedInstances_(3*threadCount), // to limit the number of loaded instances in memory
+#if ORTHANC_FRAMEWORK_VERSION_IS_ABOVE(1, 12, 11)
+    loadedInstances_(3 * threadCount), // to limit the number of loaded instances in memory
+#else
+    loadedInstances_(0),  // don't limit the number of loaded instances, otherwise extra instances would be lost
+#endif
     loadersShouldStop_(false)
   {
     for (size_t i = 0; i < threadCount; i++)
