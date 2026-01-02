@@ -2,8 +2,8 @@
 # Copyright (C) 2012-2016 Sebastien Jodogne, Medical Physics
 # Department, University Hospital of Liege, Belgium
 # Copyright (C) 2017-2023 Osimis S.A., Belgium
-# Copyright (C) 2024-2025 Orthanc Team SRL, Belgium
-# Copyright (C) 2021-2025 Sebastien Jodogne, ICTEAM UCLouvain, Belgium
+# Copyright (C) 2024-2026 Orthanc Team SRL, Belgium
+# Copyright (C) 2021-2026 Sebastien Jodogne, ICTEAM UCLouvain, Belgium
 #
 # This program is free software: you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public License
@@ -226,6 +226,11 @@ if (ORTHANC_FRAMEWORK_SOURCE STREQUAL "hg" OR
         # for BlockingSharedMessageQueue + fix SetCurrentThreadName from plugins
         set(ORTHANC_FRAMEWORK_PRE_RELEASE ON)
         set(ORTHANC_FRAMEWORK_MD5 "e66a7e996d56063b3abb790bb8f12e8d")
+      elseif (ORTHANC_FRAMEWORK_VERSION STREQUAL "94c7f3784456")
+        # PixelsMasker 0.1.0 (framework post-1.12.10)
+        # for BlockingSharedMessageQueue.WaitEmpty()
+        set(ORTHANC_FRAMEWORK_PRE_RELEASE ON)
+        set(ORTHANC_FRAMEWORK_MD5 "c037cd2ddbe1b65b431692855483161b")
       endif()
     endif()
   endif()

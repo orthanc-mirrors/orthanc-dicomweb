@@ -3,8 +3,8 @@
  * Copyright (C) 2012-2016 Sebastien Jodogne, Medical Physics
  * Department, University Hospital of Liege, Belgium
  * Copyright (C) 2017-2023 Osimis S.A., Belgium
- * Copyright (C) 2024-2025 Orthanc Team SRL, Belgium
- * Copyright (C) 2021-2025 Sebastien Jodogne, ICTEAM UCLouvain, Belgium
+ * Copyright (C) 2024-2026 Orthanc Team SRL, Belgium
+ * Copyright (C) 2021-2026 Sebastien Jodogne, ICTEAM UCLouvain, Belgium
  *
  * This program is free software: you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -28,6 +28,7 @@
 #include <orthanc/OrthancCPlugin.h>
 #include <boost/noncopyable.hpp>
 #include <boost/lexical_cast.hpp>
+#include <boost/thread/mutex.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <json/value.h>
 #include <vector>
@@ -943,6 +944,7 @@ namespace OrthancPlugins
   {
   private:
     std::string   jobType_;
+    boost::mutex  contentMutex_;
     std::string   content_;
     bool          hasSerialized_;
     std::string   serialized_;
@@ -1017,7 +1019,7 @@ namespace OrthancPlugins
 
 
 #if HAS_ORTHANC_PLUGIN_METRICS == 1
-  inline void SetMetricsValue(char* name,
+  inline void SetMetricsValue(const char* name,
                               float value)
   {
     OrthancPluginSetMetricsValue(GetGlobalContext(), name,
