@@ -24,6 +24,7 @@
 
 #include "../Resources/Orthanc/Plugins/OrthancPluginCppWrapper.h"
 
+#include <CompatibilityMath.h>
 #include <Images/Image.h>
 #include <Images/ImageProcessing.h>
 #include <Images/ImageTraits.h>
@@ -39,7 +40,6 @@
 #endif
 
 #include <boost/algorithm/string/predicate.hpp>
-#include <boost/math/special_functions/round.hpp>
 
 
 static bool ParseFloat(float& target,
@@ -147,7 +147,7 @@ namespace
         if (allowFloat)
         {
           float value = boost::lexical_cast<float>(tokens[index]);
-          target = boost::math::iround(value);
+          target = Orthanc::Math::iround(value);
         }
         else
         {
@@ -752,8 +752,8 @@ static void ApplyRendering(Orthanc::ImageAccessor& target,
     static_cast<float>(target.GetWidth()) / cw,
     static_cast<float>(target.GetHeight()) / ch);
 
-  unsigned int sw = std::min(static_cast<unsigned int>(boost::math::iround(cw * r)), target.GetWidth());  
-  unsigned int sh = std::min(static_cast<unsigned int>(boost::math::iround(ch * r)), target.GetHeight());
+  unsigned int sw = std::min(static_cast<unsigned int>(Orthanc::Math::iround(cw * r)), target.GetWidth());
+  unsigned int sh = std::min(static_cast<unsigned int>(Orthanc::Math::iround(ch * r)), target.GetHeight());
   Orthanc::Image resized(target.GetFormat(), sw, sh, false);
   
   //Orthanc::ImageProcessing::SmoothGaussian5x5(scaled);
