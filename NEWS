@@ -1,3 +1,10 @@
+Pending changes in the mainline
+===============================
+
+* If calling /rendered route on a Encapsulated PDF, the plugin will now return the pdf file
+  instead of generating a 400 error.
+
+
 Version 1.22 (2025-12-02)
 =========================
 

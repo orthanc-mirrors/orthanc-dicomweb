@@ -821,6 +821,32 @@ static bool ReadDefaultWindow(RenderingParameters& parameters,
   return false;
 }
 
+static void AnswerRawData(OrthancPluginRestOutput* output,
+                          bool isThumbnail,
+                          Orthanc::EmbeddedResources::FileResourceId thumbnailResourceId,
+                          const char* thumbnailMimeType,
+                          const std::string& rawDataUrl)
+{
+  if (isThumbnail)
+  {
+    // we are not able to extract a thumbnail from a video/pdf -> just return an icon
+    std::string thumbnail;
+    Orthanc::EmbeddedResources::GetFileResource(thumbnail, thumbnailResourceId);
+    OrthancPluginAnswerBuffer(OrthancPlugins::GetGlobalContext(), output, thumbnail.c_str(), thumbnail.size(), thumbnailMimeType);
+    return;
+  }
+  else
+  {
+    OrthancPlugins::RestApiClient apiClient;
+    apiClient.SetPath(rawDataUrl);
+    if (apiClient.Execute())
+    {
+      apiClient.ExecuteAndForwardAnswer(OrthancPlugins::GetGlobalContext(), output);
+      return;
+    }
+  }
+}
+
 
 static void AnswerFrameRendered(OrthancPluginRestOutput* output,
                                 const std::string& instanceId,
@@ -835,24 +861,8 @@ static void AnswerFrameRendered(OrthancPluginRestOutput* output,
   {
     if (currentSyntax >= Orthanc::DicomTransferSyntax_MPEG2MainProfileAtMainLevel && currentSyntax <= Orthanc::DicomTransferSyntax_HEVCMain10ProfileLevel5_1)
     {
-      if (isThumbnail)
-      {
-        // we are not able to extract a thumbnail from a video -> just return a camera icon
-        std::string videoThumbnail;
-        Orthanc::EmbeddedResources::GetFileResource(videoThumbnail, Orthanc::EmbeddedResources::VIDEO_THUMBNAIL);
-        OrthancPluginAnswerBuffer(OrthancPlugins::GetGlobalContext(), output, videoThumbnail.c_str(), videoThumbnail.size(), "image/jpeg");
-        return;
-      }
-      else
-      {
-        OrthancPlugins::RestApiClient apiClient;
-        apiClient.SetPath(std::string("/instances/") + instanceId + "/frames/0/raw");
-        if (apiClient.Execute())
-        {
-          apiClient.ExecuteAndForwardAnswer(OrthancPlugins::GetGlobalContext(), output);
-          return;
-        }
-      }
+      AnswerRawData(output, isThumbnail, Orthanc::EmbeddedResources::VIDEO_THUMBNAIL, "image/jpeg", std::string("/instances/") + instanceId + "/frames/0/raw");
+      return;
     }
   }
 
@@ -862,6 +872,7 @@ static void AnswerFrameRendered(OrthancPluginRestOutput* output,
   static const char* const PER_FRAME_FUNCTIONAL_GROUPS_SEQUENCE = "5200,9230";
   static const char* const PIXEL_VALUE_TRANSFORMATION_SEQUENCE = "0028,9145";
   static const char* const FRAME_VOI_LUT_SEQUENCE = "0028,9132";
+  static const char* const SOP_CLASS_UID = "0008,0016";
 
   Orthanc::MimeType mime = Orthanc::MimeType_Jpeg;  // This is the default in DICOMweb
       
@@ -905,6 +916,16 @@ static void AnswerFrameRendered(OrthancPluginRestOutput* output,
 
     Json::Value tags;
     buffer.DicomToJson(tags, OrthancPluginDicomToJsonFormat_Short, OrthancPluginDicomToJsonFlags_None, 255);
+
+    if (tags.isMember(SOP_CLASS_UID))
+    {
+      std::string sopClassUid = tags[SOP_CLASS_UID].asString();
+      if (sopClassUid == "1.2.840.10008.5.1.4.1.1.104.1")  // if the instance is a PDF
+      {
+        AnswerRawData(output, isThumbnail, Orthanc::EmbeddedResources::PDF_THUMBNAIL, "image/jpeg", std::string("/instances/") + instanceId + "/pdf");
+        return;
+      }
+    }
 
     const unsigned int f = static_cast<unsigned int>(frame - 1);
     
