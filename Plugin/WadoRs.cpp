@@ -57,6 +57,10 @@ static boost::mutex mainDicomTagsListMutex;
 static bool pluginCanUseExtendedFind_ = false;
 static bool isSystemReadOnly_ = false;
 
+static boost::mutex preloaderThreadsCounterMutex;
+static uint32_t preloaderThreadsCounter = 0;
+
+
 void SetPluginCanUseExtendedFind(bool enable)
 {
   pluginCanUseExtendedFind_ = enable;
@@ -515,8 +519,11 @@ public:
 
   static void PreloaderWorkerThread(ThreadedInstanceLoader* that)
   {
-    static uint16_t threadCounter = 0;
-    Orthanc::Logging::SetCurrentThreadName(std::string("WADO-LOAD-") + boost::lexical_cast<std::string>(threadCounter++));
+    {
+      boost::mutex::scoped_lock lock(preloaderThreadsCounterMutex);
+      Orthanc::Logging::SetCurrentThreadName(std::string("WADO-LOAD-") + boost::lexical_cast<std::string>(preloaderThreadsCounter++));
+      preloaderThreadsCounter %= 1000000;
+    }
 
     LOG(INFO) << "Loader thread has started";
 
