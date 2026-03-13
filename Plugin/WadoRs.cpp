@@ -43,6 +43,7 @@
 #include <boost/thread.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/algorithm/string/predicate.hpp>
+#include "WeightedAverageMetrics.h"
 
 static const std::string SERIES_METADATA_ATTACHMENT_ID = "4301";
 static std::string WADO_BASE_PLACEHOLDER = "$WADO_BASE_PLACEHOLDER$";
@@ -59,7 +60,10 @@ static bool isSystemReadOnly_ = false;
 
 static boost::mutex preloaderThreadsCounterMutex;
 static uint32_t preloaderThreadsCounter = 0;
+static WeightedAverageMetrics<float> wadorsAverageBandwidth(300);
 
+static boost::mutex wadoRsTotalBytesTransferredMutex;
+static int64_t wadoRsTotalBytesTransferred = 0;
 
 void SetPluginCanUseExtendedFind(bool enable)
 {
@@ -79,6 +83,12 @@ void SetSystemIsReadOnly(bool isReadOnly)
 bool IsSystemReadOnly()
 {
   return isSystemReadOnly_;
+}
+
+void RefreshWadoRsMetrics()
+{
+  OrthancPlugins::SetMetricsValue("orthanc_dicomweb_wadors_average_bandwidth_per_call_mbytes_per_second_5m", wadorsAverageBandwidth.GetAverage());
+  OrthancPlugins::SetMetricsValue("orthanc_dicomweb_wadors_total_bytes_transferred", wadoRsTotalBytesTransferred);
 }
 
 static std::string GetResourceUri(Orthanc::ResourceType level,
@@ -768,6 +778,9 @@ static void AnswerListOfDicomInstances(OrthancPluginRestOutput* output,
         throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
       }
       perfTotalSizeInBytes += dicom->GetSize();
+
+      boost::mutex::scoped_lock lock(wadoRsTotalBytesTransferredMutex);
+      wadoRsTotalBytesTransferred += static_cast<int64_t>(dicom->GetSize());
     }
     else
     {
@@ -775,9 +788,13 @@ static void AnswerListOfDicomInstances(OrthancPluginRestOutput* output,
     }
   }
 
+  uint64_t elapsedMicrosends = perfTimer.GetElapsedMicroseconds();
+
+  float bandwidth = float(perfTotalSizeInBytes) / float(elapsedMicrosends) * 8.0f; // this gives a bandwidth in MBps
+  wadorsAverageBandwidth.AddValue(bandwidth, float(perfTotalSizeInBytes));
+
   if (OrthancPlugins::Configuration::IsPerformanceLogsEnabled())
   {
-    uint64_t elapsedMicrosends = perfTimer.GetElapsedMicroseconds();
     float instancesPerSeconds = float(perfTotalInstancesCount) / (float(elapsedMicrosends) / 1000000.0f);
     LOG(INFO) << "WADO-RS: elapsed: " << perfTimer.GetElapsedMicroseconds() << " us, rate: " << std::fixed << std::setprecision(2) << instancesPerSeconds << " instances/s, " << Orthanc::Toolbox::GetHumanTransferSpeed(false, perfTotalSizeInBytes, elapsedMicrosends * 1000);
   }

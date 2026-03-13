@@ -466,6 +466,11 @@ void ServeDicomWebClient(OrthancPluginRestOutput* output,
 #endif
 
 
+static void RefreshMetricsCallback()
+{
+  RefreshWadoRsMetrics();
+}
+
 static OrthancPluginErrorCode OnChangeCallback(OrthancPluginChangeType changeType, 
                                                OrthancPluginResourceType resourceType, 
                                                const char *resourceId)
@@ -711,6 +716,7 @@ extern "C"
 
         OrthancPluginRegisterOnChangeCallback(context, OnChangeCallback);
 
+        OrthancPluginRegisterRefreshMetricsCallback(context, RefreshMetricsCallback);
 
         // Extend the default Orthanc Explorer with custom JavaScript for STOW client
         std::string explorer;

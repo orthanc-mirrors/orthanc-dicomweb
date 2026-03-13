@@ -119,3 +119,5 @@ void SetPluginCanDownloadTranscodedFile(bool enable);
 void SetPluginCanUseExtendedFind(bool enable);
 
 void SetSystemIsReadOnly(bool isReadOnly);
+
+void RefreshWadoRsMetrics();

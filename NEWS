@@ -3,6 +3,14 @@ Pending changes in the mainline
 
 * If calling /rendered route on a Encapsulated PDF, the plugin will now return the pdf file
   instead of generating a 400 error.
+* Added metrics:
+  - orthanc_dicomweb_wadors_average_bandwidth_per_call_mbytes_per_second_5m is the weighted
+    average bandwidth of each individual call to any WADO-RS route to retrieve instances, series
+    or studies.  This metrics is only updated at the end of the call and averages the bandwidth
+    values that are also displayed in the logs if you set "EnablePerformanceLogs" to true.
+  - orthanc_dicomweb_wadors_total_bytes_transferred counts the number of bytes that have
+    been returned by any WADO-RS route to retrieve instances, series or studies.  This is updated
+    while the response is returned.
 
 
 Version 1.22 (2025-12-02)
