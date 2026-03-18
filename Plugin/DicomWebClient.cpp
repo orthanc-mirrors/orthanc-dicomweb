@@ -168,14 +168,7 @@ private:
     }
   }
 
-  // void SetContent(const std::string& key,
-  //                 const std::string& value)
-  // {
-  //   boost::mutex::scoped_lock lock(mutex_);
-  //   content_[key] = value;
-  //   UpdateContent(content_);
-  // }
-
+protected:
   void SetContent(const std::string& key,
                   const Json::Value& value)
   {
@@ -184,6 +177,7 @@ private:
     UpdateContent(content_);
   }
 
+private:
   static void Worker(SingleFunctionJob* job,
                      IFunctionFactory* factory)
   {
@@ -594,7 +588,6 @@ private:
   Action                       action_;
   size_t                       networkSize_;
   bool                         debug_;
-  Json::Value                  resourcesForJobContent_;
 
   bool ReadNextInstance(std::string& dicom,
                         JobContext& context)
@@ -713,8 +706,6 @@ private:
       {
         boost::mutex::scoped_lock lock(that_.mutex_);
         context.SetContent("InstancesCount", boost::lexical_cast<std::string>(that_.instances_.size()));
-        context.SetContent("Resources", that_.GetResourcesForJobContent());
-        context.SetContent("Server", that_.GetServerName());
         serverName = that_.serverName_;
         
         startPosition = that_.position_;        
@@ -817,9 +808,11 @@ public:
     position_(0),
     action_(Action_None),
     networkSize_(0),
-    debug_(false),
-    resourcesForJobContent_(resourcesForJobContent)
+    debug_(false)
   {
+    SetContent("Resources", resourcesForJobContent);
+    SetContent("Server", serverName_);
+
     SetFactory(*this);
 
     instances_.reserve(instances.size());
@@ -855,15 +848,6 @@ public:
     debug_ = debug;
   }
 
-  const Json::Value& GetResourcesForJobContent()
-  {
-    return resourcesForJobContent_;
-  }
-
-  const std::string& GetServerName()
-  {
-    return serverName_;
-  }
 };
 
 
