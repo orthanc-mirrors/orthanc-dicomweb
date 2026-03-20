@@ -55,6 +55,7 @@ private:
 
   void RemoveOldest()
   {
+    // note: the mutex must be locked
     boost::posix_time::ptime now = boost::posix_time::microsec_clock::universal_time();
 
     if (values_.size() > 0)
@@ -88,15 +89,8 @@ public:
     values_.push_back(Value(value, weight));
     totalWeightedValue_ += value * weight;
     totalWeight_ += weight;
-    boost::posix_time::ptime now = boost::posix_time::microsec_clock::universal_time();
-
-    const Value& oldest = values_.front();
-    while ((now - oldest.time_).total_seconds() > duration_)
-    {
-      totalWeightedValue_ -= oldest.value_ * oldest.weight_;
-      totalWeight_ -= oldest.weight_;
-      values_.pop_front();
-    }
+    
+    RemoveOldest();
   }
 
   T GetAverage()
