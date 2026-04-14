@@ -29,6 +29,10 @@
 #include <stdint.h>
 
 
+// This class is used to compute e.g: the average throughput
+// of all WADO-RS retrievals over a period of time.  For each call, we
+// give a value (in this case: the throughput) and a weight (a large request
+// has more weight than a small request).
 template <typename T>
 class WeightedAverageMetrics : public boost::noncopyable
 {
@@ -60,7 +64,7 @@ private:
 
     if (values_.size() > 0)
     {
-      Value& oldest = values_.front();
+      Value oldest = values_.front();
       while ((now - oldest.time_).total_seconds() > duration_)
       {
         totalWeightedValue_ -= oldest.value_ * oldest.weight_;
@@ -69,6 +73,10 @@ private:
         if (values_.size() > 0)
         {
           oldest = values_.front();
+        }
+        else
+        {
+          return;
         }
       }
     }
