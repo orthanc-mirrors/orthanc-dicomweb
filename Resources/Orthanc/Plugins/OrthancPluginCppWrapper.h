@@ -27,7 +27,6 @@
 
 #include <orthanc/OrthancCPlugin.h>
 #include <boost/noncopyable.hpp>
-#include <boost/lexical_cast.hpp>
 #include <boost/thread/mutex.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <json/value.h>
@@ -1030,14 +1029,20 @@ namespace OrthancPlugins
     OrthancPluginSetMetricsValue(GetGlobalContext(), name,
                                  value, OrthancPluginMetricsType_Default);
   }
+#endif
 
+
+#if ORTHANC_PLUGINS_VERSION_IS_ABOVE(1, 12, 1)
   inline void SetMetricsValue(const char* name,
                               int64_t value)
   {
     OrthancPluginSetMetricsIntegerValue(GetGlobalContext(), name,
                                         value, OrthancPluginMetricsType_Default);
   }
+#endif
 
+
+#if HAS_ORTHANC_PLUGIN_METRICS == 1
   class MetricsTimer : public boost::noncopyable
   {
   private:
