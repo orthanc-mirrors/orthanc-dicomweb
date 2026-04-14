@@ -35,6 +35,7 @@
 #include <Compression/GzipCompressor.h>
 
 #if ORTHANC_FRAMEWORK_VERSION_IS_ABOVE(1, 12, 11)
+#  include <ElapsedTimer.h>
 #  include <MultiThreading/BlockingSharedMessageQueue.h>
 #endif
 
@@ -631,7 +632,12 @@ static void AnswerListOfDicomInstances(OrthancPluginRestOutput* output,
                                        bool transcode,
                                        Orthanc::DicomTransferSyntax targetSyntax /* only if transcoding */)
 {
+#if ORTHANC_FRAMEWORK_VERSION_IS_ABOVE(1, 12, 11)
+  Orthanc::ElapsedTimer perfTimer;
+#else
   Orthanc::Toolbox::ElapsedTimer perfTimer;
+#endif
+
   size_t perfTotalSizeInBytes = 0;
   size_t perfTotalInstancesCount = 0;
 
