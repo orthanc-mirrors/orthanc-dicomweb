@@ -219,6 +219,33 @@ private:
     }
   }  
 
+  void StopInternal(OrthancPluginJobStopReason reason)
+  {
+    if (factory_ == NULL)
+    {
+      return;
+    }
+    else if (reason == OrthancPluginJobStopReason_Paused ||
+             reason == OrthancPluginJobStopReason_Canceled)
+    {
+      stopping_ = true;
+
+      if (reason == OrthancPluginJobStopReason_Paused)
+      {
+        factory_->PauseFunction();
+      }
+      else
+      {
+        factory_->CancelFunction();
+      }
+
+      JoinWorker();
+
+      // Be ready for the next possible call to "Step()" that will resume the function
+      functionResult_ = FunctionResult_Running;
+    }
+  }
+
 public:
   explicit SingleFunctionJob(const std::string& jobName) :
     OrthancJob(jobName),
@@ -243,14 +270,14 @@ public:
   {
     try
     {
-      Stop(OrthancPluginJobStopReason_Canceled);
+      StopInternal(OrthancPluginJobStopReason_Canceled);
     }
     catch (Orthanc::OrthancException&)
     {
     }
   }
 
-  virtual OrthancPluginJobStepStatus Step() ORTHANC_OVERRIDE
+  virtual OrthancPluginJobStepStatus Step() ORTHANC_OVERRIDE ORTHANC_FINAL
   {
     if (factory_ == NULL)
     {
@@ -284,34 +311,12 @@ public:
     }
   }
 
-  virtual void Stop(OrthancPluginJobStopReason reason) ORTHANC_OVERRIDE
+  virtual void Stop(OrthancPluginJobStopReason reason) ORTHANC_OVERRIDE ORTHANC_FINAL
   {
-    if (factory_ == NULL)
-    {
-      return;
-    }
-    else if (reason == OrthancPluginJobStopReason_Paused ||
-             reason == OrthancPluginJobStopReason_Canceled)
-    {
-      stopping_ = true;
-
-      if (reason == OrthancPluginJobStopReason_Paused)
-      {
-        factory_->PauseFunction();
-      }
-      else
-      {
-        factory_->CancelFunction();
-      }
-
-      JoinWorker();
-
-      // Be ready for the next possible call to "Step()" that will resume the function
-      functionResult_ = FunctionResult_Running;
-    }
+    StopInternal(reason);
   }
 
-  virtual void Reset() ORTHANC_OVERRIDE
+  virtual void Reset() ORTHANC_OVERRIDE ORTHANC_FINAL
   {
     boost::mutex::scoped_lock lock(mutex_);
 
@@ -847,7 +852,6 @@ public:
   {
     debug_ = debug;
   }
-
 };
 
 
