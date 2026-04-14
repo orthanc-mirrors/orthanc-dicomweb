@@ -29,7 +29,9 @@ if (ORTHANC_DICOM_WEB_VERSION STREQUAL "mainline")
   set(ORTHANC_FRAMEWORK_DEFAULT_VERSION "mainline")
   set(ORTHANC_FRAMEWORK_DEFAULT_SOURCE "hg")
 else()
-  set(ORTHANC_FRAMEWORK_DEFAULT_VERSION "1.12.11")
+  # Do NOT use framework 1.12.11 here, which is buggy because of:
+  # https://orthanc.uclouvain.be/hg/orthanc/rev/3bd8715e21bc
+  set(ORTHANC_FRAMEWORK_DEFAULT_VERSION "1.12.10")
   set(ORTHANC_FRAMEWORK_DEFAULT_SOURCE "web")
 endif()
 

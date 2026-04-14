@@ -24,13 +24,47 @@
 
 #include "../Resources/Orthanc/Plugins/OrthancPluginCppWrapper.h"
 
-#include <CompatibilityMath.h>
 #include <Images/Image.h>
 #include <Images/ImageProcessing.h>
 #include <Images/ImageTraits.h>
 #include <Logging.h>
 #include <Toolbox.h>
 #include <EmbeddedResources.h>
+
+
+#if ORTHANC_FRAMEWORK_VERSION_IS_ABOVE(1, 12, 11)
+#  include <CompatibilityMath.h>
+#else
+
+// For compatibility of Boost 1.89.0 with MSVC <= 2015, this is an excerpt from:
+// https://orthanc.uclouvain.be/hg/orthanc/file/Orthanc-1.12.11/OrthancFramework/Sources/CompatibilityMath.h
+namespace Orthanc
+{
+  namespace Math
+  {
+    namespace Internals
+    {
+      float RoundFloat(float v)
+      {
+        if (v >= 0.0f)
+        {
+          return std::floor(v + 0.5f);
+        }
+        else
+        {
+          return std::ceil(v - 0.5f);
+        }
+      }
+    }
+
+    int iround(float v)
+    {
+      return static_cast<int>(Internals::RoundFloat(v));
+    }
+  }
+}
+
+#endif
 
 
 #if ORTHANC_FRAMEWORK_VERSION_IS_ABOVE(1, 9, 7)
