@@ -244,7 +244,7 @@ namespace
       }
     }
 
-    void Print(std::ostream& out) const 
+    void Print() const 
     {
       for (Filters::const_iterator it = filters_.begin(); 
            it != filters_.end(); ++it)

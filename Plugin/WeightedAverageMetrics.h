@@ -75,7 +75,7 @@ private:
   }
 
 public:
-  WeightedAverageMetrics(int64_t duration) :
+  explicit WeightedAverageMetrics(int64_t duration) :
     totalWeightedValue_(0),
     totalWeight_(0),
     duration_(duration)

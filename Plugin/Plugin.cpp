@@ -747,8 +747,7 @@ extern "C"
         }
         
         
-        std::string uri = root + "app/client/index.html";
-        OrthancPlugins::SetRootUri(ORTHANC_DICOM_WEB_NAME, uri.c_str());
+        OrthancPlugins::SetRootUri(ORTHANC_DICOM_WEB_NAME, root + "app/client/index.html");
 
         std::string publicUrlRoot = OrthancPlugins::Configuration::GetPublicRoot();
         LOG(WARNING) << "DICOMweb public root: " << publicUrlRoot;

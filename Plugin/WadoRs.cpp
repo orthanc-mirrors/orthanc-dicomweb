@@ -493,7 +493,7 @@ public:
     }
   }
 
-  virtual ~ThreadedInstanceLoader()
+  virtual ~ThreadedInstanceLoader() ORTHANC_OVERRIDE
   {
     Clear();
   }
@@ -596,7 +596,7 @@ public:
   {
   }
 
-  virtual ~SynchronousInstanceLoader()
+  virtual ~SynchronousInstanceLoader() ORTHANC_OVERRIDE
   {
     Clear();
   }
@@ -1205,7 +1205,7 @@ static void WriteInstanceMetadata(OrthancPlugins::DicomWebFormatter::HttpWriter&
       {
         instance.reset(OrthancPlugins::DicomInstance::Load(orthancId, OrthancPluginLoadDicomInstanceMode_EmptyPixelData));
       }
-      catch (Orthanc::OrthancException& e)
+      catch (const Orthanc::OrthancException& e)
       {
       }
 
@@ -1771,7 +1771,7 @@ void InstanceWorkerThread(InstanceWorkerData* data)
       {
         instance.reset(OrthancPlugins::DicomInstance::Load(instanceToLoad->GetOrthancId(), OrthancPluginLoadDicomInstanceMode_EmptyPixelData));
       }
-      catch (Orthanc::OrthancException& e)
+      catch (const Orthanc::OrthancException& e)
       {
       }
 
@@ -1889,7 +1889,6 @@ void CacheSeriesMetadataInternal(std::string& serializedSeriesMetadata,
                                  const std::string& seriesOrthancId)
 {
   Orthanc::GzipCompressor compressor;
-  std::string compressedSeriesMetadata;
   std::set<std::string> instancesIds;
 
   // compute the series metadata with a placeholder WADO base url because, the base url might change (e.g if there are 2 Orthanc connected to the same DB)
@@ -1899,6 +1898,7 @@ void CacheSeriesMetadataInternal(std::string& serializedSeriesMetadata,
   if (!IsSystemReadOnly())
   {
     // save in attachments for future use
+    std::string compressedSeriesMetadata;
     Orthanc::IBufferCompressor::Compress(compressedSeriesMetadata, compressor, serializedSeriesMetadata);
     std::string instancesMd5;
     Orthanc::Toolbox::ComputeMD5(instancesMd5, instancesIds);
@@ -1940,15 +1940,14 @@ void CacheSeriesMetadata(const std::string& seriesOrthancId)
 
   LOG(INFO) << "DicomWEB: pre-computing the WADO-RS series metadata for series " << seriesOrthancId;
 
-  std::string studyInstanceUid, seriesInstanceUid;
-  
   Json::Value result;
   if (OrthancPlugins::RestApiGet(result, "/series/" + seriesOrthancId, false))
   {
-    seriesInstanceUid = result[MAIN_DICOM_TAGS]["SeriesInstanceUID"].asString();
+    const std::string seriesInstanceUid = result[MAIN_DICOM_TAGS]["SeriesInstanceUID"].asString();
+
     if (OrthancPlugins::RestApiGet(result, "/studies/" + result["ParentStudy"].asString(), false))
     {
-      studyInstanceUid = result[MAIN_DICOM_TAGS]["StudyInstanceUID"].asString();
+      const std::string studyInstanceUid = result[MAIN_DICOM_TAGS]["StudyInstanceUID"].asString();
 
       MainDicomTagsCache cache;
       OrthancPlugins::DicomWebFormatter::HttpWriter writer(NULL /* output */, false /* isXml */);  // we cache only the JSON format -> no need for an HttpOutput

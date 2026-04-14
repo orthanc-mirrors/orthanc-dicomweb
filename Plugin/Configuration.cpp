@@ -447,9 +447,10 @@ namespace OrthancPlugins
       }
 
       // Remove the trailing slash, if any
-      if (root[root.length() - 1] == '/')
+      if (!root.empty() &&
+          root[root.length() - 1] == '/')
       {
-        root = root.substr(0, root.length() - 1);
+        root.resize(root.length() - 1);
       }
 
       return root;

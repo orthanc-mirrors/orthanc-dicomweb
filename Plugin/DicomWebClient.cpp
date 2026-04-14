@@ -229,7 +229,7 @@ public:
   {
   }
 
-  virtual ~SingleFunctionJob()
+  virtual ~SingleFunctionJob() ORTHANC_OVERRIDE
   {
     if (worker_.get() != NULL)
     {
@@ -694,7 +694,7 @@ private:
     {
     }
 
-    virtual void Execute(JobContext& context)
+    virtual void Execute(JobContext& context) ORTHANC_OVERRIDE
     {
       std::string serverName;
       size_t startPosition;
@@ -718,7 +718,6 @@ private:
         client->AddHeaders(that_.headers_);
       }
 
-      OrthancPlugins::HttpHeaders answerHeaders;
       Json::Value answerBody;
 
       assert(client.get() != NULL);
@@ -726,6 +725,7 @@ private:
 
       try
       {
+        OrthancPlugins::HttpHeaders answerHeaders;
         client->Execute(answerHeaders, answerBody);
       }
       catch (Orthanc::OrthancException&)
@@ -1040,7 +1040,7 @@ private:
     size_t pos = contentType.find(';');
     if (pos != std::string::npos)
     {
-      contentType = contentType.substr(0, pos);
+      contentType.resize(pos);
     }
 
     contentType = Orthanc::Toolbox::StripSpaces(contentType);
@@ -1081,7 +1081,7 @@ public:
   {
   }
 
-  virtual ~WadoRetrieveAnswer()
+  virtual ~WadoRetrieveAnswer() ORTHANC_OVERRIDE
   {
   }
 
@@ -1245,7 +1245,7 @@ private:
     {
     }
 
-    virtual void Execute(JobContext& context)
+    virtual void Execute(JobContext& context) ORTHANC_OVERRIDE
     {
       for (;;)
       {
@@ -1428,7 +1428,7 @@ public:
     SetFactory(*this);
   }
 
-  virtual ~WadoRetrieveJob()
+  virtual ~WadoRetrieveJob() ORTHANC_OVERRIDE
   {
     SingleFunctionJob::Finalize();
 

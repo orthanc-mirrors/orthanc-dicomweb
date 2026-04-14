@@ -62,7 +62,7 @@ static void RemoveSurroundingQuotes(std::string& value)
 
 
 
-static bool ParseTransferSyntax(Orthanc::DicomTransferSyntax& syntax,
+static void ParseTransferSyntax(Orthanc::DicomTransferSyntax& syntax,
                                 const OrthancPluginHttpRequest* request)
 {
   for (uint32_t i = 0; i < request->headersCount; i++)
@@ -79,7 +79,7 @@ static bool ParseTransferSyntax(Orthanc::DicomTransferSyntax& syntax,
           tokens[0] == "*/*")
       {
         syntax = Orthanc::DicomTransferSyntax_LittleEndianExplicit;
-        return true;
+        return;
       }
 
       if (tokens[0] != "multipart/related")
@@ -118,12 +118,12 @@ static bool ParseTransferSyntax(Orthanc::DicomTransferSyntax& syntax,
         if (transferSyntax.empty())
         {
           syntax = Orthanc::DicomTransferSyntax_LittleEndianExplicit;
-          return true;
+          return;
         }
         else if (transferSyntax == "*")
         {
           // don't change transferSyntax, it must have been set to the 'current' value before calling this method
-          return true;
+          return;
         }
         else
         {
@@ -132,7 +132,7 @@ static bool ParseTransferSyntax(Orthanc::DicomTransferSyntax& syntax,
             throw Orthanc::OrthancException(Orthanc::ErrorCode_NotImplemented,
                                             "Unknown transfer syntax in 'Accept' header: " + transferSyntax);
           }
-          return true;         
+          return;         
         }
       }
       else
@@ -145,22 +145,22 @@ static bool ParseTransferSyntax(Orthanc::DicomTransferSyntax& syntax,
                                      transferSyntax == "1.2.840.10008.1.2.4.70"))
         {
           syntax = Orthanc::DicomTransferSyntax_JPEGProcess14SV1;
-          return true;
+          return;
         }
         else if (type == "image/jpeg" && transferSyntax == "1.2.840.10008.1.2.4.50")
         {
           syntax = Orthanc::DicomTransferSyntax_JPEGProcess1;
-          return true;
+          return;
         }
         else if (type == "image/jpeg" && transferSyntax == "1.2.840.10008.1.2.4.51")
         {
           syntax = Orthanc::DicomTransferSyntax_JPEGProcess2_4;
-          return true;
+          return;
         }
         else if (type == "image/jpeg" && transferSyntax == "1.2.840.10008.1.2.4.57")
         {
           syntax = Orthanc::DicomTransferSyntax_JPEGProcess14;
-          return true;
+          return;
         }
         else if ((type == "image/x-dicom-rle" ||   // Table 6.1.1.8-3b of DICOM 2017c (backward compatibility)
                   type == "image/dicom-rle") &&    // Table 8.7.3-5 of DICOM 2021a
@@ -168,7 +168,7 @@ static bool ParseTransferSyntax(Orthanc::DicomTransferSyntax& syntax,
                   transferSyntax == "1.2.840.10008.1.2.5"))
         {
           syntax = Orthanc::DicomTransferSyntax_RLELossless;
-          return true;
+          return;
         }
         else if ((type == "image/x-jls" ||   // Table 6.1.1.8-3b of DICOM 2017c (backward compatibility)
                   type == "image/jls") &&    // Table 8.7.3-5 of DICOM 2021a
@@ -176,36 +176,36 @@ static bool ParseTransferSyntax(Orthanc::DicomTransferSyntax& syntax,
                   transferSyntax == "1.2.840.10008.1.2.4.80"))
         {
           syntax = Orthanc::DicomTransferSyntax_JPEGLSLossless;
-          return true;
+          return;
         }
         else if ((type == "image/x-jls" ||   // Table 6.1.1.8-3b of DICOM 2017c (backward compatibility)
                   type == "image/jls") &&    // Table 8.7.3-5 of DICOM 2021a
                  transferSyntax == "1.2.840.10008.1.2.4.81")
         {
           syntax = Orthanc::DicomTransferSyntax_JPEGLSLossy;
-          return true;
+          return;
         }
         else if (type == "image/jp2" && (transferSyntax.empty() ||  // Default
                                          transferSyntax == "1.2.840.10008.1.2.4.90"))
         {
           syntax = Orthanc::DicomTransferSyntax_JPEG2000LosslessOnly;
-          return true;
+          return;
         }
         else if (type == "image/jp2" && transferSyntax == "1.2.840.10008.1.2.4.91")
         {
           syntax = Orthanc::DicomTransferSyntax_JPEG2000;
-          return true;
+          return;
         }
         else if (type == "image/jpx" && (transferSyntax.empty() ||  // Default
                                          transferSyntax == "1.2.840.10008.1.2.4.92"))
         {
           syntax = Orthanc::DicomTransferSyntax_JPEG2000MulticomponentLosslessOnly;
-          return true;
+          return;
         }
         else if (type == "image/jpx" && transferSyntax == "1.2.840.10008.1.2.4.93")
         {
           syntax = Orthanc::DicomTransferSyntax_JPEG2000Multicomponent;
-          return true;
+          return;
         }
 
 
@@ -216,62 +216,62 @@ static bool ParseTransferSyntax(Orthanc::DicomTransferSyntax& syntax,
         if (type == "image/dicom+jpeg" && transferSyntax == "1.2.840.10008.1.2.4.50")
         {
           syntax = Orthanc::DicomTransferSyntax_JPEGProcess1;
-          return true;
+          return;
         }
         else if (type == "image/dicom+jpeg" && transferSyntax == "1.2.840.10008.1.2.4.51")
         {
           syntax = Orthanc::DicomTransferSyntax_JPEGProcess2_4;
-          return true;
+          return;
         }
         else if (type == "image/dicom+jpeg" && transferSyntax == "1.2.840.10008.1.2.4.57")
         {
           syntax = Orthanc::DicomTransferSyntax_JPEGProcess14;
-          return true;
+          return;
         }
         else if (type == "image/dicom+jpeg" && (transferSyntax.empty() ||
                                                 transferSyntax == "1.2.840.10008.1.2.4.70"))
         {
           syntax = Orthanc::DicomTransferSyntax_JPEGProcess14SV1;
-          return true;
+          return;
         }
         else if (type == "image/dicom+rle" && (transferSyntax.empty() ||
                                                transferSyntax == "1.2.840.10008.1.2.5"))
         {
           syntax = Orthanc::DicomTransferSyntax_RLELossless;
-          return true;
+          return;
         }
         else if (type == "image/dicom+jpeg-ls" && (transferSyntax.empty() ||
                                                    transferSyntax == "1.2.840.10008.1.2.4.80"))
         {
           syntax = Orthanc::DicomTransferSyntax_JPEGLSLossless;
-          return true;
+          return;
         }
         else if (type == "image/dicom+jpeg-ls" && transferSyntax == "1.2.840.10008.1.2.4.81")
         {
           syntax = Orthanc::DicomTransferSyntax_JPEGLSLossy;
-          return true;
+          return;
         }
         else if (type == "image/dicom+jp2" && (transferSyntax.empty() ||
                                                transferSyntax == "1.2.840.10008.1.2.4.90"))
         {
           syntax = Orthanc::DicomTransferSyntax_JPEG2000LosslessOnly;
-          return true;
+          return;
         }
         else if (type == "image/dicom+jp2" && transferSyntax == "1.2.840.10008.1.2.4.91")
         {
           syntax = Orthanc::DicomTransferSyntax_JPEG2000;
-          return true;
+          return;
         }
         else if (type == "image/dicom+jpx" && (transferSyntax.empty() ||
                                                transferSyntax == "1.2.840.10008.1.2.4.92"))
         {
           syntax = Orthanc::DicomTransferSyntax_JPEG2000MulticomponentLosslessOnly;
-          return true;
+          return;
         }
         else if (type == "image/dicom+jpx" && transferSyntax == "1.2.840.10008.1.2.4.93")
         {
           syntax = Orthanc::DicomTransferSyntax_JPEG2000Multicomponent;
-          return true;
+          return;
         }
 
         throw Orthanc::OrthancException(
@@ -284,7 +284,6 @@ static bool ParseTransferSyntax(Orthanc::DicomTransferSyntax& syntax,
 
   // By default, DICOMweb expects Little Endian uncompressed pixel data
   syntax = Orthanc::DicomTransferSyntax_LittleEndianExplicit;
-  return true;
 }
 
 
@@ -518,12 +517,9 @@ static void RetrieveFrames(OrthancPluginRestOutput* output,
       targetSyntax = Orthanc::DicomTransferSyntax_LittleEndianExplicit;
     }    
 
-    bool transcodeThisInstance = false;
     
-    if (ParseTransferSyntax(targetSyntax, request))
-    {
-      transcodeThisInstance = targetSyntax != currentSyntax;
-    }
+    ParseTransferSyntax(targetSyntax, request);
+    const bool transcodeThisInstance = (targetSyntax != currentSyntax);
 
     // maximize the use the Orthanc storage cache.  Since 1.12.2, transcoded file may be stored in the storage cache
     if (pluginCanDownloadTranscodedFile && transcodeThisInstance)
