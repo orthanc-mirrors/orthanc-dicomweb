@@ -1,18 +1,18 @@
 Pending changes in the mainline
 ===============================
 
-* If calling /rendered route on a Encapsulated PDF, the plugin will now return the pdf file
+* If calling "/rendered" route on a Encapsulated PDF, the plugin will now return the PDF file
   instead of generating a 400 error.
 * Added metrics:
-  - orthanc_dicomweb_wadors_average_bandwidth_per_call_mbytes_per_second_5m is the weighted
+  - "orthanc_dicomweb_wadors_average_bandwidth_per_call_mbytes_per_second_5m" is the weighted
     average bandwidth of each individual call to any WADO-RS route to retrieve instances, series
-    or studies.  This metrics is only updated at the end of the call and averages the bandwidth
-    values that are also displayed in the logs if you set "EnablePerformanceLogs" to true.
-  - orthanc_dicomweb_wadors_total_bytes_transferred counts the number of bytes that have
-    been returned by any WADO-RS route to retrieve instances, series or studies.  This is updated
-    while the response is returned.
-* "DicomWebStowClient" jobs now have their "Content.Resources" and "Content.Server" fields populated
-  as soon as they are created and not only when they start being executed.
+    or studies. This metrics is only updated at the end of the call and averages the bandwidth
+    values that are also displayed in the logs if "EnablePerformanceLogs" is set to "true".
+  - "orthanc_dicomweb_wadors_total_bytes_transferred" counts the number of bytes that have
+    been returned by any WADO-RS route to retrieve instances, series, or studies. This is
+    updated while the response is returned.
+* "DicomWebStowClient" jobs now have their "Content.Resources" and "Content.Server" fields
+  populated as soon as they are created, not only when they start being executed.
 
 
 Version 1.22 (2025-12-02)
