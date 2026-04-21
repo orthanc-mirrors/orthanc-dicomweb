@@ -61,6 +61,17 @@ static bool isSystemReadOnly_ = false;
 
 static boost::mutex preloaderThreadsCounterMutex;
 static uint32_t preloaderThreadsCounter = 0;
+
+static std::string GetWadoLoaderThreadName()
+{
+  boost::mutex::scoped_lock lock(preloaderThreadsCounterMutex);
+  std::string threadName = std::string("WADO-LOAD-") + boost::lexical_cast<std::string>(preloaderThreadsCounter++);
+  preloaderThreadsCounter %= 1000000;
+
+  return threadName;
+}
+
+
 static WeightedAverageMetrics<float> wadorsAverageBandwidth(300);
 
 static boost::mutex wadoRsTotalBytesTransferredMutex;
@@ -530,11 +541,7 @@ public:
 
   static void PreloaderWorkerThread(ThreadedInstanceLoader* that)
   {
-    {
-      boost::mutex::scoped_lock lock(preloaderThreadsCounterMutex);
-      Orthanc::Logging::SetCurrentThreadName(std::string("WADO-LOAD-") + boost::lexical_cast<std::string>(preloaderThreadsCounter++));
-      preloaderThreadsCounter %= 1000000;
-    }
+    Orthanc::Logging::ScopedThreadNameSetter setter(GetWadoLoaderThreadName());
 
     LOG(INFO) << "Loader thread has started";
 
@@ -1706,14 +1713,17 @@ public:
 class InstanceWorkerData : public boost::noncopyable
 {
 private:
-  Orthanc::SharedMessageQueue* instancesQueue_;
-  std::string wadoBase_;
+  Orthanc::SharedMessageQueue*  instancesQueue_;
+  std::string                   wadoBase_;
+  unsigned int                  threadId_;
 
 public:
   InstanceWorkerData(Orthanc::SharedMessageQueue* instancesQueue,
-                     const std::string& wadoBase) :
+                     const std::string& wadoBase,
+                     unsigned int threadId) :
     instancesQueue_(instancesQueue),
-    wadoBase_(wadoBase)
+    wadoBase_(wadoBase),
+    threadId_(threadId)
   {
     if (instancesQueue == NULL)
     {
@@ -1730,12 +1740,16 @@ public:
   {
     return wadoBase_;
   }
+
+  unsigned int GetThreadId() const
+  {
+    return threadId_;
+  }
 };
 
 void InstanceWorkerThread(InstanceWorkerData* data)
 {
-  static uint16_t threadCounter = 0;
-  Orthanc::Logging::SetCurrentThreadName(std::string("DW-META-") + boost::lexical_cast<std::string>(threadCounter++));
+  Orthanc::Logging::ScopedThreadNameSetter setter(std::string("DW-META-") + boost::lexical_cast<std::string>(data->GetThreadId()));
 
   while (true)
   {
@@ -1825,7 +1839,7 @@ void RetrieveSeriesMetadataInternal(std::set<std::string>& instancesIds,
 
     for (unsigned int t = 0; t < workersCount; t++)
     {
-      InstanceWorkerData* threadData = new InstanceWorkerData(&instancesQueue, wadoBase);
+      InstanceWorkerData* threadData = new InstanceWorkerData(&instancesQueue, wadoBase, t);
       instancesWorkersData.push_back(boost::shared_ptr<InstanceWorkerData>(threadData));
       instancesWorkers.push_back(boost::shared_ptr<boost::thread>(new boost::thread(InstanceWorkerThread, threadData)));
     }
