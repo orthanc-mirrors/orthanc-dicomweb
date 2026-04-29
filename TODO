@@ -22,6 +22,26 @@
   https://discourse.orthanc-server.org/t/possible-memory-leak-with-multiframe-dicom-orthanc-ohif/3988/12
 
 
+* When OHIF downloads individual frames of a multiframe instance, we perform the same calls to tools/lookup to find the orthanc id of the study
+  from its StudyInstanceUID -> implements some caching to avoid this call.  Maybe implement the same hierarchy caching as the one we have in the auth-plugin:
+
+I0429 06:00:33.212574          HTTP-22 ElapsedTimer.cpp:102] (http) GET /dicom-web/studies/1.2.156.112536.1.2142.152204228000250042.15483240020.2/series/1.2.156.112536.1.2142.152204228000250042.15483240020.3/instances/1.2.156.112536.1.2142.152204228000250042.15483243750.11/frames/147
+I0429 06:00:33.212712          HTTP-22 authorization:/Plugin.cpp:563] Testing whether user has the required permissions 'all|view' based on the HTTP header 'Authorization' required to match '^/dicom-web/studies/([.0-9]+)/series/([.0-9]+)/instances/([.0-9]+)(|/|/frames/.*|/rendered|/thumbnail|/metadata|/bulk/.*)(|/)$'
+I0429 06:00:33.212785          HTTP-22 authorization:/Plugin.cpp:483] Testing whether user has the required permissions 'all|view' based on the HTTP header 'Authorization' required to match '^/dicom-web/studies/([.0-9]+)/series/([.0-9]+)/instances/([.0-9]+)(|/|/frames/.*|/rendered|/thumbnail|/metadata|/bulk/.*)(|/)$' -> not granted
+I0429 06:00:33.212853          HTTP-22 authorization:/Plugin.cpp:370] Testing whether access to study "232a1d86-c4472d8b-000318a1-760becb0-2a8a93bd" is allowed with a resource token
+I0429 06:00:33.212870          HTTP-22 authorization:/Plugin.cpp:400] Testing whether access to study "232a1d86-c4472d8b-000318a1-760becb0-2a8a93bd" is allowed with a resource token -> granted
+I0429 06:00:33.212962          HTTP-22 OrthancPlugins.cpp:2849] (plugins) Delegating HTTP request to plugin for URI: /dicom-web/studies/1.2.156.112536.1.2142.152204228000250042.15483240020.2/series/1.2.156.112536.1.2142.152204228000250042.15483240020.3/instances/1.2.156.112536.1.2142.152204228000250042.15483243750.11/frames/147
+I0429 06:00:33.213025          HTTP-22 OrthancPlugins.cpp:4463] (plugins) Plugin making REST POST call to URI /tools/find (after plugins)
+I0429 06:00:33.213056          HTTP-22 OrthancPlugins.cpp:2849] (plugins) Delegating HTTP request to plugin for URI: /tools/find
+I0429 06:00:33.213102   ****   HTTP-22 OrthancPlugins.cpp:3644] (plugins) Plugin making REST POST call on URI /tools/lookup (built-in API)
+I0429 06:00:33.215805          HTTP-22 authorization:/Plugin.cpp:370] Testing whether access to study "232a1d86-c4472d8b-000318a1-760becb0-2a8a93bd" is allowed with a resource token
+I0429 06:00:33.215833          HTTP-22 authorization:/Plugin.cpp:400] Testing whether access to study "232a1d86-c4472d8b-000318a1-760becb0-2a8a93bd" is allowed with a resource token -> granted
+I0429 06:00:33.215849          HTTP-22 OrthancPlugins.cpp:3644] (plugins) Plugin making REST POST call on URI /tools/find (built-in API)
+I0429 06:00:33.221304   ****   HTTP-22 ResourceFinder.cpp:1106] Number of candidate resources after fast DB filtering on main DICOM tags: 1
+I0429 06:00:33.221585          HTTP-22 dicom-web:/WadoRsRetrieveFrames.cpp:500] DICOMweb RetrieveFrames on d3133a0e-b17babe4-b67118e0-5ec383cc-b31f561b, frames: 147
+I0429 06:00:33.221611          HTTP-22 OrthancPlugins.cpp:3587] (plugins) Plugin making REST GET call on URI /instances/d3133a0e-b17babe4-b67118e0-5ec383cc-b31f561b/frames/146/raw (built-in API)
+I0429 06:00:33.222777          HTTP-22 ElapsedTimer.cpp:107] (http) GET /dicom-web/studies/1.2.156.112536.1.2142.152204228000250042.15483240020.2/series/1.2.156.112536.1.2142.152204228000250042.15483240020.3/instances/1.2.156.112536.1.2142.152204228000250042.15483243750.11/frames/147 (elapsed: 10222 us)
+
 
 * Implement capabilities: https://www.dicomstandard.org/using/dicomweb/capabilities/
   from https://groups.google.com/d/msgid/orthanc-users/c60227f2-c6da-4fd9-9b03-3ce9bf7d1af5n%40googlegroups.com?utm_medium=email&utm_source=footer
