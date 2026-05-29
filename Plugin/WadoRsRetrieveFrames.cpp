@@ -378,6 +378,36 @@ static const char* GetMimeType(const Orthanc::DicomTransferSyntax& syntax)
     case Orthanc::DicomTransferSyntax_JPEG2000Multicomponent:
       return "image/jpx; transfer-syntax=1.2.840.10008.1.2.4.93";
 
+    case Orthanc::DicomTransferSyntax_JPEGXLLossless:
+      return "image/jxl; transfer-syntax=1.2.840.10008.1.2.4.110";
+
+    case Orthanc::DicomTransferSyntax_JPEGXLJPEGRecompression:
+      return "image/jxl; transfer-syntax=1.2.840.10008.1.2.4.111";
+
+    case Orthanc::DicomTransferSyntax_JPEGXL:
+      return "image/jxl; transfer-syntax=1.2.840.10008.1.2.4.112";
+      
+#if ORTHANC_FRAMEWORK_VERSION_IS_ABOVE(1, 12, 11)
+    case Orthanc::DicomTransferSyntax_HighThroughputJPEG2000LosslessOnly:
+      return "image/jphc; transfer-syntax=1.2.840.10008.1.2.4.201";
+
+    case Orthanc::DicomTransferSyntax_HighThroughputJPEG2000withRPCLOptionsLosslessOnly:
+      return "image/jphc; transfer-syntax=1.2.840.10008.1.2.4.202";
+
+    case Orthanc::DicomTransferSyntax_HighThroughputJPEG2000:
+      return "image/jphc; transfer-syntax=1.2.840.10008.1.2.4.203";
+#endif
+
+    case Orthanc::DicomTransferSyntax_MPEG2MainProfileAtMainLevel:    // note: this should not happen when retrieving a single frame
+    case Orthanc::DicomTransferSyntax_MPEG2MainProfileAtHighLevel:
+    case Orthanc::DicomTransferSyntax_MPEG4HighProfileLevel4_1:
+    case Orthanc::DicomTransferSyntax_MPEG4BDcompatibleHighProfileLevel4_1:
+    case Orthanc::DicomTransferSyntax_MPEG4HighProfileLevel4_2_For2DVideo:
+    case Orthanc::DicomTransferSyntax_MPEG4HighProfileLevel4_2_For3DVideo:
+    case Orthanc::DicomTransferSyntax_MPEG4StereoHighProfileLevel4_2:
+    case Orthanc::DicomTransferSyntax_HEVCMainProfileLevel5_1:
+    case Orthanc::DicomTransferSyntax_HEVCMain10ProfileLevel5_1:
+      throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError, std::string("WADO RS Retrieve frame: unhandled Transfer syntax ") + Orthanc::GetTransferSyntaxUid(syntax) + ", Orthanc does not allow accessing single frame from videos");
     default:
       throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError, std::string("WADO RS Retrieve frame: unhandled Transfer syntax ") + Orthanc::GetTransferSyntaxUid(syntax));
   }

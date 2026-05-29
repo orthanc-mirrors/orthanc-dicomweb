@@ -1,3 +1,8 @@
+Pending changes in the mainline
+===============================
+
+* Clarified error message when trying to access a single frame from a video in WADO-RS.
+
 Version 1.23 (2026-04-15)
 =========================
 
