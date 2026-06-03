@@ -1,7 +1,9 @@
 * Force usage of StudyInstanceUID & SeriesInstanceUID in WADO-URI for single instances:
   https://discourse.orthanc-server.org/t/dicomweb-wado-uri-does-not-work-if-duplicated-instances/5863
 
-
+* Find a solution for slow and memory greedy computation of metadata for files containing large float arrays.
+  https://discourse.orthanc-server.org/t/orthanc-1-12-11-performance-issues-with-deformable-registrations/6448
+  File available at https://public-files.orthanc.team/test-files/429_MB_REG_OF.dcm
 
 * https://orthanc.uclouvain.be/book/plugins/dicomweb.html#retrieving-dicom-resources-from-a-wado-rs-server
   Retrieve shall return the list of orthanc IDs -> it is not !
