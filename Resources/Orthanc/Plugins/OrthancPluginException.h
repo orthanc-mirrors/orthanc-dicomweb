@@ -58,7 +58,7 @@
 #  define ORTHANC_PLUGINS_THROW_PLUGIN_ERROR_CODE(code)                   \
     throw ORTHANC_PLUGINS_EXCEPTION_CLASS(static_cast<ORTHANC_PLUGINS_ERROR_ENUMERATION>(code));
 
-#  define PLUGIN_THROW_WITH_FILE_AND_LINE_INFO(errorCode)
+#  define PLUGIN_THROW_WITH_FILE_AND_LINE_INFO(errorCode)                 \
      ORTHANC_PLUGINS_THROW_PLUGIN_ERROR_CODE(errorCode) 
 
 #  define ORTHANC_PLUGINS_THROW_EXCEPTION(code)                           \
