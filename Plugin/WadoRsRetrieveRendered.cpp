@@ -999,7 +999,8 @@ static void AnswerFrameRendered(OrthancPluginRestOutput* output,
 
     Orthanc::PixelFormat targetFormat;
     OrthancPluginPixelFormat sdkFormat;
-    if (dicom.GetPixelFormat() == OrthancPluginPixelFormat_RGB24)
+    if (dicom.GetPixelFormat() == OrthancPluginPixelFormat_RGB24 ||
+      dicom.GetPixelFormat() == OrthancPluginPixelFormat_RGB48)
     {
       targetFormat = Orthanc::PixelFormat_RGB24;
       sdkFormat = OrthancPluginPixelFormat_RGB24;
