@@ -168,7 +168,7 @@ namespace OrthancPlugins
     if (context_ == NULL ||
         (isXml_ && output_ == NULL))  // allow no output when working with Json output.
     {
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_NullPointer);
+      PLUGIN_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_NullPointer);
     }
 
     if (isXml_)

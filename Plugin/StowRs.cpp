@@ -300,7 +300,7 @@ namespace OrthancPlugins
   
     if (request->method != OrthancPluginHttpMethod_Post)
     {
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
+      PLUGIN_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_InternalError);
     }
 
     std::map<std::string, std::string> headers;

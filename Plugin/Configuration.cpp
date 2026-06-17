@@ -194,7 +194,9 @@ namespace OrthancPlugins
   {
     if (json.type() != Json::objectValue)
     {
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
+      throw Orthanc::OrthancException(
+        Orthanc::ErrorCode_BadFileFormat,
+        "The field \"" + key + "\" must be a JSON object");
     }
     else if (!json.isMember(key))
     {
@@ -220,7 +222,7 @@ namespace OrthancPlugins
   {
     if (json.type() != Json::objectValue)
     {
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
+      PLUGIN_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_BadFileFormat);
     }
     else if (!json.isMember(key))
     {
@@ -229,7 +231,7 @@ namespace OrthancPlugins
     else if (json[key].type() != Json::intValue &&
              json[key].type() != Json::uintValue)
     {
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);      
+      PLUGIN_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_BadFileFormat);      
     }
     else
     {
@@ -245,7 +247,7 @@ namespace OrthancPlugins
   {
     if (json.type() != Json::objectValue)
     {
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);
+      PLUGIN_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_BadFileFormat);
     }
     else if (!json.isMember(key))
     {
@@ -253,7 +255,7 @@ namespace OrthancPlugins
     }
     else if (json[key].type() != Json::booleanValue)
     {
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_BadFileFormat);      
+      PLUGIN_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_BadFileFormat);      
     }
     else
     {
@@ -720,7 +722,7 @@ namespace OrthancPlugins
           break;
 
         default:
-          throw Orthanc::OrthancException(Orthanc::ErrorCode_ParameterOutOfRange);
+          PLUGIN_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_ParameterOutOfRange);
       }
 
       std::string value = GetStringValue(key, FULL);
@@ -787,7 +789,7 @@ namespace OrthancPlugins
           break;
 
         default:
-          throw Orthanc::OrthancException(Orthanc::ErrorCode_ParameterOutOfRange);
+          PLUGIN_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_ParameterOutOfRange);
       }
     }
 

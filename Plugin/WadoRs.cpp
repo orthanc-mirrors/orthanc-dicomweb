@@ -118,7 +118,7 @@ static std::string GetResourceUri(Orthanc::ResourceType level,
       return "/instances/" + publicId;
       
     default:
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
+      PLUGIN_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_InternalError);
   }
 }
 
@@ -788,7 +788,7 @@ static void AnswerListOfDicomInstances(OrthancPluginRestOutput* output,
           context, output, reinterpret_cast<const char*>(dicom->GetBuffer()),
           dicom->GetSize()) != 0)
       {
-        throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
+        PLUGIN_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_InternalError);
       }
       perfTotalSizeInBytes += dicom->GetSize();
 
@@ -969,7 +969,7 @@ namespace
       if (value.type() != Json::objectValue ||
           !value.isMember(MAIN_DICOM_TAGS))
       {
-        throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
+        PLUGIN_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_InternalError);
       }
 
       dicom.FromDicomAsJson(value[MAIN_DICOM_TAGS], false /* append */, true /* parseSequences */);
@@ -982,7 +982,7 @@ namespace
         }
         else
         {
-          throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
+          PLUGIN_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_InternalError);
         }
       }
         
@@ -995,7 +995,7 @@ namespace
         }
         else
         {
-          throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
+          PLUGIN_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_InternalError);
         }
       }
 
@@ -1029,7 +1029,7 @@ namespace
               if (!value.isMember(INSTANCES) ||
                   value[INSTANCES].type() != Json::arrayValue)
               {
-                throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
+                PLUGIN_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_InternalError);
               }
               else
               {
@@ -1037,7 +1037,7 @@ namespace
                 {
                   if (value[INSTANCES][i].type() != Json::stringValue)
                   {
-                    throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
+                    PLUGIN_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_InternalError);
                   }
                   else
                   {
@@ -1055,7 +1055,7 @@ namespace
               {
                 if (tmp.type() != Json::arrayValue)
                 {
-                  throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
+                  PLUGIN_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_InternalError);
                 }
 
                 for (Json::Value::ArrayIndex i = 0; i < tmp.size(); i++)
@@ -1064,7 +1064,7 @@ namespace
                       !tmp[i].isMember("ID") ||
                       tmp[i]["ID"].type() != Json::stringValue)
                   {
-                    throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
+                    PLUGIN_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_InternalError);
                   }
                   else
                   {
@@ -1077,7 +1077,7 @@ namespace
             }
 
             default:
-              throw Orthanc::OrthancException(Orthanc::ErrorCode_NotImplemented);
+              PLUGIN_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_NotImplemented);
           }
 
           
@@ -1235,7 +1235,7 @@ static void WriteInstanceMetadata(OrthancPlugins::DicomWebFormatter::HttpWriter&
     }
 
     default:
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
+      PLUGIN_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_InternalError);
   }
     
   
@@ -1344,7 +1344,7 @@ bool LocateResource(OrthancPluginRestOutput* output,
     if (!OrthancPlugins::RestApiPost(resources, "/tools/find", payload, httpHeaders, true) ||
         resources.type() != Json::arrayValue)
     {
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
+      PLUGIN_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_InternalError);
     }
 
     if (resources.size() == 0)
@@ -1727,7 +1727,7 @@ public:
   {
     if (instancesQueue == NULL)
     {
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_NullPointer);
+      PLUGIN_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_NullPointer);
     }
   }
 
@@ -1758,7 +1758,7 @@ void InstanceWorkerThread(InstanceWorkerData* data)
       std::unique_ptr<InstanceToLoad> instanceToLoad(data->Dequeue());
       if (instanceToLoad.get() == NULL)
       {
-        throw Orthanc::OrthancException(Orthanc::ErrorCode_InternalError);
+        PLUGIN_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_InternalError);
       }
 
       if (instanceToLoad->GetOrthancId() == EXIT_WORKER_MESSAGE)
@@ -2208,7 +2208,7 @@ void RetrieveBulkData(OrthancPluginRestOutput* output,
         if (frames.type() != Json::arrayValue ||
             OrthancPluginStartMultipartAnswer(context, output, "related", "application/octet-stream") != 0)
         {
-          throw Orthanc::OrthancException(Orthanc::ErrorCode_Plugin);
+          PLUGIN_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_Plugin);
         }
 
         for (Json::Value::ArrayIndex i = 0; i < frames.size(); i++)
@@ -2219,7 +2219,7 @@ void RetrieveBulkData(OrthancPluginRestOutput* output,
               !OrthancPlugins::RestApiGetString(frame, orthanc + "/" + frames[i].asString(), false) ||
               OrthancPluginSendMultipartItem(context, output, frame.c_str(), frame.size()) != 0)
           {
-            throw Orthanc::OrthancException(Orthanc::ErrorCode_Plugin);
+            PLUGIN_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_Plugin);
           }
         }
       }
@@ -2261,7 +2261,7 @@ void RetrieveBulkData(OrthancPluginRestOutput* output,
         if (OrthancPluginStartMultipartAnswer(context, output, "related", "application/octet-stream") != 0 ||
             OrthancPluginSendMultipartItem(context, output, result.c_str(), result.size()) != 0)
         {
-          throw Orthanc::OrthancException(Orthanc::ErrorCode_Plugin);
+          PLUGIN_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_Plugin);
         }
       }
       else

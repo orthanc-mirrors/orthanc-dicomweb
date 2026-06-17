@@ -688,7 +688,7 @@ static void ApplyWindowing(Orthanc::ImageAccessor& target,
         }
 
         default:
-          throw Orthanc::OrthancException(Orthanc::ErrorCode_NotImplemented);
+          PLUGIN_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_NotImplemented);
       }
 
       Orthanc::ImageTraits<Orthanc::PixelFormat_Grayscale8>::SetFloatPixel(target, b, x, y);
@@ -751,14 +751,14 @@ static void ApplyRendering(Orthanc::ImageAccessor& target,
           break;
 
         default:
-          throw Orthanc::OrthancException(Orthanc::ErrorCode_NotImplemented);
+          PLUGIN_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_NotImplemented);
       }
           
       break;
     }
 
     default:
-      throw Orthanc::OrthancException(Orthanc::ErrorCode_NotImplemented);
+      PLUGIN_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_NotImplemented);
   }
 
   if (parameters.IsFlipX())
@@ -1047,7 +1047,7 @@ static void AnswerFrameRendered(OrthancPluginRestOutput* output,
         break;
 
       default:
-        throw Orthanc::OrthancException(Orthanc::ErrorCode_NotImplemented);
+        PLUGIN_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_NotImplemented);
     }
   }
 }
