@@ -76,6 +76,9 @@ namespace OrthancPlugins
         setter(node, that.mode_, uri.c_str());
         break;
       }
+
+      default:
+        PLUGIN_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_ParameterOutOfRange);
     }
   }
 

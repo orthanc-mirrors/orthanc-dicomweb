@@ -508,7 +508,8 @@ static OrthancPluginErrorCode OnChangeCallback(OrthancPluginChangeType changeTyp
           }
         }
 
-      }; break;
+        break;
+      }
 
       case OrthancPluginChangeType_StableSeries:
         if (!OrthancPlugins::Configuration::IsReadOnly())
