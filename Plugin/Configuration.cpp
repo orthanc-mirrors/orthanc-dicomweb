@@ -43,6 +43,7 @@ static std::unique_ptr<OrthancPlugins::OrthancConfiguration> dicomWebConfigurati
 static std::unique_ptr<OrthancPlugins::OrthancConfiguration> globalConfiguration_;
 static bool serversInDatabase_ = false;
 static const int32_t GLOBAL_PROPERTY_SERVERS = 5468;
+static OrthancPluginDicomWebBinaryMode otherBinaryMode_ = OrthancPluginDicomWebBinaryMode_BulkDataUri;
 
 
 namespace OrthancPlugins
@@ -299,6 +300,15 @@ namespace OrthancPlugins
       }
     }
 
+
+    static std::string GetStringValue(const std::string& key,
+                                      const std::string& defaultValue)
+    {
+      assert(dicomWebConfiguration_.get() != NULL);
+      return dicomWebConfiguration_->GetStringValue(key, defaultValue);
+    }
+
+
     void Initialize()
     {
       dicomWebConfiguration_.reset(new OrthancConfiguration);
@@ -337,14 +347,44 @@ namespace OrthancPlugins
       GetExtrapolatedMetadataTags(tags, Orthanc::ResourceType_Series);
 
       LoadMainDicomTags(globalConfiguration_->GetJson());
-    }
 
+      {
+        // New in DICOMweb 1.24
+        static const std::string OTHER_BINARY_MODE = "OtherBinaryMode";
+        static const std::string BULK_DATA_URI = "BulkDataURI";
+        static const std::string INLINE_BINARY = "InlineBinary";
+        static const std::string ARRAY_OF_VALUES = "ArrayOfValues";
 
-    std::string GetStringValue(const std::string& key,
-                               const std::string& defaultValue)
-    {
-      assert(dicomWebConfiguration_.get() != NULL);
-      return dicomWebConfiguration_->GetStringValue(key, defaultValue);
+        std::string value = GetStringValue(OTHER_BINARY_MODE, BULK_DATA_URI);
+
+        if (value == BULK_DATA_URI)
+        {
+          otherBinaryMode_ = OrthancPluginDicomWebBinaryMode_BulkDataUri;
+        }
+        else if (value == INLINE_BINARY)
+        {
+          otherBinaryMode_ = OrthancPluginDicomWebBinaryMode_InlineBinary;
+        }
+        else if (value == ARRAY_OF_VALUES)
+        {
+#if ORTHANC_PLUGINS_VERSION_IS_ABOVE(1, 12, 12)
+          printf("******* ICI\n");
+          otherBinaryMode_ = OrthancPluginDicomWebBinaryMode_ArrayOfValues;
+#else
+          LOG(WARNING) << "You need to compile the DICOMweb plugin against Orthanc SDK >= 1.12.12 to use the \""
+                       << ARRAY_OF_VALUES << "\" value in option \"" << OTHER_BINARY_MODE
+                       << "\", fallback to default \"" << BULK_DATA_URI << "\"";
+          otherBinaryMode_ = OrthancPluginDicomWebBinaryMode_BulkDataUri;
+#endif
+        }
+        else
+        {
+          throw Orthanc::OrthancException(Orthanc::ErrorCode_ParameterOutOfRange,
+                                          "Bad value for option \"" + OTHER_BINARY_MODE + "\""
+                                          ": Should be either \"" + BULK_DATA_URI + "\" or \"" +
+                                          INLINE_BINARY + "\" or \"" + ARRAY_OF_VALUES + "\"");
+        }
+      }
     }
 
 
@@ -844,6 +884,12 @@ namespace OrthancPlugins
           LOG(ERROR) << "Cannot write the DICOMweb servers into the database";
         }
       }
+    }
+
+
+    OrthancPluginDicomWebBinaryMode GetOtherBinaryMode()
+    {
+      return otherBinaryMode_;
     }
   }
 }

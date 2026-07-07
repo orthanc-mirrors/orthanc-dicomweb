@@ -1,8 +1,15 @@
 Pending changes in the mainline
 ===============================
 
+* New configuration option "OtherBinaryMode" to control how OB, OD,
+  OF, OL, OV, or OW value representations are encoded in WADO-RS
+  responses. Possible values: "BulkDataURI" (new default),
+  "InlineBinary", "ArrayOfValues". Previous releases used the
+  "ArrayOfValues" mode, which was valid but could be problematic for
+  large datasets. (contribution by Yusuf Sayita, Philips)
 * Clarified error message when trying to access a single frame from a video in WADO-RS.
 * Fixed rendering of multiframe RGB48 images (TODO: requires the latest OrthancFramework)
+
 
 Version 1.23 (2026-04-15)
 =========================

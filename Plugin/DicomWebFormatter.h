@@ -39,6 +39,7 @@ namespace OrthancPlugins
   {
   private:
     OrthancPluginDicomWebBinaryMode  mode_;
+    OrthancPluginDicomWebBinaryMode  otherBinaryMode_;
     std::string                      bulkRoot_;
 
     static void Callback(OrthancPluginDicomWebNode *node,
@@ -53,11 +54,7 @@ namespace OrthancPlugins
                          void* payload);
 
     DicomWebFormatter(OrthancPluginDicomWebBinaryMode mode,
-                      const std::string& bulkRoot) :
-      mode_(mode),
-      bulkRoot_(bulkRoot)
-    {
-    }
+                      const std::string& bulkRoot);
     
   public:
     static void Apply(std::string& target,

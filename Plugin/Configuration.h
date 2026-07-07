@@ -148,5 +148,7 @@ namespace OrthancPlugins
     bool IsReadOnly();
 
     bool IsPerformanceLogsEnabled();
+
+    OrthancPluginDicomWebBinaryMode GetOtherBinaryMode();
   }
 }

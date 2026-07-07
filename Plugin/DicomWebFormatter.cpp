@@ -22,6 +22,7 @@
 
 
 #include "DicomWebFormatter.h"
+#include "Configuration.h"
 
 #include "../Resources/Orthanc/Plugins/OrthancPluginCppWrapper.h"
 
@@ -54,11 +55,36 @@ namespace OrthancPlugins
   {
     const DicomWebFormatter& that = *reinterpret_cast<const DicomWebFormatter*>(payload);
 
-    switch (that.mode_)
+    /**
+     * For "Other" binary VRs (OF, OD, OL) that now come through
+     * VisitDoubles/VisitIntegers, apply the configured otherBinaryMode_.
+     **/
+    OrthancPluginDicomWebBinaryMode effectiveMode = that.mode_;
+
+    if (vr == OrthancPluginValueRepresentation_OB ||
+        vr == OrthancPluginValueRepresentation_OF ||
+        vr == OrthancPluginValueRepresentation_OW)
     {
+      effectiveMode = that.otherBinaryMode_;
+    }
+#if ORTHANC_PLUGINS_VERSION_IS_ABOVE(1, 12, 12)
+    else if (vr == OrthancPluginValueRepresentation_OD ||
+             vr == OrthancPluginValueRepresentation_OL ||
+             vr == OrthancPluginValueRepresentation_OV)
+    {
+      effectiveMode = that.otherBinaryMode_;
+    }
+#endif
+
+    switch (effectiveMode)
+    {
+#if ORTHANC_PLUGINS_VERSION_IS_ABOVE(1, 12, 12)
+      case OrthancPluginDicomWebBinaryMode_ArrayOfValues:
+#endif
+
       case OrthancPluginDicomWebBinaryMode_Ignore:
       case OrthancPluginDicomWebBinaryMode_InlineBinary:
-        setter(node, that.mode_, NULL);
+        setter(node, effectiveMode, NULL);
         break;
 
       case OrthancPluginDicomWebBinaryMode_BulkDataUri:
@@ -73,13 +99,22 @@ namespace OrthancPlugins
     
         uri += "/" + FormatTag(tagGroup, tagElement);
     
-        setter(node, that.mode_, uri.c_str());
+        setter(node, effectiveMode, uri.c_str());
         break;
       }
 
-      default:
+    default:
         PLUGIN_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_ParameterOutOfRange);
     }
+  }
+
+
+  DicomWebFormatter::DicomWebFormatter(OrthancPluginDicomWebBinaryMode mode,
+                                       const std::string& bulkRoot) :
+    mode_(mode),
+    otherBinaryMode_(Configuration::GetOtherBinaryMode()),
+    bulkRoot_(bulkRoot)
+  {
   }
 
 
