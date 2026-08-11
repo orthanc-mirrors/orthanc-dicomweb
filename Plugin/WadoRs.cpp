@@ -2037,7 +2037,17 @@ void RetrieveSeriesMetadataInternalWithCache(OrthancPlugins::DicomWebFormatter::
 
     std::string attachmentUrl = "/series/" + seriesOrthancId + "/attachments/" + SERIES_METADATA_ATTACHMENT_ID;
 
-    if (OrthancPlugins::RestApiGetString(cacheContent, attachmentUrl + "/data", false))
+    bool attachmentFound = false;
+    try
+    {
+      attachmentFound = OrthancPlugins::RestApiGetString(cacheContent, attachmentUrl + "/data", false);
+    }
+    catch (...)
+    {
+      // ignore the error and regenerate
+    }
+
+    if (attachmentFound)
     {
       if (boost::starts_with(cacheContent, "2;"))  // version 2, cacheContent is "2;sorted-instances-list-md5;compressedSeriesMetadata"
       {

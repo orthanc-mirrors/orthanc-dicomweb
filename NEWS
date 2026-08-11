@@ -9,6 +9,7 @@ Pending changes in the mainline
   large datasets. (contribution by Yusuf Sayita, Philips)
 * Clarified error message when trying to access a single frame from a video in WADO-RS.
 * Fixed rendering of multiframe RGB48 images (TODO: requires the latest OrthancFramework)
+* Fix: If the metadata cache attachment is missing from disk for a series, it is now generated again.
 
 
 Version 1.23 (2026-04-15)
