@@ -541,7 +541,7 @@ public:
 
   static void PreloaderWorkerThread(ThreadedInstanceLoader* that)
   {
-#if ORTHANC_FRAMEWORK_VERSION_IS_ABOVE(1, 12, 12)
+#if ORTHANC_FRAMEWORK_VERSION_IS_ABOVE(1, 13, 0)
     Orthanc::Logging::ScopedCurrentThreadNameSetter setter(GetWadoLoaderThreadName());
 #endif
 
@@ -1751,7 +1751,7 @@ public:
 
 void InstanceWorkerThread(InstanceWorkerData* data)
 {
-#if ORTHANC_FRAMEWORK_VERSION_IS_ABOVE(1, 12, 12)
+#if ORTHANC_FRAMEWORK_VERSION_IS_ABOVE(1, 13, 0)
   Orthanc::Logging::ScopedCurrentThreadNameSetter setter(std::string("DW-META-") + boost::lexical_cast<std::string>(data->GetThreadId()));
 #endif
 

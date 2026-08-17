@@ -67,7 +67,7 @@ namespace OrthancPlugins
     {
       effectiveMode = that.otherBinaryMode_;
     }
-#if ORTHANC_PLUGINS_VERSION_IS_ABOVE(1, 12, 12)
+#if ORTHANC_PLUGINS_VERSION_IS_ABOVE(1, 13, 0)
     else if (vr == OrthancPluginValueRepresentation_OD ||
              vr == OrthancPluginValueRepresentation_OL ||
              vr == OrthancPluginValueRepresentation_OV)
@@ -78,7 +78,7 @@ namespace OrthancPlugins
 
     switch (effectiveMode)
     {
-#if ORTHANC_PLUGINS_VERSION_IS_ABOVE(1, 12, 12)
+#if ORTHANC_PLUGINS_VERSION_IS_ABOVE(1, 13, 0)
       case OrthancPluginDicomWebBinaryMode_ArrayOfValues:
 #endif
 

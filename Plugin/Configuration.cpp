@@ -367,10 +367,10 @@ namespace OrthancPlugins
         }
         else if (value == ARRAY_OF_VALUES)
         {
-#if ORTHANC_PLUGINS_VERSION_IS_ABOVE(1, 12, 12)
+#if ORTHANC_PLUGINS_VERSION_IS_ABOVE(1, 13, 0)
           otherBinaryMode_ = OrthancPluginDicomWebBinaryMode_ArrayOfValues;
 #else
-          LOG(WARNING) << "You need to compile the DICOMweb plugin against Orthanc SDK >= 1.12.12 to use the \""
+          LOG(WARNING) << "You need to compile the DICOMweb plugin against Orthanc SDK >= 1.13.0 to use the \""
                        << ARRAY_OF_VALUES << "\" value in option \"" << OTHER_BINARY_MODE
                        << "\", fallback to default \"" << BULK_DATA_URI << "\"";
           otherBinaryMode_ = OrthancPluginDicomWebBinaryMode_BulkDataUri;
