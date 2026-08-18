@@ -121,6 +121,12 @@
               <input type="text" class="form-control" v-model="lookup.studyDate"></input>
             </div>
           </div>
+          <div class="mb-3 row">
+            <label class="col-form-label col-sm-3 cols-lg-3">Study ID:</label>
+            <div class="col-sm-9 cols-lg-9">
+              <input type="text" class="form-control" v-model="lookup.studyID"></input>
+            </div>
+          </div>
           <p class="pull-right">
             <button type="button" class="btn btn-lg btn-success" @click="OnLookup">Do lookup</button>
             <button type="button" class="btn btn-lg btn-outline-danger" @click="OnReset">Reset</button>

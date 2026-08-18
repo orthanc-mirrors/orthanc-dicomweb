@@ -61,6 +61,10 @@ var app = new Vue({
       {
         key: DICOM_TAG_STUDY_DATE,
         label: 'Study date'
+      },
+      {
+        key: DICOM_TAG_STUDY_ID,
+        label: 'Study ID'
       }
     ],
     studyToDelete: null,
@@ -156,6 +160,10 @@ var app = new Vue({
 
       if ('studyDate' in app.lookup) {
         args[DICOM_TAG_STUDY_DATE] = app.lookup.studyDate;
+      }
+
+      if ('studyID' in app.lookup) {
+        args[DICOM_TAG_STUDY_ID] = app.lookup.studyID;
       }
 
       if ('accessionNumber' in app.lookup) {

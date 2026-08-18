@@ -1,6 +1,7 @@
 Pending changes in the mainline
 ===============================
 
+* Allow searching DICOM resources by "Study ID" in the DICOMweb client Web user interface.
 * New configuration option "OtherBinaryMode" to control how OB, OD,
   OF, OL, OV, or OW value representations are encoded in WADO-RS
   responses. Possible values: "BulkDataURI" (new default),
