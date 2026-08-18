@@ -106,7 +106,7 @@ static bool LocateInstanceWadoUri(std::string& instance,
   if (!OrthancPlugins::RestApiPost(resources, "/tools/find", payload, httpHeaders, true) ||
       resources.type() != Json::arrayValue)
   {
-    PLUGIN_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_InternalError);
+    ORTHANC_PLUGINS_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_InternalError);
   }
 
   if (resources.size() == 0)
@@ -171,7 +171,7 @@ static void AnswerPreview(OrthancPluginRestOutput* output,
   else
   {
     LOG(ERROR) << "WADO-URI: Unable to generate a preview image for " << uri;
-    PLUGIN_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_Plugin);
+    ORTHANC_PLUGINS_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_Plugin);
   }
 }
 

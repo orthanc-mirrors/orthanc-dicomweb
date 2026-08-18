@@ -737,7 +737,7 @@ extern "C"
               root[0] != '/' ||
               root[root.size() - 1] != '/')
           {
-            PLUGIN_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_InternalError);
+            ORTHANC_PLUGINS_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_InternalError);
           }
 
           std::map<std::string, std::string> dictionary;

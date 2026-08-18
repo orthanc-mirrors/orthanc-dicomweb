@@ -113,7 +113,7 @@ namespace
           break;
 
         default:
-          PLUGIN_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_InternalError);
+          ORTHANC_PLUGINS_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_InternalError);
       }
     }
 
@@ -275,7 +275,7 @@ namespace
           break;
 
         default:
-          PLUGIN_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_InternalError);
+          ORTHANC_PLUGINS_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_InternalError);
       }
 
       bool caseSensitive;
@@ -413,7 +413,7 @@ static void ApplyMatcher(OrthancPluginRestOutput* output,
   if (!OrthancPlugins::RestApiPost(resources, "/tools/find", find, httpHeaders, true) ||
       resources.type() != Json::arrayValue)
   {
-    PLUGIN_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_InternalError);
+    ORTHANC_PLUGINS_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_InternalError);
   }
 
   std::string wadoBasePublicUrl = OrthancPlugins::Configuration::GetBasePublicUrl(request);

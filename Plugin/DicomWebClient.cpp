@@ -118,7 +118,7 @@ protected:
 
     if (factory_ != NULL)
     {
-      PLUGIN_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_BadSequenceOfCalls);
+      ORTHANC_PLUGINS_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_BadSequenceOfCalls);
     }
     else
     {
@@ -281,7 +281,7 @@ public:
   {
     if (factory_ == NULL)
     {
-      PLUGIN_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_BadSequenceOfCalls);
+      ORTHANC_PLUGINS_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_BadSequenceOfCalls);
     }
 
     FunctionResult result;
@@ -307,7 +307,7 @@ public:
         return OrthancPluginJobStepStatus_Failure;
 
       default:
-        PLUGIN_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_InternalError);
+        ORTHANC_PLUGINS_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_InternalError);
     }
   }
 
@@ -526,7 +526,7 @@ static void ParseStowRequest(std::list<std::string>& instances /* out */,
   {
     if (resources[i].type() != Json::stringValue)
     {
-      PLUGIN_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_BadFileFormat);
+      ORTHANC_PLUGINS_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_BadFileFormat);
     }
 
     std::string resource = resources[i].asString();
@@ -553,7 +553,7 @@ static void ParseStowRequest(std::list<std::string>& instances /* out */,
     {
       if (tmpInstances.type() != Json::arrayValue)
       {
-        PLUGIN_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_InternalError);
+        ORTHANC_PLUGINS_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_InternalError);
       }
 
       AddResourceForJobContent(resourcesForJobContent, Orthanc::StringToResourceType(tmpResource["Type"].asString().c_str()), resource);
@@ -1068,7 +1068,7 @@ private:
     }
     else
     {
-      PLUGIN_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_InternalError);      
+      ORTHANC_PLUGINS_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_InternalError);
     }
 
     if (debug_)
@@ -1116,7 +1116,7 @@ public:
     }
     else if (state_ != State_Headers)
     {
-      PLUGIN_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_InternalError);
+      ORTHANC_PLUGINS_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_InternalError);
     }
 
     if (boost::iequals(key, "Content-Type"))
@@ -1299,7 +1299,7 @@ private:
       const Resource* resource = resources_[position_++];
       if (resource == NULL)
       {
-        PLUGIN_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_InternalError);
+        ORTHANC_PLUGINS_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_InternalError);
       }
 
       const std::map<std::string, std::string>& headers = resource->GetAdditionalHeaders();

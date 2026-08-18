@@ -594,7 +594,7 @@ static void RetrieveFrames(OrthancPluginRestOutput* output,
 
     if (instance.get() == NULL)
     {
-      PLUGIN_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_NullPointer);
+      ORTHANC_PLUGINS_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_NullPointer);
     }
 
     if (allFrames)

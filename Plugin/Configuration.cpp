@@ -223,7 +223,7 @@ namespace OrthancPlugins
   {
     if (json.type() != Json::objectValue)
     {
-      PLUGIN_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_BadFileFormat);
+      ORTHANC_PLUGINS_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_BadFileFormat);
     }
     else if (!json.isMember(key))
     {
@@ -232,7 +232,7 @@ namespace OrthancPlugins
     else if (json[key].type() != Json::intValue &&
              json[key].type() != Json::uintValue)
     {
-      PLUGIN_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_BadFileFormat);      
+      ORTHANC_PLUGINS_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_BadFileFormat);
     }
     else
     {
@@ -248,7 +248,7 @@ namespace OrthancPlugins
   {
     if (json.type() != Json::objectValue)
     {
-      PLUGIN_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_BadFileFormat);
+      ORTHANC_PLUGINS_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_BadFileFormat);
     }
     else if (!json.isMember(key))
     {
@@ -256,7 +256,7 @@ namespace OrthancPlugins
     }
     else if (json[key].type() != Json::booleanValue)
     {
-      PLUGIN_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_BadFileFormat);      
+      ORTHANC_PLUGINS_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_BadFileFormat);
     }
     else
     {
@@ -761,7 +761,7 @@ namespace OrthancPlugins
           break;
 
         default:
-          PLUGIN_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_ParameterOutOfRange);
+          ORTHANC_PLUGINS_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_ParameterOutOfRange);
       }
 
       std::string value = GetStringValue(key, FULL);
@@ -828,7 +828,7 @@ namespace OrthancPlugins
           break;
 
         default:
-          PLUGIN_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_ParameterOutOfRange);
+          ORTHANC_PLUGINS_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_ParameterOutOfRange);
       }
     }
 

@@ -321,7 +321,7 @@ namespace OrthancPlugins
 
     if (json.type() != Json::objectValue)
     {
-      PLUGIN_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_InternalError);
+      ORTHANC_PLUGINS_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_InternalError);
     }
 
     Json::Value::Members members = json.getMemberNames();
@@ -331,7 +331,7 @@ namespace OrthancPlugins
 
       if (json[key].type() != Json::stringValue)
       {
-        PLUGIN_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_InternalError);
+        ORTHANC_PLUGINS_THROW_WITH_FILE_AND_LINE_INFO(Orthanc::ErrorCode_InternalError);
       }
       else
       {
