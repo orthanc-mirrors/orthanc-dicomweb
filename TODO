@@ -1,3 +1,8 @@
+* Limit memory usage in ThreadedInstancesLoader (re-use the config from the SequentialReaderWindowCapacity ?)
+  Check if we can re-use the SequentialReaders from Orthanc.  Best solution: Orthanc exposes an SDK function to
+  load and provide sequential instances so we don't have to re-implement it in this plugin and the RAM remains
+  under control.
+
 * Force usage of StudyInstanceUID & SeriesInstanceUID in WADO-URI for single instances:
   https://discourse.orthanc-server.org/t/dicomweb-wado-uri-does-not-work-if-duplicated-instances/5863
 
