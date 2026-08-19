@@ -1,6 +1,11 @@
 Pending changes in the mainline
 ===============================
 
+=> Minimum Orthanc version: 1.12.5 <=
+=> Recommended SDK version: 1.13.0 <=
+=> Minimum SDK version: 1.12.1 <=
+
+
 * Allow searching DICOM resources by "Study ID" in the DICOMweb client Web user interface.
 * New configuration option "OtherBinaryMode" to control how OB, OD,
   OF, OL, OV, or OW value representations are encoded in WADO-RS
@@ -9,7 +14,7 @@ Pending changes in the mainline
   "ArrayOfValues" mode, which was valid but could be problematic for
   large datasets. (contribution by Yusuf Sayita, Philips)
 * Clarified error message when trying to access a single frame from a video in WADO-RS.
-* Fixed rendering of multiframe RGB48 images (TODO: requires the latest OrthancFramework)
+* Fixed rendering of multiframe RGB48 images.
 * Fix: If the metadata cache attachment is missing from disk for a series, it is now generated again.
 
 
