@@ -35,6 +35,7 @@
 #include <boost/regex.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/algorithm/string/predicate.hpp>
+#include <boost/regex.hpp>
 
 
 // Assume Latin-1 encoding by default (as in the Orthanc core)
@@ -533,14 +534,34 @@ namespace OrthancPlugins
     }
 
 
+    static bool IsAllowedHost(const std::string& host, const std::set<std::string>& allowedHosts)
+    {
+      bool foundTrustedHost = false;
+      for (std::set<std::string>::const_iterator
+            allowedHost = allowedHosts.begin(); allowedHost != allowedHosts.end(); ++allowedHost)
+      {
+        boost::regex pattern(Orthanc::Toolbox::WildcardToRegularExpression(*allowedHost));
+
+        if (boost::regex_match(host, pattern))
+        {
+          foundTrustedHost = true;
+          break;
+        }
+      }
+
+      return foundTrustedHost;
+    }
+
     std::string GetBasePublicUrl(const HttpHeaders& headers)
     {
       assert(dicomWebConfiguration_.get() != NULL);
       std::string host = dicomWebConfiguration_->GetStringValue("Host", "");
+      std::set<std::string> allowedHosts;
+      dicomWebConfiguration_->LookupSetOfStrings(allowedHosts, "AllowedHosts", "");
       bool https = dicomWebConfiguration_->GetBooleanValue("Ssl", false);
 
       std::string forwardedHost, forwardedProto;
-      if (host.empty() &&
+      if (host.empty() && 
           LookupHttpHeader2(forwardedHost, headers, "x-forwarded-host") &&
           LookupHttpHeader2(forwardedProto, headers, "x-forwarded-proto"))
       {
@@ -597,6 +618,22 @@ namespace OrthancPlugins
         // Should never happen: The "host" header should always be present
         // in HTTP requests. Provide a default value anyway.
         host = "localhost:8042";
+      }
+
+      if (allowedHosts.size() == 0)
+      {
+        if (!boost::starts_with(host, "localhost") && !boost::starts_with(host, "127.0.0.1"))  // always trust localhost
+        {
+          throw Orthanc::OrthancException(
+            Orthanc::ErrorCode_InternalError,
+            std::string("DICOMWeb plugin: no 'Host' defined and no 'AllowedHosts' defined although there are forwarded HTTP headers.  Unable to trust the forwarded HTTP headers for host '") + host + "'.");
+        }
+      }
+      else if (!IsAllowedHost(host, allowedHosts))
+      {
+        throw Orthanc::OrthancException(
+          Orthanc::ErrorCode_InternalError,
+          std::string("DICOMWeb plugin: no 'Host' defined and the forwarded HTTP headers did not match any of the 'AllowedHosts'.  Unable to trust the forwarded HTTP headers for host '") + host + "'.");
       }
 
       return (https ? "https://" : "http://") + host + GetPublicRoot();

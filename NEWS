@@ -1,3 +1,12 @@
+Pending changes in the mainline
+===============================
+
+* New configuration "AllowedHosts" that defines a list of trusted hosts for the
+  "Host", "X-Forwarded-Host", "Forwarded" HTTP headers.  
+  POSSIBLE BREAKING CHANGE: if Orthanc is behind a reverse proxy, make sure to either
+  define "Host" or "AllowedHosts" in the "DicomWeb" configuration section.
+
+
 Version 1.24 (2026-08-19)
 =========================
 
