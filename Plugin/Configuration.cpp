@@ -552,6 +552,14 @@ namespace OrthancPlugins
       return foundTrustedHost;
     }
 
+    static bool IsLocalhost(const std::string& host)
+    {
+      return boost::starts_with(host, "localhost:")  // localhost.mydomain.com must be rejected !!!
+        || boost::starts_with(host, "127.0.0.1:")
+        || host == "localhost"
+        || host == "127.0.0.1";
+    }
+
     std::string GetBasePublicUrl(const HttpHeaders& headers)
     {
       assert(dicomWebConfiguration_.get() != NULL);
@@ -620,20 +628,20 @@ namespace OrthancPlugins
         host = "localhost:8042";
       }
 
-      if (allowedHosts.size() == 0)
+      if (!IsLocalhost(host))
       {
-        if (!boost::starts_with(host, "localhost") && !boost::starts_with(host, "127.0.0.1"))  // always trust localhost
+        if (allowedHosts.size() == 0)
         {
           throw Orthanc::OrthancException(
             Orthanc::ErrorCode_InternalError,
             std::string("DICOMWeb plugin: no 'Host' defined and no 'AllowedHosts' defined although there are forwarded HTTP headers.  Unable to trust the forwarded HTTP headers for host '") + host + "'.");
         }
-      }
-      else if (!IsAllowedHost(host, allowedHosts))
-      {
-        throw Orthanc::OrthancException(
-          Orthanc::ErrorCode_InternalError,
-          std::string("DICOMWeb plugin: no 'Host' defined and the forwarded HTTP headers did not match any of the 'AllowedHosts'.  Unable to trust the forwarded HTTP headers for host '") + host + "'.");
+        else if (!IsAllowedHost(host, allowedHosts))
+        {
+          throw Orthanc::OrthancException(
+            Orthanc::ErrorCode_InternalError,
+            std::string("DICOMWeb plugin: no 'Host' defined and the forwarded HTTP headers did not match any of the 'AllowedHosts'.  Unable to trust the forwarded HTTP headers for host '") + host + "'.");
+        }
       }
 
       return (https ? "https://" : "http://") + host + GetPublicRoot();
